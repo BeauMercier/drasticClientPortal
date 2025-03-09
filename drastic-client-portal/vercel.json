@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "regions": ["sfo1"],
+  "env": {
+    "VERCEL": "true"
+  }
+} 

@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build:force",
+  "buildCommand": "npx prisma generate && npm run build:force",
   "framework": "nextjs",
   "outputDirectory": ".next",
   "installCommand": "npm install",

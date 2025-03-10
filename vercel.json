@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:force",
   "framework": "nextjs",
   "outputDirectory": ".next",
   "installCommand": "npm install",

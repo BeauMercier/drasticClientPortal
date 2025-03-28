@@ -10,10 +10,19 @@
 /**
  * Required environment variables for the application
  */
-const REQUIRED_ENV_VARS = [
+const CLIENT_REQUIRED_ENV_VARS = [
   'NEXT_PUBLIC_SUPABASE_URL',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+];
+
+const SERVER_REQUIRED_ENV_VARS = [
   'SUPABASE_SERVICE_ROLE_KEY',
+  // Add any other server-only required vars here
+];
+
+const REQUIRED_ENV_VARS = [
+  ...CLIENT_REQUIRED_ENV_VARS,
+  ...SERVER_REQUIRED_ENV_VARS
 ];
 
 /**
@@ -38,7 +47,10 @@ const OPTIONAL_ENV_VARS: Record<string, string> = {
 function getEnvVar(name: string): string | undefined {
   const isServer = typeof window === 'undefined';
   const context = isServer ? 'Server' : 'Client';
-  console.log(`[env.ts - getEnvVar - ${context}] Attempting to get var: ${name}`);
+  // Don't log every attempt in production for cleaner logs
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[env.ts - getEnvVar - ${context}] Attempting to get var: ${name}`);
+  }
 
   let value: string | undefined;
 
@@ -59,9 +71,18 @@ function getEnvVar(name: string): string | undefined {
     value = process.env[name];
   }
   
-  console.log(`[env.ts - getEnvVar - ${context}] Value for ${name}: ${value ? 'found (' + (typeof value === 'string' ? value.substring(0,5) : '?') + '...)' : 'NOT found'}`);
+  // Only log found/not found in non-production for cleaner logs
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[env.ts - getEnvVar - ${context}] Value for ${name}: ${value ? 'found (' + (typeof value === 'string' ? value.substring(0,5) : '?') + '...)' : 'NOT found'}`);
+  }
 
-  if (!value && REQUIRED_ENV_VARS.includes(name)) {
+  // *** CHANGE HERE: Check required status based on context ***
+  const isRequired = isServer
+    ? REQUIRED_ENV_VARS.includes(name) // Server checks all required
+    : CLIENT_REQUIRED_ENV_VARS.includes(name); // Client only checks client required
+
+  if (!value && isRequired) {
+    // This log should now ONLY appear for genuinely missing required vars in the correct context
     console.log(`[env.ts - getEnvVar - ${context}] Required Variable ${name} ultimately NOT FOUND.`);
   }
   
@@ -77,11 +98,20 @@ export function validateEnv(): {
   valid: boolean; 
   missing: string[]; 
 } {
+  const isServer = typeof window === 'undefined';
+  const context = isServer ? 'Server' : 'Client';
   const missing: string[] = [];
+  const varsToCheck = isServer 
+    ? [...CLIENT_REQUIRED_ENV_VARS, ...SERVER_REQUIRED_ENV_VARS]
+    : CLIENT_REQUIRED_ENV_VARS;
 
-  // Check for required env vars
-  for (const envVar of REQUIRED_ENV_VARS) {
+  console.log(`[env.ts - validateEnv - ${context}] Checking vars: ${varsToCheck.join(', ')}`);
+
+  // Check for required env vars for the current context
+  for (const envVar of varsToCheck) {
+    // Use getEnvVar which now handles NEXT_PUBLIC correctly
     if (!getEnvVar(envVar)) {
+      console.warn(`[env.ts - validateEnv - ${context}] Missing required var: ${envVar}`);
       missing.push(envVar);
     }
   }

@@ -4,7 +4,6 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../features/auth';
 import { Button } from '../shared/ui';
-import DebugEnv from './debug-env';
 
 export default function Home() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -32,9 +31,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-gray-50 dark:bg-black">
-      {/* Debug Environment Variables - Remove after troubleshooting */}
-      <DebugEnv />
-      
       <div className="text-center mb-12">
         <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">Drastic Client Portal</h1>
         <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">

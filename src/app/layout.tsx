@@ -1,17 +1,22 @@
+import '../styles/globals.css';
 import React from 'react';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import './globals.css';
-import { AuthProvider } from './providers';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider } from '../features/auth';
+import UIProvider from '../shared/contexts/UIContext';
+import AppLayout from '../shared/ui/layout/AppLayout';
+import { ToastProvider } from '@/components/ui/use-toast';
+import { reportEnvValidation } from '@/lib/env';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import EnvFallback from '@/components/EnvFallback';
 
-const inter = Inter({ subsets: ['latin'] });
+// Validate environment variables during server rendering
+if (typeof window === 'undefined') {
+  reportEnvValidation();
+}
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'Drastic Client Portal',
-  description: 'Secure client portal for file sharing and communication',
-  icons: {
-    icon: '/images/logos/drastic-icon.svg',
-  },
+  description: 'Client portal for managing projects, files, and billing',
 };
 
 export default function RootLayout({
@@ -20,9 +25,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
+    <html lang="en" className="dark">
+      <body className="bg-gray-100 dark:bg-black">
+        <ToastProvider>
+          <UIProvider>
+            <AuthProvider>
+              <ErrorBoundary>
+                <EnvFallback />
+                <AppLayout>
+                  {children}
+                </AppLayout>
+              </ErrorBoundary>
+              <Toaster position="top-right" />
+            </AuthProvider>
+          </UIProvider>
+        </ToastProvider>
       </body>
     </html>
   );

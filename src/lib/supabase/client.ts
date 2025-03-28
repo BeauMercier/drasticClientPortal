@@ -15,30 +15,6 @@ const env = getEnv();
 const DEFAULT_SESSION_TIMEOUT = env.SESSION_TIMEOUT; // Default 8 hours
 const ADMIN_SESSION_TIMEOUT = env.ADMIN_SESSION_TIMEOUT; // Default 2 hours
 
-// Get Supabase config values with fallbacks - FIXED VERSION
-function getSupabaseConfig() {
-  // Direct access to process.env instead of going through getEnv()
-  let url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  let anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  
-  // Debug what values we're getting
-  console.log('Supabase config from process.env:', { 
-    url: url ? 'set' : 'missing', 
-    anonKey: anonKey ? 'set' : 'missing',
-    serviceKey: serviceKey ? 'set' : 'missing' 
-  });
-  
-  // If missing, try from window.supabaseConfig
-  if (typeof window !== 'undefined' && window.supabaseConfig) {
-    if (!url && window.supabaseConfig.url) url = window.supabaseConfig.url;
-    if (!anonKey && window.supabaseConfig.anonKey) anonKey = window.supabaseConfig.anonKey;
-    if (!serviceKey && window.supabaseConfig.serviceKey) serviceKey = window.supabaseConfig.serviceKey;
-  }
-  
-  return { url, anonKey, serviceKey };
-}
-
 // Temporary dummy client for type checking
 function createDummyClient() {
   const error = new Error('Supabase client not properly initialized');
@@ -82,22 +58,23 @@ function createDummyClient() {
 // Using the default timeout
 export const createClient = () => {
   try {
-    // First try using the getSupabaseConfig function
-    const { url, anonKey } = getSupabaseConfig();
-    
-    // If values from getSupabaseConfig are missing, try direct access to process.env as fallback
-    const finalUrl = url || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const finalAnonKey = anonKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Directly use process.env values for client-side, they should be available via Vercel
+    const finalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const finalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     // Log the final config values
-    console.log('Supabase client config:', {
-      url: finalUrl ? 'set' : 'missing',
-      anonKey: finalAnonKey ? 'set' : 'missing'
+    console.log('[supabase/client.ts - createClient] Attempting client creation with:', {
+      url: finalUrl ? 'set (' + finalUrl.substring(0, 10) + '...)' : 'missing',
+      anonKey: finalAnonKey ? 'set (' + finalAnonKey.substring(0, 10) + '...)' : 'missing'
     });
     
     if (!finalUrl || !finalAnonKey) {
-      console.error('Missing Supabase URL or anonymous key. Client creation will fail.');
-      console.log('Attempted values:', { url: finalUrl ? 'exists' : 'missing', anonKey: finalAnonKey ? 'exists' : 'missing' });
+      console.error('[supabase/client.ts - createClient] Missing URL or Anon Key! Cannot create client.');
+      // Log the process.env values directly again
+      console.log('[supabase/client.ts - createClient] Direct process.env values:', {
+        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'found' : 'undefined',
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'found' : 'undefined',
+      });
       return createDummyClient();
     }
 
@@ -126,10 +103,12 @@ export const createClient = () => {
 // Create a Supabase client with admin timeout
 export const createAdminClient = () => {
   try {
-    const { url, anonKey } = getSupabaseConfig();
+    // Directly use process.env values
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     if (!url || !anonKey) {
-      console.error('Missing Supabase URL or anonymous key. Admin client creation will fail.');
+      console.error('[supabase/client.ts - createAdminClient] Missing URL or Anon Key!');
       return createDummyClient();
     }
 
@@ -161,12 +140,9 @@ export const supabase = createClient();
 // Test Supabase connection and return status
 export const testSupabaseConnection = async () => {
   try {
-    // First try using the getSupabaseConfig function
-    const { url, anonKey } = getSupabaseConfig();
-    
-    // If values from getSupabaseConfig are missing, try direct access to process.env as fallback
-    const finalUrl = url || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const finalAnonKey = anonKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // Directly use process.env values
+    const finalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const finalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     // Log the final test config values
     console.log('Supabase connection test config:', {
@@ -235,10 +211,17 @@ export const createServiceRoleClient = () => {
   }
   
   try {
-    const { url, serviceKey } = getSupabaseConfig();
+    // Directly use process.env values
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    console.log('[supabase/client.ts - createServiceRoleClient] Attempting service client creation with:', {
+      url: url ? 'set (' + url.substring(0, 10) + '...)' : 'missing',
+      serviceKey: serviceKey ? 'set (key hidden)' : 'missing'
+    });
     
     if (!url || !serviceKey) {
-      console.error('Missing Supabase URL or service role key. Service client creation will fail.');
+      console.error('[supabase/client.ts - createServiceRoleClient] Missing URL or Service Key!');
       return createDummyClient();
     }
     

@@ -1,0 +1,262 @@
+/**
+ * Supabase Client Module
+ * 
+ * This module provides a standardized interface for interacting with Supabase.
+ * It implements the singleton pattern to ensure only one client instance exists.
+ */
+
+import { createBrowserClient } from '@supabase/ssr';
+import { createClient as createServerClient, SupabaseClient } from '@supabase/supabase-js';
+import { getEnv } from '@/lib/env';
+
+// Session timeout configuration based on environment variables
+const env = getEnv();
+const DEFAULT_SESSION_TIMEOUT = env.SESSION_TIMEOUT; // Default 8 hours
+const ADMIN_SESSION_TIMEOUT = env.ADMIN_SESSION_TIMEOUT; // Default 2 hours
+
+// Client instance singletons
+let browserClientInstance: SupabaseClient | null = null;
+let adminClientInstance: SupabaseClient | null = null;
+let serviceRoleClientInstance: SupabaseClient | null = null;
+
+/**
+ * Get Supabase config values with fallbacks
+ */
+function getSupabaseConfig() {
+  // Direct access to process.env
+  let url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  let anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  // If missing, try from window.supabaseConfig
+  if (typeof window !== 'undefined' && window.supabaseConfig) {
+    if (!url && window.supabaseConfig.url) url = window.supabaseConfig.url;
+    if (!anonKey && window.supabaseConfig.anonKey) anonKey = window.supabaseConfig.anonKey;
+    if (!serviceKey && window.supabaseConfig.serviceKey) serviceKey = window.supabaseConfig.serviceKey;
+  }
+  
+  return { url, anonKey, serviceKey };
+}
+
+/**
+ * Temporary dummy client for type checking and fallback
+ */
+function createDummyClient(): SupabaseClient {
+  const error = new Error('Supabase client not properly initialized');
+  return {
+    from: () => {
+      throw error;
+    },
+    auth: {
+      getUser: async () => ({
+        data: { user: null },
+        error: { message: 'Dummy client used' },
+      }),
+      signOut: async () => ({
+        error: { message: 'Dummy client used' },
+      }),
+    },
+    storage: {
+      from: () => ({
+        upload: async () => ({
+          data: null,
+          error: { message: 'Dummy client used' },
+        }),
+        download: async () => ({
+          data: null,
+          error: { message: 'Dummy client used' },
+        }),
+        list: async () => ({
+          data: null,
+          error: { message: 'Dummy client used' },
+        }),
+        remove: async () => ({
+          data: null,
+          error: { message: 'Dummy client used' },
+        }),
+      }),
+    },
+  } as unknown as SupabaseClient;
+}
+
+/**
+ * Create a Supabase client for use in client components
+ * Will return the existing instance if already created
+ */
+export const createClient = (): SupabaseClient => {
+  // Return existing instance if available
+  if (browserClientInstance) {
+    return browserClientInstance;
+  }
+  
+  try {
+    const { url, anonKey } = getSupabaseConfig();
+    
+    if (!url || !anonKey) {
+      console.error('Missing Supabase URL or anonymous key. Client creation will fail.');
+      return createDummyClient();
+    }
+
+    // Create and store new client instance
+    browserClientInstance = createBrowserClient(url, anonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce'  // Recommended for web apps
+      },
+      // Configure cookie options for session timeout
+      cookieOptions: {
+        maxAge: DEFAULT_SESSION_TIMEOUT,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    });
+    
+    return browserClientInstance;
+  } catch (e) {
+    console.error('Error creating Supabase client:', e);
+    return createDummyClient();
+  }
+};
+
+/**
+ * Create a Supabase client with admin timeout
+ * Will return the existing instance if already created
+ */
+export const createAdminClient = (): SupabaseClient => {
+  // Return existing instance if available
+  if (adminClientInstance) {
+    return adminClientInstance;
+  }
+  
+  try {
+    const { url, anonKey } = getSupabaseConfig();
+    
+    if (!url || !anonKey) {
+      console.error('Missing Supabase URL or anonymous key. Admin client creation will fail.');
+      return createDummyClient();
+    }
+
+    // Create and store new client instance
+    adminClientInstance = createBrowserClient(url, anonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        flowType: 'pkce'  // Recommended for web apps
+      },
+      // Configure cookie options for admin session timeout
+      cookieOptions: {
+        maxAge: ADMIN_SESSION_TIMEOUT,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    });
+    
+    return adminClientInstance;
+  } catch (e) {
+    console.error('Error creating admin Supabase client:', e);
+    return createDummyClient();
+  }
+};
+
+/**
+ * Create a Supabase service role client that bypasses RLS policies
+ * Will return the existing instance if already created
+ */
+export const createServiceRoleClient = (): SupabaseClient => {
+  // Return existing instance if available
+  if (serviceRoleClientInstance) {
+    return serviceRoleClientInstance;
+  }
+  
+  // This should only be used in server components or API routes
+  if (typeof window !== 'undefined') {
+    console.error('Service role client cannot be used in browser environment');
+    return createDummyClient();
+  }
+  
+  try {
+    const { url, serviceKey } = getSupabaseConfig();
+    
+    if (!url || !serviceKey) {
+      console.error('Missing Supabase URL or service role key. Service client creation will fail.');
+      return createDummyClient();
+    }
+    
+    // Create and store new client instance
+    serviceRoleClientInstance = createServerClient(url, serviceKey, {
+      auth: {
+        persistSession: false,
+      }
+    });
+    
+    return serviceRoleClientInstance;
+  } catch (error) {
+    console.error('Error creating Supabase service role client:', error);
+    return createDummyClient();
+  }
+};
+
+/**
+ * Test the Supabase connection and return status
+ */
+export const testSupabaseConnection = async () => {
+  try {
+    const { url, anonKey } = getSupabaseConfig();
+    
+    if (!url || !anonKey) {
+      return { 
+        success: false, 
+        error: 'Missing Supabase URL or anonymous key',
+        missing: {
+          url: !url,
+          anonKey: !anonKey
+        }
+      };
+    }
+    
+    const client = createClient();
+    const { data, error } = await client.auth.getSession();
+    
+    if (error) {
+      return { 
+        success: false, 
+        error: `Authentication error: ${error.message}` 
+      };
+    }
+    
+    // Try to make a simple query to verify database access
+    const { error: queryError } = await client
+      .from('profiles')
+      .select('id')
+      .limit(1);
+    
+    if (queryError) {
+      return { 
+        success: false, 
+        error: `Database query error: ${queryError.message}`,
+        details: queryError 
+      };
+    }
+    
+    return { 
+      success: true, 
+      message: 'Supabase connection successful',
+      authenticated: !!data.session 
+    };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: `Connection error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      details: error 
+    };
+  }
+};
+
+/**
+ * Default client instance for convenience
+ */
+const supabase = createClient();
+export default supabase; 

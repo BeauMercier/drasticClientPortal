@@ -1,0 +1,210 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Default root styles for light theme */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --input-text: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+}
+
+/* Dark theme styles */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --input-text: #ffffff;
+  --popover: #0e0e0e;
+  --popover-foreground: #ffffff;
+  color-scheme: dark;
+}
+
+/* Light theme explicitly defined */
+.light {
+  --background: #ffffff;
+  --foreground: #171717;
+  --input-text: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  color-scheme: light;
+}
+
+/* Default to light mode styles */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* This makes dark mode affect all tailwind dark: variants */
+.dark body {
+  @apply bg-black text-gray-100;
+}
+
+/* Style inputs based on theme */
+input, 
+input[type="text"], 
+input[type="email"], 
+input[type="password"] {
+  background-color: white;
+  color: var(--input-text) !important;
+}
+
+.dark input,
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"] {
+  background-color: #1f2937;
+  color: white !important;
+  border-color: #374151;
+}
+
+/* Fix for dialog backgrounds */
+[data-radix-popper-content-wrapper],
+[data-state="open"].bg-popover,
+[class*="DialogContent"],
+[class*="SelectContent"] {
+  background-color: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+}
+
+/* Fix for form inputs in dialogs */
+[class*="DialogContent"] input,
+[class*="DialogContent"] textarea,
+[class*="DialogContent"] select,
+[class*="DialogContent"] .bg-background,
+[class*="DialogContent"] [class*="SelectTrigger"] {
+  background-color: var(--background) !important;
+  color: var(--popover-foreground) !important;
+  border-color: #333 !important;
+}
+
+/* Fix for modal/dialog overlay */
+[class*="DialogOverlay"] {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Fix for select content in dialogs */
+[data-radix-popper-content-wrapper] [class*="SelectContent"] {
+  background-color: #1f1f1f !important;
+  color: #ffffff !important;
+  border-color: #333 !important;
+}
+
+/* Force opaque backgrounds for all inputs in dark mode */
+.dark input,
+.dark textarea,
+.dark select,
+.dark [class*="SelectTrigger"],
+.dark [class*="SelectContent"],
+.dark [class*="DialogContent"] {
+  background-color: #1f1f1f !important;
+  color: #ffffff !important;
+  border-color: #333 !important;
+}
+
+/* Ensure all Tailwind dark mode classes take effect */
+.dark .bg-white {
+  @apply bg-black;
+  background-color: #000000 !important;
+}
+
+.dark .bg-gray-50 {
+  @apply bg-black;
+  background-color: #000000 !important;
+}
+
+.dark .bg-gray-100 {
+  @apply bg-black;
+  background-color: #000000 !important;
+}
+
+.dark .bg-gray-200 {
+  @apply bg-gray-700;
+  background-color: #374151 !important;
+}
+
+.dark .text-gray-600 {
+  @apply text-gray-300;
+  color: #d1d5db !important;
+}
+
+.dark .text-gray-700 {
+  @apply text-gray-200;
+  color: #e5e7eb !important;
+}
+
+.dark .text-gray-800 {
+  @apply text-gray-100;
+  color: #f3f4f6 !important;
+}
+
+.dark .text-gray-900 {
+  @apply text-white;
+  color: #ffffff !important;
+}
+
+.dark .border-gray-200 {
+  @apply border-gray-700;
+  border-color: #374151 !important;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary-200 hover:bg-secondary-300 text-secondary-800 font-medium py-2 px-4 rounded transition-colors;
+  }
+  
+  .btn-outline {
+    @apply border border-primary-600 text-primary-600 hover:bg-primary-50 dark:hover:bg-gray-700 font-medium py-2 px-4 rounded transition-colors;
+  }
+  
+  .btn-danger {
+    @apply bg-danger-600 hover:bg-danger-700 text-white font-medium py-2 px-4 rounded transition-colors;
+  }
+  
+  .card {
+    @apply bg-white dark:bg-black rounded-lg shadow-md dark:shadow-lg p-4 border border-gray-200 dark:border-gray-700;
+  }
+  
+  .form-input {
+    @apply w-full px-3 py-2 border border-secondary-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-secondary-700 dark:text-gray-200 mb-1;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-green {
+    @apply bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100;
+  }
+
+  .badge-yellow {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100;
+  }
+
+  .badge-red {
+    @apply bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100;
+  }
+
+  .badge-blue {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-100;
+  }
+
+  .badge-purple {
+    @apply bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-100;
+  }
+
+  .badge-gray {
+    @apply bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100;
+  }
+} 

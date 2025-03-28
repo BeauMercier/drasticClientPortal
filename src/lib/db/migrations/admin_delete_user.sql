@@ -1,0 +1,1 @@
+CREATE OR REPLACE FUNCTION admin_delete_user(user_id UUID) RETURNS VOID AS $$ BEGIN DELETE FROM auth.users WHERE id = user_id; END; $$ LANGUAGE plpgsql SECURITY DEFINER; GRANT EXECUTE ON FUNCTION admin_delete_user TO authenticated; GRANT EXECUTE ON FUNCTION admin_delete_user TO service_role;

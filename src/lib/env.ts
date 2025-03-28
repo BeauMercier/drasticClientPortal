@@ -38,17 +38,35 @@ const OPTIONAL_ENV_VARS: Record<string, string> = {
 function getEnvVar(name: string): string | undefined {
   const isServer = typeof window === 'undefined';
   const context = isServer ? 'Server' : 'Client';
-  console.log(`[env.ts - getEnvVar SIMPLE - ${context}] Attempting to get var: ${name}`);
+  console.log(`[env.ts - getEnvVar - ${context}] Attempting to get var: ${name}`);
 
-  // Try to get directly from process.env
-  const processEnvValue = process.env[name];
-  console.log(`[env.ts - getEnvVar SIMPLE - ${context}] Value from process.env.${name}: ${processEnvValue ? 'found (' + processEnvValue.substring(0,5) + '...)' : 'NOT found'}`);
-  
-  if (!processEnvValue) {
-    console.log(`[env.ts - getEnvVar SIMPLE - ${context}] Variable ${name} ultimately NOT FOUND.`);
+  let value: string | undefined;
+
+  // Use direct access for known NEXT_PUBLIC_ variables for build-time replacement
+  if (name === 'NEXT_PUBLIC_SUPABASE_URL') {
+    value = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  } else if (name === 'NEXT_PUBLIC_SUPABASE_ANON_KEY') {
+    value = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  } else if (name === 'NEXT_PUBLIC_SITE_URL') { // Added other known NEXT_PUBLIC_ vars
+    value = process.env.NEXT_PUBLIC_SITE_URL;
+  } else if (name === 'NEXT_PUBLIC_ENABLE_FILE_UPLOADS') {
+    value = process.env.NEXT_PUBLIC_ENABLE_FILE_UPLOADS;
+  } else if (name === 'NEXT_PUBLIC_ENABLE_ADMIN_TOOLS') {
+    value = process.env.NEXT_PUBLIC_ENABLE_ADMIN_TOOLS;
+  } else {
+    // For other vars (likely server-side), dynamic access is okay
+    // Note: This might still be undefined client-side if not a NEXT_PUBLIC_ var
+    value = process.env[name];
   }
   
-  return processEnvValue;
+  console.log(`[env.ts - getEnvVar - ${context}] Value for ${name}: ${value ? 'found (' + (typeof value === 'string' ? value.substring(0,5) : '?') + '...)' : 'NOT found'}`);
+
+  if (!value && REQUIRED_ENV_VARS.includes(name)) {
+    console.log(`[env.ts - getEnvVar - ${context}] Required Variable ${name} ultimately NOT FOUND.`);
+  }
+  
+  // Return the found value or the default for optional vars if applicable
+  return value ?? OPTIONAL_ENV_VARS[name]; 
 }
 
 /**

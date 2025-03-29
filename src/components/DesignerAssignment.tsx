@@ -4,8 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { isDesigner } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import logger from '@/lib/logger';
+import { ProjectType } from "@/lib/types/project";
 
 // Create a module-specific logger
 const log = logger.forModule('DesignerAssignment');
@@ -117,10 +120,10 @@ export function DesignerAssignment({ projectId, projectType, projectName }: Desi
         
         log.debug('API Response - All users', { data: { count: designersData.length } });
         
-        // Filter users to get only designers using our utility function
-        const filteredDesigners = designersData.filter(user => isDesigner(user));
+        // Filter users to get only designers directly checking the role property
+        const filteredDesigners = designersData.filter(user => user.role === 'designer');
         
-        log.debug('Filtered designers using utility', { data: { count: filteredDesigners.length } });
+        log.debug('Filtered designers using direct role check', { data: { count: filteredDesigners.length } });
         
         // If no designers found with those roles, set a warning but don't show all users yet
         if (filteredDesigners.length === 0) {
@@ -217,7 +220,7 @@ export function DesignerAssignment({ projectId, projectType, projectName }: Desi
           return [...prev, data];
         });
         
-        if (isDesigner(data)) {
+        if (data.role === 'designer') {
           setDesigners(prev => {
             // Don't add duplicates
             if (prev.some(u => u.id === data.id)) return prev;

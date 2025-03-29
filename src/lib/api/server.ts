@@ -1,10 +1,9 @@
 /**
  * Supabase Server Client Module
  * 
- * This module provides server-specific Supabase client implementations
- * that are safe to import in both client and server components.
+ * This module provides server-specific Supabase client implementations.
+ * It should ONLY be imported in server components, API routes, or other server-only contexts.
  * 
- * For server-component only functionality, use server-utils.ts instead.
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -13,7 +12,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 let serviceRoleClientInstance: SupabaseClient | null = null;
 
 /**
- * Get Supabase config values for server-side use
+ * Retrieves Supabase URL, Anon Key, and Service Role Key from environment variables.
+ * Intended for server-side use only.
+ * @returns {{ url: string | undefined; anonKey: string | undefined; serviceKey: string | undefined }}
+ *          An object containing the Supabase configuration values.
  */
 function getServerSupabaseConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -24,8 +26,13 @@ function getServerSupabaseConfig() {
 }
 
 /**
- * Create a Supabase service role client that bypasses RLS policies
- * @returns A Supabase client with service role credentials
+ * Creates or retrieves a singleton Supabase client instance configured with the Service Role Key.
+ * This client bypasses Row Level Security (RLS) and should be used with extreme caution
+ * in server-side code only (e.g., for administrative tasks, database migrations).
+ * 
+ * **Warning:** Never expose this client or its key to the browser.
+ * @returns {SupabaseClient} The service role Supabase client instance.
+ * @throws {Error} If Supabase URL or Service Role Key environment variables are missing.
  */
 export function createServiceRoleClient(): SupabaseClient {
   // Return existing instance if available
@@ -54,8 +61,14 @@ export function createServiceRoleClient(): SupabaseClient {
 }
 
 /**
- * Create a Supabase admin client for privileged API operations
- * These operations will bypass RLS policies but maintain an audit trail
+ * Creates a Supabase client instance configured with the Service Role Key, specifically intended
+ * for administrative operations that need to bypass RLS but should still be identifiable
+ * (e.g., via custom headers for logging or triggers).
+ * Does not use singleton pattern; creates a new instance each time.
+ * 
+ * **Warning:** Use with caution in server-side code only.
+ * @returns {SupabaseClient} An admin Supabase client instance (using service role key).
+ * @throws {Error} If Supabase URL or Service Role Key environment variables are missing.
  */
 export function createAdminClient(): SupabaseClient {
   const { url, serviceKey } = getServerSupabaseConfig();
@@ -74,7 +87,4 @@ export function createAdminClient(): SupabaseClient {
       }
     }
   });
-}
-
-// Export default service role client for convenience
-export default createServiceRoleClient(); 
+} 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, ChangeEvent, useRef } from 'react';
 import Link from 'next/link';
-import { toast } from 'react-hot-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { 
   UserIcon, 
   GlobeAltIcon, 
@@ -15,6 +15,12 @@ import {
 import { getUserProfile, updateUserProfile, uploadProfilePicture } from '@/lib/api/client-api';
 import supabase from '@/lib/api/client';
 import { Card } from '../../shared/ui/molecules';
+import { useAuthContext } from '@/features/auth/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function MyInfoPage() {
   const [activeTab, setActiveTab] = useState('myInfo');
@@ -55,6 +61,9 @@ export default function MyInfoPage() {
     businessWebsite: '',
     avatar_url: ''
   });
+
+  const { user, updateProfile: updateAuthContextProfile } = useAuthContext();
+  const { toast } = useToast();
 
   useEffect(() => {
     async function loadProfile() {
@@ -105,7 +114,11 @@ export default function MyInfoPage() {
       } catch (error) {
         console.error('Failed to load profile:', error);
         setError('Failed to load profile information. Please try again later.');
-        toast.error('Failed to load profile');
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "An unexpected error occurred.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -177,7 +190,11 @@ export default function MyInfoPage() {
           }
         } catch (photoError) {
           console.error("Error uploading profile photo:", photoError);
-          toast.error('Failed to upload profile photo');
+          toast({
+            title: "Error",
+            description: "Failed to upload profile photo",
+            variant: "destructive",
+          });
           // Continue with the rest of the profile update
         }
       }
@@ -203,11 +220,15 @@ export default function MyInfoPage() {
         // Update profile using our consolidated API function
         updatedProfile = await updateUserProfile(profileUpdates);
         console.log("Profile updated successfully:", updatedProfile);
-        toast.success('Profile updated successfully!');
+        toast({ title: "Success", description: "Profile updated successfully!" });
       } catch (apiError) {
         console.error("API Error:", apiError);
         setError('Failed to update profile information. Please try again later.');
-        toast.error('Could not save profile changes.');
+        toast({
+          title: "Error",
+          description: "Failed to save profile changes. Please try again later.",
+          variant: "destructive",
+        });
         return;
       }
       
@@ -229,7 +250,11 @@ export default function MyInfoPage() {
     } catch (error) {
       console.error('Failed to update profile:', error);
       setError('Failed to update profile. Please try again later.');
-      toast.error('Failed to update profile. Please try again later.');
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }

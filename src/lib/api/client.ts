@@ -11,7 +11,9 @@ import { getEnv } from '@/lib/env';
 
 // Session timeout configuration based on environment variables
 const env = getEnv();
+/** Default session timeout duration (in seconds) for regular users. */
 const DEFAULT_SESSION_TIMEOUT = env.SESSION_TIMEOUT; // Default 8 hours
+/** Session timeout duration (in seconds) for admin users. */
 const ADMIN_SESSION_TIMEOUT = env.ADMIN_SESSION_TIMEOUT; // Default 2 hours
 
 // Client instance singletons
@@ -19,26 +21,34 @@ let browserClientInstance: SupabaseClient | null = null;
 let adminClientInstance: SupabaseClient | null = null;
 
 /**
- * Get Supabase config values with fallbacks
+ * Retrieves Supabase URL and Anon Key configuration for client-side usage.
+ * Prioritizes environment variables, falling back to potential window object config.
+ * IMPORTANT: Does NOT include the service role key.
+ * @returns {{ url: string | undefined; anonKey: string | undefined }} Object containing URL and Anon Key.
  */
 function getSupabaseConfig() {
   // Direct access to process.env
   let url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   let anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // REMOVE serviceKey - Client should NEVER access this
+  // let serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
-  // If missing, try from window.supabaseConfig
+  // If missing, try from window.supabaseConfig (if used)
   if (typeof window !== 'undefined' && window.supabaseConfig) {
     if (!url && window.supabaseConfig.url) url = window.supabaseConfig.url;
     if (!anonKey && window.supabaseConfig.anonKey) anonKey = window.supabaseConfig.anonKey;
-    if (!serviceKey && window.supabaseConfig.serviceKey) serviceKey = window.supabaseConfig.serviceKey;
+    // REMOVE serviceKey fallback
+    // if (!serviceKey && window.supabaseConfig.serviceKey) serviceKey = window.supabaseConfig.serviceKey;
   }
   
-  return { url, anonKey, serviceKey };
+  // Return only client-safe values
+  return { url, anonKey };
 }
 
 /**
- * Temporary dummy client for type checking and fallback
+ * Creates a placeholder Supabase client that throws errors on usage.
+ * Used as a fallback when client initialization fails, preventing hard crashes.
+ * @returns {SupabaseClient} A dummy Supabase client instance.
  */
 function createDummyClient(): SupabaseClient {
   const error = new Error('Supabase client not properly initialized');
@@ -79,8 +89,9 @@ function createDummyClient(): SupabaseClient {
 }
 
 /**
- * Create a Supabase client for use in client components
- * Will return the existing instance if already created
+ * Creates or retrieves a singleton Supabase client instance for browser/client-side use.
+ * Uses the default session timeout.
+ * @returns {SupabaseClient} The client-side Supabase client instance.
  */
 export const createClient = (): SupabaseClient => {
   // Return existing instance if available
@@ -120,8 +131,11 @@ export const createClient = (): SupabaseClient => {
 };
 
 /**
- * Create a Supabase client with admin timeout
- * Will return the existing instance if already created
+ * Creates or retrieves a singleton Supabase client instance for browser/client-side use,
+ * configured with the admin session timeout.
+ * Note: This is still a client-side client using the anon key, NOT the service role key.
+ * It's intended for scenarios where admin users might have shorter session durations in the UI.
+ * @returns {SupabaseClient} The client-side Supabase client instance configured for admin timeout.
  */
 export const createAdminClient = (): SupabaseClient => {
   // Return existing instance if available
@@ -161,7 +175,10 @@ export const createAdminClient = (): SupabaseClient => {
 };
 
 /**
- * Test the Supabase connection and return status
+ * Tests the connection to Supabase by attempting to get the session and perform a simple query.
+ * Checks for URL/Key configuration errors, authentication errors, and database query errors.
+ * @returns {Promise<{ success: boolean; error?: string; message?: string; missing?: object; details?: any; authenticated?: boolean }>} 
+ *          An object indicating connection status, potential errors, and authentication state.
  */
 export const testSupabaseConnection = async () => {
   try {
@@ -217,7 +234,8 @@ export const testSupabaseConnection = async () => {
 };
 
 /**
- * Default client instance for convenience
+ * Default client-side Supabase client instance (singleton).
+ * Uses the default session timeout.
  */
 const supabase = createClient();
 export default supabase; 

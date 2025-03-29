@@ -3,6 +3,19 @@ import { createApiClient } from '@/lib/api/server-utils';
 import { createAdminClient } from '@/lib/api/server';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { PostgrestResponse } from '@supabase/supabase-js';
+import {
+  ProjectType,
+  WebDesignProject,
+  LogoDesignProject,
+  SocialGraphicsProject
+} from '@/lib/types/project';
+
+// Define a common structure for the response items, including joined profile name
+type AdminProjectListItem = (
+  WebDesignProject |
+  LogoDesignProject |
+  SocialGraphicsProject
+) & { profiles: { full_name: string | null } | null };
 
 export const dynamic = 'force-dynamic';
 
@@ -43,57 +56,65 @@ async function verifyAdminAccess() {
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify admin access
-    const { authorized, error } = await verifyAdminAccess();
-    
+    const { authorized, error: authError } = await verifyAdminAccess();
     if (!authorized) {
-      return NextResponse.json(
-        { error: error || 'Unauthorized' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
     }
-    
-    // Get query parameters
+
     const searchParams = request.nextUrl.searchParams;
-    const type = searchParams.get('type');
+    // Explicitly cast type to ProjectType or null
+    const type = searchParams.get('type') as ProjectType | null;
     const status = searchParams.get('status');
     const userId = searchParams.get('userId');
-    
-    // Create admin client for fetching projects
+
     const adminClient = createAdminClient();
     
-    // Get the table name based on type
-    const tableName = type ? `${type}_projects` : 'web_design_projects';
-    
-    // Create the base query
-    let query = adminClient.from(tableName).select('*, profiles:user_id(full_name)');
-    
-    // Apply filters
-    if (status) {
-      query = query.eq('status', status);
+    let queryResponse: PostgrestResponse<AdminProjectListItem>;
+    const selectQuery = '*, profiles:user_id(full_name)';
+
+    // Use switch to handle different project types and apply correct typing
+    switch (type) {
+      case 'logo_design':
+        let logoQuery = adminClient
+          .from('logo_design_projects')
+          .select(selectQuery);
+        if (status) logoQuery = logoQuery.eq('status', status);
+        if (userId) logoQuery = logoQuery.eq('user_id', userId);
+        queryResponse = await logoQuery as PostgrestResponse<AdminProjectListItem>; // Assert final type
+        break;
+
+      case 'social_graphics':
+        let socialQuery = adminClient
+          .from('social_graphics_projects')
+          .select(selectQuery);
+        if (status) socialQuery = socialQuery.eq('status', status);
+        if (userId) socialQuery = socialQuery.eq('user_id', userId);
+        queryResponse = await socialQuery as PostgrestResponse<AdminProjectListItem>; // Assert final type
+        break;
+
+      case 'web_design':
+      default: // Default to web_design if type is null or unknown
+        let webQuery = adminClient
+          .from('web_design_projects')
+          .select(selectQuery);
+        if (status) webQuery = webQuery.eq('status', status);
+        if (userId) webQuery = webQuery.eq('user_id', userId);
+        queryResponse = await webQuery as PostgrestResponse<AdminProjectListItem>; // Assert final type
+        break;
     }
-    
-    if (userId) {
-      query = query.eq('user_id', userId);
-    }
-    
-    // Fetch data
-    const { data, error: queryError } = await query;
-    
+
+    const { data, error: queryError } = queryResponse;
+
     if (queryError) {
       console.error('Error fetching projects:', queryError);
-      return NextResponse.json(
-        { error: 'Failed to fetch projects' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
     }
-    
+
+    // Data should now be correctly typed as AdminProjectListItem[] | null
     return NextResponse.json(data);
+
   } catch (error) {
     console.error('Error in admin projects API:', error);
-    return NextResponse.json(
-      { error: 'Server error processing request' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Server error processing request' }, { status: 500 });
   }
 } 

@@ -4,14 +4,16 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import supabase from '@/lib/api/client';
 import { Button, Card } from '../../shared/ui';
+import { useAuthContext } from '@/features/auth/contexts/AuthContext';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('info@drasticdigital.com');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [debug, setDebug] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const { user, isLoading: authIsLoading, error: authContextError } = useAuthContext();
 
   // Add test credentials button
   const addTestCredentials = () => {
@@ -54,116 +56,55 @@ export default function LoginPage() {
     }
   };
 
-  // On component mount, check if already logged in
+  // On component mount OR when auth state changes, check if already logged in
   useEffect(() => {
-    // Log environment variables available on the client-side
+    // Log environment variables (optional, can be removed)
     console.log('[login/page.tsx - useEffect] Checking environment variables:', {
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'found' : 'undefined',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'found' : 'undefined',
-      // Service key should NOT be here
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'FOUND (SECURITY RISK)' : 'undefined (expected)',
     });
+    
+    // Wait for AuthContext to finish loading
+    if (authIsLoading) {
+      setDebug('Auth context loading...');
+      return; 
+    }
 
-    const checkAuth = async () => {
-      try {
-        setDebug('Checking authentication state...');
-        console.log('Supabase object type:', typeof supabase);
-        console.log('Supabase auth methods:', Object.keys(supabase.auth || {}));
-        
-        // Clear any invalid tokens first - this helps with refresh token errors
-        if (typeof window !== 'undefined') {
-          const url = new URL(window.location.href);
-          const isRedirected = url.searchParams.has('redirectedFrom');
-          
-          // If redirected from protected route, likely token issue
-          if (isRedirected) {
-            setDebug('Detected redirection, clearing potential bad tokens...');
-            try {
-              // Force sign out to clear any invalid tokens
-              await supabase.auth.signOut();
-              
-              // Clear localStorage Supabase items
-              const localStorageKeys = Object.keys(localStorage);
-              const supabaseKeys = localStorageKeys.filter(key => 
-                key.includes('supabase') || key.includes('sb-')
-              );
-              
-              if (supabaseKeys.length > 0) {
-                supabaseKeys.forEach(key => localStorage.removeItem(key));
-                setDebug(`Cleared ${supabaseKeys.length} invalid auth tokens`);
-                
-                // Clean the URL
-                window.history.replaceState(
-                  {}, 
-                  document.title, 
-                  '/login'
-                );
-              }
-            } catch (e) {
-              console.error('Error clearing tokens:', e);
-            }
-          }
-        }
-        
-        // Check if already authenticated, redirect to dashboard
-        const { data, error } = await supabase.auth.getUser();
-        
-        if (error) {
-          console.error('Session error:', error);
-          setDebug(`Error getting session: ${error.message}`);
-          return;
-        }
-        
-        console.log('User data:', data);
-        
-        if (data.user) {
-          setDebug('Already logged in, redirecting to dashboard...');
-          router.push('/dashboard');
-        } else {
-          setDebug('Not logged in');
-        }
-      } catch (err) {
-        console.error('Error in auth check:', err);
-        setError(`Error checking authentication state: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    };
-    checkAuth();
-  }, [router]);
+    // Check for errors from AuthContext initialization
+    if (authContextError) {
+      setDebug(`AuthContext error: ${authContextError}`);
+      // Optionally setLoginError(authContextError); if needed
+      return;
+    }
 
-  // Add a timeout fallback for login loading state
+    // If loading is finished and user exists, redirect
+    if (user) {
+      setDebug('User found in context, redirecting to dashboard...');
+      // Add a small delay to ensure state propagation if needed
+      // setTimeout(() => { 
+          const redirectTo = new URLSearchParams(window.location.search).get('redirectedFrom');
+          router.push(redirectTo || '/dashboard'); 
+      // }, 50); // Minimal delay
+    } else {
+      setDebug('No user found in context, staying on login page.');
+    }
+    
+  }, [user, authIsLoading, authContextError, router]); // Depend on context state and router
+
+  // Add a timeout fallback for login FORM submission loading state
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;
     
-    if (isLoading) {
-      // If button stays loading for more than 5 seconds, provide fallback
-      timeoutId = setTimeout(async () => {
-        if (isLoading) {
-          setDebug('Loading timeout - checking auth state manually');
-          
-          try {
-            // Check if we might actually be logged in despite UI state
-            const { data, error } = await supabase.auth.getUser();
-            
-            if (error) {
-              setDebug(`Session check error: ${error.message}`);
-              setIsLoading(false);
-              return;
-            }
-            
-            if (data.user) {
-              // We're actually authenticated but UI didn't update
-              setDebug("Session exists but UI didn't update! Redirecting manually...");
-              router.push('/dashboard');
-            } else {
-              setDebug('No active session found');
-              setIsLoading(false);
-            }
-          } catch (error) {
-            setDebug(`Timeout check error: ${error instanceof Error ? error.message : String(error)}`);
-            setIsLoading(false);
-          }
+    if (isSubmitting) { // Use the form submission loading state here
+      timeoutId = setTimeout(() => {
+        if (isSubmitting) {
+          setDebug('Form submission timeout - check console/network');
+          // Don't check auth state here, just reset form loading
+          setIsSubmitting(false); 
+          setLoginError('Login took too long. Please try again.');
         }
-      }, 5000);
+      }, 10000); // Increased timeout for submission
     }
     
     return () => {
@@ -171,38 +112,28 @@ export default function LoginPage() {
         clearTimeout(timeoutId);
       }
     };
-  }, [isLoading, router]);
+  }, [isSubmitting]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+    setIsSubmitting(true); // Use form submission loading state
+    setLoginError(null);
     setDebug('Starting login process...');
 
     try {
-      // Show which key is being used
+      // Use the login function from AuthContext if available, 
+      // otherwise use the direct API call as before.
+      // For now, keeping the direct API call logic:
+      
       setDebug(`Using anon key: ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 10)}... at URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
       
-      // First check if we can access the profiles table 
-      setDebug('Testing database connection first...');
-      const { data: testData, error: testError } = await supabase
-        .from('profiles')
-        .select('id')
-        .limit(1);
-        
-      if (testError) {
-        setDebug(`Database error: ${testError.message}`);
-        setError(`Database access error: ${testError.message}`);
-        setIsLoading(false);
-        return;
-      }
+      // Test connection (optional)
+      // setDebug('Testing database connection first...');
+      // const { error: testError } = await supabase.from('profiles').select('id').limit(1);
+      // if (testError) { ... }
       
-      setDebug(`Database connection successful. Found ${testData?.length || 0} profiles.`);
-      
-      // Now attempt login
       setDebug('Calling supabase.auth.signInWithPassword...');
       
-      // Check if signInWithPassword exists
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -210,13 +141,16 @@ export default function LoginPage() {
 
       if (error) {
         setDebug(`Auth error: ${error.message}`);
-        setError(error.message || 'Invalid email or password');
-        setIsLoading(false);
+        setLoginError(error.message || 'Invalid email or password');
+        setIsSubmitting(false); // Stop submitting on error
         return;
       }
-
-      setDebug(`Login successful, user: ${data.user?.email}`);
       
+      setIsSubmitting(false); // Stop submitting on success
+      setDebug(`Login API call successful, user: ${data.user?.email}`);
+      
+      // REMOVE THE IMMEDIATE POST-LOGIN VERIFICATION BLOCK BELOW
+      /*
       // Verify token was created properly
       try {
         // Verify token creation with another check
@@ -224,40 +158,37 @@ export default function LoginPage() {
         
         if (sessionError) {
           setDebug(`Session verification error: ${sessionError.message}`);
-          setError('Login succeeded but session verification failed. Please try again.');
-          setIsLoading(false);
+          setLoginError('Login succeeded but session verification failed. Please try again.');
+          setIsSubmitting(false); // Ensure loading stops here too
           return;
         }
         
         if (!sessionCheck.user) {
           setDebug('Login appeared to succeed but no user is present in session check');
-          setError('Authentication succeeded but session is missing. Please try again.');
-          setIsLoading(false);
+          setLoginError('Authentication succeeded but session is missing. Please try again.');
+          setIsSubmitting(false); // Ensure loading stops here too
           return;
         }
         
         setDebug(`Session verified successfully with user ID: ${sessionCheck.user.id}`);
         
-        // Add a small delay before redirecting to allow auth state to update
-        setTimeout(() => {
-          const redirectTo = new URLSearchParams(window.location.search).get('redirectedFrom');
-          if (redirectTo) {
-            router.push(redirectTo);
-          } else {
-            router.push('/dashboard');
-          }
-        }, 500);
+        // Redirect logic was here, but is now handled by the useEffect listening to AuthContext
+        // setTimeout(() => { ... router.push ... }, 500);
+
       } catch (verifyError) {
         setDebug(`Session verification exception: ${verifyError instanceof Error ? verifyError.message : String(verifyError)}`);
-        setError('Login succeeded but verification failed. Please try again later.');
-        setIsLoading(false);
+        setLoginError('Login succeeded but verification failed. Please try again later.');
+        // No need to setIsSubmitting(false) here as it was set above
       }
+      */
+      // Trust AuthContext listener and the other useEffect to handle redirect.
+
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setDebug(`Caught error: ${errorMessage}`);
-      setError('An error occurred during login. Please try again.');
+      setLoginError('An error occurred during login. Please try again.');
       console.error('Login error:', error);
-      setIsLoading(false);
+      setIsSubmitting(false); // Ensure loading stops on error
     }
   };
 
@@ -334,9 +265,9 @@ export default function LoginPage() {
               />
             </div>
             
-            {error && (
+            {loginError && (
               <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
+                {loginError}
               </div>
             )}
             
@@ -359,11 +290,11 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 variant="primary"
-                disabled={isLoading}
-                isLoading={isLoading}
+                disabled={isSubmitting}
+                isLoading={isSubmitting}
                 className="w-full"
               >
-                {isLoading ? 'Signing in...' : 'Sign in'}
+                {isSubmitting ? 'Signing in...' : 'Sign in'}
               </Button>
               
               <Button

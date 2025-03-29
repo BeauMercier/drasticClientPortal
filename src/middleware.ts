@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { getUserRole } from './lib/utils';
+import { getUserRole } from './lib/utils/user';
 
 // Log environment variables available in the middleware
 console.log('[middleware.ts] Checking environment variables at middleware start:', {
@@ -39,193 +39,124 @@ const PROTECTED_ROUTES: Record<string, string[]> = {
 const DESIGNER_ROUTES = ['/designer', '/designer/dashboard', '/designer/calendar', '/designer/tasks', '/designer/projects'];
 
 export async function middleware(request: NextRequest) {
-  // Get the pathname from the URL
   const { pathname } = request.nextUrl;
-
-  // Check if this is an API route
-  const isApiRoute = pathname.startsWith('/api/');
   
-  // Create a Supabase client configured to use cookies
+  // 1. Create initial response - allows cookies to be set later
+  const response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
+
+  // 2. Create Supabase client linked to request/response
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         get(name: string) {
-          const cookie = request.cookies.get(name);
-          return cookie?.value;
+          return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
+          // Cookie is set/updated, modify the response
+          response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
+          // Cookie is removed, modify the response
+          response.cookies.set({ name, value: '', ...options });
         },
       },
-    },
+    }
   );
 
-  // Get the user (more secure than getSession)
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    // If authentication error, log it but don't block static assets
-    if (error) {
-      console.error(`Auth error in middleware (${pathname}):`, error.message);
-      
-      // For non-static assets, redirect unauthenticated users
-      const isStaticAsset = pathname.match(/\.(svg|png|jpg|jpeg|css|js|ico)$/) || 
-                           pathname.startsWith('/images/') ||
-                           pathname.startsWith('/_next/');
-      
-      // Don't redirect for static assets, API routes, or login-related paths
-      const shouldRedirect = !isStaticAsset && 
-                           !isApiRoute && 
-                           !pathname.startsWith('/login') &&
-                           !pathname.startsWith('/register') &&
-                           !pathname.startsWith('/reset-password');
-      
-      const isProtRoute = Object.keys(PROTECTED_ROUTES).some(route => 
-        pathname === route || pathname.startsWith(`${route}/`)
-      );
-      
-      if (shouldRedirect && isProtRoute) {
-        // Redirect to login page with return URL
-        const redirectUrl = new URL('/login', request.url);
-        redirectUrl.searchParams.set('redirectedFrom', pathname);
-        console.log(`Redirecting to login due to auth error: ${pathname}`);
-        return NextResponse.redirect(redirectUrl);
-      }
-    }
-    
-    // Log authentication state for debugging
-    console.log(`Middleware auth check - Path: ${pathname}, Authenticated: ${!!user}`);
-    
-    // For API routes, we just want to ensure cookies are processed but not perform redirects
-    if (isApiRoute) {
-      // Return a response with the updated cookies
-      const response = NextResponse.next();
-      
-      // Copy any cookies that were set by the supabase client
-      const cookiesToSet = request.cookies.getAll();
-      cookiesToSet.forEach(cookie => {
-        response.cookies.set(cookie);
-      });
-      
-      return response;
+  // 3. Get AUTHENTICATED user data (verifies with Supabase server)
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+  if (userError) {
+    // Log the error but allow proceeding, as getUser might fail for network reasons
+    // Access control later in the middleware will handle the !user case
+    console.warn(`getUser error in middleware (${pathname}):`, userError.message);
+  }
+  // User object is now either the authenticated user or null
+
+  console.log(`Middleware check - Path: ${pathname}, User: ${user ? user.id : 'null'}`);
+
+  // --- Route Handling --- 
+  const isApiRoute = pathname.startsWith('/api/');
+  const isStaticAsset = pathname.match(/\.(svg|png|jpg|jpeg|css|js|ico)$/) || pathname.startsWith('/images/') || pathname.startsWith('/_next/');
+  const isPublicAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/reset-password');
+  const isRoot = pathname === '/';
+
+  // Allow static assets and API routes generally
+  if (isApiRoute || isStaticAsset) {
+    return response; 
+  }
+
+  const isProtectedRoute = Object.keys(PROTECTED_ROUTES).some(route => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+
+  // --- Redirect Logic --- 
+
+  // 1. If NO user AND accessing a protected route
+  if (!user && isProtectedRoute) {
+    console.log(`Redirecting to login: No user and accessing protected route ${pathname}`);
+    const redirectUrl = new URL('/login', request.url);
+    redirectUrl.searchParams.set('redirectedFrom', pathname);
+    return NextResponse.redirect(redirectUrl); // Return direct redirect
+  }
+
+  // 2. If USER EXISTS
+  if (user) {
+    // Redirect logged-in users away from login/register pages
+    if (isPublicAuthRoute) {
+      console.log(`Redirecting logged-in user away from ${pathname}`);
+      return NextResponse.redirect(new URL('/dashboard', request.url)); // Return direct redirect
     }
 
-    // For non-API routes, continue with regular auth checks
-    // If no user and trying to access protected route
-    if (!user) {
-      const isProtectedRoute = Object.keys(PROTECTED_ROUTES).some(route => 
-        pathname === route || pathname.startsWith(`${route}/`)
-      );
-
-      if (isProtectedRoute) {
-        // Redirect to login page with return URL
-        const redirectUrl = new URL('/login', request.url);
-        redirectUrl.searchParams.set('redirectedFrom', pathname);
-        return NextResponse.redirect(redirectUrl);
-      }
-
-      // For unprotected routes, allow access
-      return NextResponse.next();
-    }
-
-    // Get user role from profile - do this early to have it available for all checks
+    // Get user role (Assuming profile fetch is needed for role)
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
+    const userRole = getUserRole({ ...user, role: profile?.role }); 
 
-    const userRole = getUserRole({...user, role: profile?.role});
+    // Role-based redirects and access checks
+    const isDesignerRoute = DESIGNER_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`));
 
-    // SPECIAL ROLE-BASED HANDLING:
-    // If designer trying to access non-designer pages, redirect to designer dashboard
-    if (userRole === 'designer') {
-      // Skip static asset paths
-      const isStaticAsset = pathname.match(/\.(svg|png|jpg|jpeg|css|js|ico)$/) || 
-                            pathname.startsWith('/images/') ||
-                            pathname.startsWith('/_next/');
-      
-      if (isStaticAsset) {
-        return NextResponse.next();
-      }
-      
-      const isDesignerRoute = DESIGNER_ROUTES.some(route => 
-        pathname === route || pathname.startsWith(`${route}/`)
-      );
-      
-      // If not already on a designer route, redirect to designer dashboard
-      if (!isDesignerRoute) {
-        return NextResponse.redirect(new URL('/designer/dashboard', request.url));
-      }
-    }
-    
-    // If client trying to access designer pages, redirect to client dashboard
-    if (userRole === 'client') {
-      const isDesignerRoute = DESIGNER_ROUTES.some(route => 
-        pathname === route || pathname.startsWith(`${route}/`)
-      );
-      
-      if (isDesignerRoute) {
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-      }
+    if (userRole === 'designer' && !isDesignerRoute) {
+      console.log(`Redirecting designer to designer dashboard from ${pathname}`);
+      return NextResponse.redirect(new URL('/designer/dashboard', request.url));
     }
 
-    // If session exists and accessing protected route
-    const isProtectedRoute = Object.keys(PROTECTED_ROUTES).some(route => 
-      pathname === route || pathname.startsWith(`${route}/`)
-    );
+    if (userRole === 'client' && isDesignerRoute) {
+      console.log(`Redirecting client away from designer route ${pathname}`);
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
 
     if (isProtectedRoute) {
-      // Find the matching route
-      const matchedRoute = Object.keys(PROTECTED_ROUTES).find(route => 
-        pathname === route || pathname.startsWith(`${route}/`)
-      );
-
+      const matchedRoute = Object.keys(PROTECTED_ROUTES).find(route => pathname === route || pathname.startsWith(`${route}/`));
       if (matchedRoute) {
-        // Check if user's role is allowed for this route
         const allowedRoles = PROTECTED_ROUTES[matchedRoute];
-        const hasAccess = allowedRoles.some(role => 
-          userRole.toLowerCase().includes(role.toLowerCase())
-        );
-        
+        const hasAccess = allowedRoles.some(role => userRole.toLowerCase().includes(role.toLowerCase()));
         if (!hasAccess) {
-          // For other routes, redirect to appropriate dashboard
-          if (userRole === 'designer') {
-            return NextResponse.redirect(new URL('/designer/dashboard', request.url));
-          } else {
-            return NextResponse.redirect(new URL('/dashboard', request.url));
-          }
+          console.log(`Redirecting to dashboard due to role mismatch: ${pathname}, Role: ${userRole}`);
+          const dashboardUrl = userRole === 'designer' ? '/designer/dashboard' : '/dashboard';
+          return NextResponse.redirect(new URL(dashboardUrl, request.url));
         }
       }
     }
-
-    // Default case: allow access
-    return NextResponse.next();
-  } catch (e) {
-    console.error(`Exception in middleware auth check (${pathname}):`, e);
-    // Continue to avoid breaking the application completely
-    return NextResponse.next();
   }
+
+  // Default case: Allow access, return response with potentially updated cookies
+  return response;
 }
 
-// Optionally configure the middleware to match specific paths
+// Keep matcher config
 export const config = {
   matcher: [
     // Include all paths, including API routes
-    // This ensures auth cookies are properly processed for API requests
     '/(.*)',
   ],
 }; 

@@ -19,7 +19,9 @@ import { BusinessProfile } from '@/lib/types/user';
 import { FILES_BUCKET } from './storage';
 
 /**
- * Get the current user's profile
+ * Fetches the profile for the currently authenticated user.
+ * @returns {Promise<Tables<'profiles'> | null>} The user's profile data or null if not authenticated.
+ * @throws {Error} If there's an error fetching the profile from Supabase.
  */
 export const getUserProfile = async () => {
   const supabase = createClient();
@@ -41,7 +43,10 @@ export const getUserProfile = async () => {
 };
 
 /**
- * Update the current user's profile
+ * Updates the profile for the currently authenticated user.
+ * @param {Partial<Tables<'profiles'>} updates - An object containing the profile fields to update.
+ * @returns {Promise<Tables<'profiles'>} The updated user profile data.
+ * @throws {Error} If the user is not authenticated or if there's an error updating the profile.
  */
 export const updateUserProfile = async (updates: Partial<{ 
   full_name: string;
@@ -75,7 +80,10 @@ export const updateUserProfile = async (updates: Partial<{
 };
 
 /**
- * Upload a profile picture and update the user's profile
+ * Uploads a profile picture file to Supabase Storage and updates the user's avatar_url.
+ * @param {File} file - The image file to upload.
+ * @returns {Promise<Tables<'profiles'>} The updated user profile data with the new avatar URL.
+ * @throws {Error} If the user is not authenticated or if there's an error during upload or profile update.
  */
 export const uploadProfilePicture = async (file: File) => {
   const supabase = createClient();
@@ -119,7 +127,9 @@ export const uploadProfilePicture = async (file: File) => {
 };
 
 /**
- * Get the current user's web design projects
+ * Fetches all web design projects associated with the current user.
+ * @returns {Promise<Tables<'web_design_projects'>[] | null>} A list of web design projects or null.
+ * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getUserWebDesignProjects = async () => {
   const supabase = createClient();
@@ -137,7 +147,10 @@ export const getUserWebDesignProjects = async () => {
 };
 
 /**
- * Get a specific web design project by ID
+ * Fetches a specific web design project by its ID.
+ * @param {string} projectId - The ID of the project to fetch.
+ * @returns {Promise<Tables<'web_design_projects'> | null>} The project data or null if not found.
+ * @throws {Error} If there's a fetch error.
  */
 export const getWebDesignProject = async (projectId: string) => {
   const supabase = createClient();
@@ -153,7 +166,9 @@ export const getWebDesignProject = async (projectId: string) => {
 };
 
 /**
- * Get the current user's social graphics projects
+ * Fetches all social graphics projects associated with the current user.
+ * @returns {Promise<Tables<'social_graphics_projects'>[] | null>} A list of social graphics projects or null.
+ * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getUserSocialGraphicsProjects = async () => {
   const supabase = createClient();
@@ -171,7 +186,10 @@ export const getUserSocialGraphicsProjects = async () => {
 };
 
 /**
- * Get a specific social graphics project by ID
+ * Fetches a specific social graphics project by its ID.
+ * @param {string} projectId - The ID of the project to fetch.
+ * @returns {Promise<Tables<'social_graphics_projects'> | null>} The project data or null if not found.
+ * @throws {Error} If there's a fetch error.
  */
 export const getSocialGraphicsProject = async (projectId: string) => {
   const supabase = createClient();
@@ -187,7 +205,9 @@ export const getSocialGraphicsProject = async (projectId: string) => {
 };
 
 /**
- * Get the current user's logo design projects
+ * Fetches all logo design projects associated with the current user.
+ * @returns {Promise<Tables<'logo_design_projects'>[] | null>} A list of logo design projects or null.
+ * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getUserLogoDesignProjects = async () => {
   const supabase = createClient();
@@ -205,7 +225,10 @@ export const getUserLogoDesignProjects = async () => {
 };
 
 /**
- * Get a specific logo design project by ID
+ * Fetches a specific logo design project by its ID.
+ * @param {string} projectId - The ID of the project to fetch.
+ * @returns {Promise<Tables<'logo_design_projects'> | null>} The project data or null if not found.
+ * @throws {Error} If there's a fetch error.
  */
 export const getLogoDesignProject = async (projectId: string) => {
   const supabase = createClient();
@@ -221,7 +244,9 @@ export const getLogoDesignProject = async (projectId: string) => {
 };
 
 /**
- * Get all projects assigned to the current designer
+ * Fetches all projects (web, logo, social) assigned to the currently authenticated designer.
+ * @returns {Promise<{ webProjects: any[], logoProjects: any[], socialProjects: any[] }>} An object containing arrays of projects by type.
+ * @throws {Error} If the user is not authenticated or if there's a fetch error for any project type.
  */
 export const getDesignerAssignedProjects = async () => {
   const supabase = createClient();
@@ -264,7 +289,11 @@ export const getDesignerAssignedProjects = async () => {
 };
 
 /**
- * Get a specific project for a designer by ID and type
+ * Fetches a specific project (of any known type) assigned to the current designer.
+ * @param {string} projectId - The ID of the project.
+ * @param {ProjectType} projectType - The type of the project ('web_design', 'logo_design', 'social_graphics').
+ * @returns {Promise<any | null>} The project data or null if not found or not assigned.
+ * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getDesignerProject = async (
   projectId: string,
@@ -294,7 +323,11 @@ export const getDesignerProject = async (
 };
 
 /**
- * Get project revisions for a project
+ * Fetches all revisions for a specific project.
+ * @param {string} projectId - The ID of the project.
+ * @param {ProjectTypeForRevision} projectType - The type of the project.
+ * @returns {Promise<ProjectRevision[]>} An array of project revisions.
+ * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getProjectRevisions = async (
   projectId: string, 
@@ -314,7 +347,15 @@ export const getProjectRevisions = async (
 };
 
 /**
- * Create a new project revision
+ * Creates a new revision for a project.
+ * @param {object} revision - The revision data.
+ * @param {string} revision.project_id - The ID of the parent project.
+ * @param {ProjectTypeForRevision} revision.project_type - The type of the project.
+ * @param {string} revision.title - The title of the revision.
+ * @param {string | null} [revision.description] - Optional description.
+ * @param {RevisionStatus} [revision.status='draft'] - Initial status.
+ * @returns {Promise<ProjectRevision>} The newly created project revision.
+ * @throws {Error} If the user is not authenticated or if there's an error creating the revision.
  */
 export const createProjectRevision = async (revision: {
   project_id: string;
@@ -360,7 +401,11 @@ export const createProjectRevision = async (revision: {
 };
 
 /**
- * Update a revision's status or feedback
+ * Updates the status or feedback of a specific project revision.
+ * @param {string} revisionId - The ID of the revision to update.
+ * @param {Partial<Pick<ProjectRevision, 'status' | 'feedback'>>} updates - An object containing the fields to update ('status' or 'feedback').
+ * @returns {Promise<ProjectRevision>} The updated project revision.
+ * @throws {Error} If the user is not authenticated or if there's an error updating the revision.
  */
 export const updateRevision = async (
   revisionId: string, 
@@ -380,7 +425,10 @@ export const updateRevision = async (
 };
 
 /**
- * Delete a revision
+ * Deletes a specific project revision.
+ * @param {string} revisionId - The ID of the revision to delete.
+ * @returns {Promise<void>}
+ * @throws {Error} If the user is not authenticated or if there's an error deleting the revision.
  */
 export const deleteRevision = async (revisionId: string): Promise<void> => {
   const supabase = createClient();
@@ -403,7 +451,13 @@ export const deleteRevision = async (revisionId: string): Promise<void> => {
 };
 
 /**
- * Add a project note
+ * Adds a note to a specific project.
+ * @param {string} projectId - The ID of the project.
+ * @param {ProjectTypeForRevision} projectType - The type of the project.
+ * @param {string} content - The content of the note.
+ * @param {boolean} [isPrivate=false] - Whether the note is private (admin/designer only).
+ * @returns {Promise<ProjectNote>} The newly created project note.
+ * @throws {Error} If the user is not authenticated or if there's an error adding the note.
  */
 export const addProjectNote = async (
   projectId: string,
@@ -433,7 +487,12 @@ export const addProjectNote = async (
 };
 
 /**
- * Get project notes for a specific project
+ * Fetches all notes for a specific project.
+ * Includes logic to filter private notes based on user role.
+ * @param {string} projectId - The ID of the project.
+ * @param {ProjectTypeForRevision} projectType - The type of the project.
+ * @returns {Promise<ProjectNote[]>} An array of project notes accessible to the current user.
+ * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getProjectNotes = async (
   projectId: string,
@@ -456,7 +515,10 @@ export const getProjectNotes = async (
 };
 
 /**
- * Delete a project note
+ * Deletes a specific project note.
+ * @param {string} noteId - The ID of the note to delete.
+ * @returns {Promise<boolean>} True if deletion was successful.
+ * @throws {Error} If the user is not authenticated or if there's an error deleting the note.
  */
 export const deleteProjectNote = async (noteId: string): Promise<boolean> => {
   const supabase = createClient();
@@ -475,7 +537,12 @@ export const deleteProjectNote = async (noteId: string): Promise<boolean> => {
 };
 
 /**
- * Get designer tasks assigned to the current user
+ * Fetches tasks assigned to a designer.
+ * If userId is provided, fetches tasks for that specific designer (admin usage).
+ * If userId is not provided, fetches tasks for the currently authenticated designer.
+ * @param {string} [userId] - Optional ID of the designer to fetch tasks for.
+ * @returns {Promise<any[]>} An array of tasks (structure needs specific typing).
+ * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getDesignerTasks = async (userId?: string) => {
   const supabase = createClient();
@@ -538,7 +605,11 @@ export const getDesignerTasks = async (userId?: string) => {
 };
 
 /**
- * Update the status of a designer task
+ * Updates the status of a specific designer task.
+ * @param {string} taskId - The ID of the task to update.
+ * @param {string} status - The new status for the task.
+ * @returns {Promise<any>} The updated task data (structure needs specific typing).
+ * @throws {Error} If the user is not authenticated or if there's an error updating the task.
  */
 export const updateTaskStatus = async (taskId: string, status: string) => {
   const supabase = createClient();
@@ -559,7 +630,9 @@ export const updateTaskStatus = async (taskId: string, status: string) => {
 };
 
 /**
- * Get the user's business profile
+ * Fetches the business profile associated with the current user.
+ * @returns {Promise<BusinessProfile | null>} The business profile data or null.
+ * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getBusinessProfile = async () => {
   const supabase = createClient();
@@ -586,7 +659,9 @@ export const getBusinessProfile = async () => {
 };
 
 /**
- * Create a default business profile for the current user
+ * Creates a business profile for the current user if one doesn't exist.
+ * @returns {Promise<BusinessProfile>} The newly created or existing business profile.
+ * @throws {Error} If the user is not authenticated or if there's an error during creation/fetch.
  */
 export const createBusinessProfile = async () => {
   const supabase = createClient();
@@ -606,7 +681,10 @@ export const createBusinessProfile = async () => {
 };
 
 /**
- * Update the user's business profile
+ * Updates the business profile for the current user.
+ * @param {Partial<BusinessProfile>} updates - An object containing the fields to update.
+ * @returns {Promise<BusinessProfile>} The updated business profile data.
+ * @throws {Error} If the user is not authenticated or if there's an error during update.
  */
 export const updateBusinessProfile = async (updates: Partial<BusinessProfile>) => {
   const supabase = createClient();

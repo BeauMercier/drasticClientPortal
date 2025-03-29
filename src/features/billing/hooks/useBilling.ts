@@ -18,7 +18,7 @@ import {
   Customer, 
   PaymentMethod 
 } from '../types';
-import { supabase } from '../../../shared/services/supabase';
+import { supabase } from '@/lib/api';
 
 interface BillingHookState {
   invoices: Invoice[];

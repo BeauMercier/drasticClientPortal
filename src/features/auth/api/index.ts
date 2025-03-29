@@ -14,6 +14,8 @@ import {
 
 // Import Supabase client from the lib module
 import supabase from '@/lib/api/client';
+// Import Supabase Session type
+import type { Session as SupabaseSession } from '@supabase/supabase-js';
 
 // Import session timeout utilities
 import { applySessionTimeout } from '../../../lib/supabase/auth-timeout';
@@ -21,7 +23,7 @@ import { getEnv } from '@/lib/env';
 
 // Simple cache for session data to prevent excessive API calls
 interface SessionCache {
-  session: any;
+  session: SupabaseSession | null;
   timestamp: number;
   expiresAt: number;
 }
@@ -34,7 +36,7 @@ const CACHE_TTL = 60000; // Cache session for 1 minute
  */
 export async function login(
   credentials: LoginCredentials, 
-  onSuccess?: (session: any, user: User) => void
+  onSuccess?: (session: SupabaseSession, user: User) => void
 ): Promise<AuthResult> {
   try {
     // Use the default client for login

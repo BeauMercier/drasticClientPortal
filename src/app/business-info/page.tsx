@@ -5,7 +5,9 @@ import { PencilIcon } from '@heroicons/react/24/outline';
 import { getBusinessProfile, updateBusinessProfile } from '@/lib/api/client-api';
 import { BusinessProfile } from '@/lib/types/user';
 import { Card } from '../../shared/ui/molecules';
-import { toast } from 'react-hot-toast';
+import { useToast } from "@/components/ui/use-toast";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 // Skeleton components for loading state
 const InputSkeleton = () => (
@@ -63,6 +65,9 @@ export default function BusinessInfoPage() {
   const [saturdayClosed, setSaturdayClosed] = useState(true);
   const [sundayClosed, setSundayClosed] = useState(true);
   
+  // Get the toast function from the hook
+  const { toast } = useToast();
+  
   // Load business profile data on component mount
   useEffect(() => {
     async function fetchBusinessProfile() {
@@ -106,7 +111,10 @@ export default function BusinessInfoPage() {
       } catch (error) {
         console.error('Error fetching business profile:', error);
         setError('Failed to load business information. Please try again later.');
-        toast.error('Failed to load business information');
+        toast({
+          title: "Error",
+          description: "Failed to load business information",
+        });
       } finally {
         setIsLoading(false);
       }
@@ -177,11 +185,17 @@ export default function BusinessInfoPage() {
       setCountry(updatedProfile.country || '');
       
       setIsEditing(false);
-      toast.success('Business profile updated successfully!');
+      toast({
+        title: "Success",
+        description: "Business profile updated successfully.",
+      });
     } catch (error) {
       console.error('Failed to update business profile:', error);
       setError('Failed to update business profile. Please try again.');
-      toast.error('Failed to update business profile. Please try again.');
+      toast({
+        title: "Error",
+        description: "Failed to update business profile. Please try again.",
+      });
     } finally {
       setIsSaving(false);
     }

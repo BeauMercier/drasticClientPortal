@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
-import { useToast } from '@/shared/hooks/useToast';
+import { useToast } from '@/components/ui/use-toast';
 import supabase from '@/lib/api/client';
 import { FILES_BUCKET } from '@/lib/api/storage';
 
@@ -122,7 +122,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [bucketInitialized, setBucketInitialized] = useState(false);
   
-  const toast = useToast();
+  const { toast } = useToast();
   
   // Initialize storage bucket on first render
   React.useEffect(() => {
@@ -130,7 +130,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
       setBucketInitialized(true);
       initStorage();
     }
-  }, [bucketInitialized]);
+  }, [bucketInitialized, setBucketInitialized]);
   
   // Update folder path breadcrumbs
   const updateFolderPath = useCallback((folder: string) => {
@@ -152,7 +152,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
     }
     
     setFolderPath(pathItems);
-  }, []);
+  }, [setFolderPath]);
   
   // Load files from the current or specified folder
   const loadFiles = useCallback(async (folderId?: string) => {
@@ -222,7 +222,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
       const errorMessage = err instanceof Error ? err.message : 'Error loading files';
       console.error('Error listing files:', err);
       setError(errorMessage);
-      toast.toast.custom({
+      toast({
         title: 'Error',
         description: errorMessage,
         variant: 'destructive'
@@ -230,7 +230,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentFolder, updateFolderPath]);
+  }, [currentFolder, updateFolderPath, setIsLoading, setError, supabase, setFiles, setCurrentFolder, toast]);
   
   // Upload a file to the current folder
   const uploadFile = useCallback(async (file: File) => {
@@ -281,7 +281,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
       
       // Complete the upload
       setUploadProgress(100);
-      toast.toast.custom({
+      toast({
         title: 'Success',
         description: `File ${file.name} uploaded successfully`,
       });
@@ -292,7 +292,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
       const errorMessage = err instanceof Error ? err.message : 'Error uploading file';
       console.error('Error uploading file:', err);
       setError(errorMessage);
-      toast.toast.custom({
+      toast({
         title: 'Error',
         description: errorMessage,
         variant: 'destructive'
@@ -304,12 +304,12 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
         setIsLoading(false);
       }, 1000);
     }
-  }, [currentFolder, loadFiles]);
+  }, [currentFolder, loadFiles, setUploadProgress, setIsLoading, setError, supabase, toast]);
   
   // Create a new folder
   const createFolder = useCallback(async (folderName: string) => {
     if (!folderName.trim()) {
-      toast.toast.custom({
+      toast({
         title: 'Error',
         description: 'Folder name cannot be empty',
         variant: 'destructive'
@@ -353,7 +353,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
         throw new Error(`Failed to create folder: ${folderError.message}`);
       }
       
-      toast.toast.custom({
+      toast({
         title: 'Success',
         description: `Folder ${folderName} created successfully`,
       });
@@ -364,7 +364,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
       const errorMessage = err instanceof Error ? err.message : 'Error creating folder';
       console.error('Error creating folder:', err);
       setError(errorMessage);
-      toast.toast.custom({
+      toast({
         title: 'Error',
         description: errorMessage,
         variant: 'destructive'
@@ -372,7 +372,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentFolder, loadFiles]);
+  }, [currentFolder, loadFiles, setError, setIsLoading, supabase, toast]);
   
   // Delete a file or folder
   const deleteFile = useCallback(async (file: FileObject) => {
@@ -419,7 +419,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
         setSelectedFile(null);
       }
       
-      toast.toast.custom({
+      toast({
         title: 'Success',
         description: `${file.isFolder ? 'Folder' : 'File'} deleted successfully`,
       });
@@ -430,7 +430,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
       const errorMessage = err instanceof Error ? err.message : 'Error deleting item';
       console.error('Error deleting file:', err);
       setError(errorMessage);
-      toast.toast.custom({
+      toast({
         title: 'Error',
         description: errorMessage,
         variant: 'destructive'
@@ -438,14 +438,14 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedFile, loadFiles]);
+  }, [loadFiles, setError, setIsLoading, supabase, toast, selectedFile]);
   
   // Select a file
   const selectFile = useCallback((file: FileObject | null) => {
     setSelectedFile(file);
-  }, []);
+  }, [setSelectedFile]);
   
-  // Navigate to a specific folder
+  // Navigate into a folder
   const navigateToFolder = useCallback((folderId: string) => {
     loadFiles(folderId);
   }, [loadFiles]);
@@ -453,16 +453,9 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
   // Navigate up one level
   const navigateUp = useCallback(() => {
     if (!currentFolder) return;
-    
     const parts = currentFolder.split('/');
-    if (parts.length <= 1) {
-      // At root level, go to empty
-      loadFiles('');
-    } else {
-      // Remove the last part
-      const parentFolder = parts.slice(0, -1).join('/');
-      loadFiles(parentFolder);
-    }
+    const parentFolder = parts.slice(0, -1).join('/');
+    loadFiles(parentFolder);
   }, [currentFolder, loadFiles]);
   
   return (

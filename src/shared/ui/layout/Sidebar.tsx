@@ -12,7 +12,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useUI } from '../../contexts/UIContext';
-import { getUserProfile } from '@/lib/api/client-api';
+import { useAuthContext } from '@/features/auth/contexts/AuthContext';
 
 // Define navigation item types
 type NavigationChild = {
@@ -94,40 +94,39 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
+  const { user, isLoading: authIsLoading } = useAuthContext();
   const [isDesigner, setIsDesigner] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   
-  // Check the user's role
+  // Check the user's role based on the context user
   useEffect(() => {
-    const checkUserRole = async () => {
-      try {
-        const profile = await getUserProfile();
-        console.log('Sidebar - UserProfile from API:', profile);
-        console.log('Sidebar - Role value:', profile?.role);
-        
-        // Use pattern matching to check if the role contains 'design' (case insensitive)
-        if (profile && profile.role && typeof profile.role === 'string' && profile.role.toLowerCase().includes('design')) {
-          console.log('Sidebar - User is a designer');
-          setIsDesigner(true);
-        } else {
-          console.log('Sidebar - User is NOT a designer');
-          setIsDesigner(false);
-        }
-      } catch (err) {
-        console.error('Sidebar - Error checking user role:', err);
-        setIsDesigner(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // Wait for auth context to finish loading and ensure user exists
+    if (authIsLoading) {
+      // console.log('Sidebar - Auth context still loading...');
+      return; // Wait until auth context is ready
+    }
     
-    checkUserRole();
-  }, []);
+    // console.log('Sidebar - Auth context loaded. User:', user);
+
+    if (user && user.role) {
+      // Use pattern matching to check if the role contains 'design' (case insensitive)
+      if (typeof user.role === 'string' && user.role.toLowerCase().includes('design')) {
+        // console.log('Sidebar - User is a designer (from context)');
+        setIsDesigner(true);
+      } else {
+        // console.log('Sidebar - User is NOT a designer (from context)');
+        setIsDesigner(false);
+      }
+    } else {
+      // No user or role found in context
+      // console.log('Sidebar - No user or role found in context');
+      setIsDesigner(false);
+    }
+  }, [user, authIsLoading]); // Depend on user and loading state from context
 
   // Use the appropriate navigation items based on the user's role
   const navigationItems = isDesigner ? designerNavigationItems : clientNavigationItems;
 
-  // Avoid hydration mismatch
+  // Avoid hydration mismatch & set initial menu state
   useEffect(() => {
     setMounted(true);
     
@@ -143,6 +142,7 @@ export default function Sidebar() {
       }
     });
     setExpandedMenus(newExpandedState);
+    // We don't depend on authIsLoading here, menu structure depends on role only
   }, [pathname, navigationItems]);
 
   const toggleMenu = (menuName: string) => {
@@ -152,7 +152,8 @@ export default function Sidebar() {
     }));
   };
 
-  if (!mounted || isLoading) {
+  // Show loading state based on mount status OR auth loading status
+  if (!mounted || authIsLoading) {
     return (
       <div className="h-screen bg-black w-16 fixed top-0 left-0 z-30">
         <div className="h-full animate-pulse bg-black"></div>

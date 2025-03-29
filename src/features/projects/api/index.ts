@@ -13,7 +13,7 @@ import {
   ProjectListParams,
   ProjectStatus
 } from '../types';
-import { supabase } from '../../../shared/services/supabase';
+import { supabase } from '@/lib/api';
 import type { PostgrestSingleResponse, PostgrestResponse } from '@supabase/supabase-js';
 import { TableRow, Tables } from '@/lib/api/schema';
 

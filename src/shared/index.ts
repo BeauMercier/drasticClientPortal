@@ -1,21 +1,21 @@
 /**
  * Shared Module
  * 
- * This is the main entry point for all shared code in the application.
- * It exports all shared components, hooks, utilities, and services.
+ * This is the main entry point for reusable shared code in the application,
+ * such as UI components and contexts used across multiple features.
  */
 
 // Export all types
 // export * from './types';
 
 // Export all services
-export * from './services';
+// export * from './services';
 
 // Export all hooks
-export * from './hooks';
+// export * from './hooks';
 
 // Export all UI components
-// export * from './ui';
+export * from './ui';
 
 // Export utilities - commented out until implemented
 // export * from './utils';

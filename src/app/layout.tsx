@@ -1,13 +1,14 @@
 import '../styles/globals.css';
 import React from 'react';
-import { Toaster } from 'react-hot-toast';
+import { ToastProvider } from '@/components/ui/use-toast';
 import { AuthProvider } from '../features/auth';
 import UIProvider from '../shared/contexts/UIContext';
 import AppLayout from '../shared/ui/layout/AppLayout';
-import { ToastProvider } from '@/components/ui/use-toast';
 import { reportEnvValidation } from '@/lib/env';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import EnvFallback from '@/components/EnvFallback';
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 
 // Validate environment variables during server rendering
 if (typeof window === 'undefined') {
@@ -36,7 +37,6 @@ export default function RootLayout({
                   {children}
                 </AppLayout>
               </ErrorBoundary>
-              <Toaster position="top-right" />
             </AuthProvider>
           </UIProvider>
         </ToastProvider>

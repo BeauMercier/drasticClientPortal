@@ -1,0 +1,13 @@
+# Ignore build outputs
+.next/
+node_modules/
+
+# Ignore generated files
+*.generated.ts
+
+# Ignore migration scripts (not part of main app build/lint)
+src/lib/db/apply-migrations.js
+src/lib/db/apply-migrations.mjs
+
+# Ignore Vercel directory
+.vercel/ 

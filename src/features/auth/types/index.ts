@@ -4,7 +4,7 @@
  * Contains all type definitions related to authentication and user management.
  */
 
-import { ReactNode } from '../../../shared/types';
+import type { ReactNode } from 'react';
 
 // Define available user roles
 export type UserRole = 'admin' | 'designer' | 'client' | 'guest' | 'partner';

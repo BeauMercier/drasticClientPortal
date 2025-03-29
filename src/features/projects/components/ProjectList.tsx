@@ -16,28 +16,32 @@ export const ProjectList: React.FC<ProjectListProps> = ({ projects }) => {
 
   return (
     <div className="space-y-4">
-      {projects.map((project) => (
-        <div 
-          key={project.id} 
-          className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-        >
-          <div className="flex justify-between">
-            <h3 className="font-medium text-secondary-800">{project.title || project.name}</h3>
-            <span className={`text-sm px-2 py-1 rounded ${getStatusColor(project.status)}`}>
-              {project.status}
-            </span>
+      {projects.map((project) => {
+        console.log('Mapping project:', project?.id, 'Status:', project?.status, 'Type:', typeof project?.status);
+
+        return (
+          <div 
+            key={project.id} 
+            className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+          >
+            <div className="flex justify-between">
+              <h3 className="font-medium text-secondary-800">{project.title || project.name}</h3>
+              <span className={`text-sm px-2 py-1 rounded ${getStatusColor(project?.status)}`}>
+                {project?.status ?? 'N/A'}
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 mt-1">
+              {project.description || 'No description provided'}
+            </p>
+            <div className="flex justify-between mt-2 text-xs text-gray-500">
+              <span>Created: {formatDate(project.created_at)}</span>
+              {project.updated_at && (
+                <span>Updated: {formatDate(project.updated_at)}</span>
+              )}
+            </div>
           </div>
-          <p className="text-sm text-gray-600 mt-1">
-            {project.description || 'No description provided'}
-          </p>
-          <div className="flex justify-between mt-2 text-xs text-gray-500">
-            <span>Created: {formatDate(project.created_at)}</span>
-            {project.updated_at && (
-              <span>Updated: {formatDate(project.updated_at)}</span>
-            )}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
@@ -52,8 +56,19 @@ const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-const getStatusColor = (status: string) => {
-  switch (status?.toLowerCase()) {
+const getStatusColor = (status: string | null | undefined) => {
+  console.log('getStatusColor received status:', status, 'Type:', typeof status);
+  if (!status) {
+    console.log('getStatusColor returning default for null/undefined status.');
+    return 'bg-gray-100 text-gray-800';
+  }
+  if (typeof status !== 'string') {
+     console.warn('getStatusColor received non-string status:', status);
+     return 'bg-gray-100 text-gray-800';
+  }
+  const lowerStatus = status.toLowerCase();
+  console.log('getStatusColor lowerStatus:', lowerStatus);
+  switch (lowerStatus) {
     case 'active':
       return 'bg-green-100 text-green-800';
     case 'completed':

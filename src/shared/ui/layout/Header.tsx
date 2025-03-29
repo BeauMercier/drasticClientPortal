@@ -9,10 +9,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '../../../features/auth';
+import { useAuth } from '@/features/auth';
 import { BellIcon } from '@heroicons/react/24/outline';
-import { supabase } from '../../services/supabase';
+import { supabase } from '@/lib/api';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ThemeToggle } from '../atoms';
 
 export default function Header() {
@@ -258,25 +259,26 @@ export default function Header() {
           {/* User Profile */}
           <div className="relative">
             <button
-              className="flex items-center space-x-2 focus:outline-none"
+              className="flex items-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-white rounded-full"
               onClick={() => {
                 setShowProfile(!showProfile);
                 if (showNotifications) setShowNotifications(false);
               }}
-              aria-label="User profile"
             >
+              <span className="sr-only">Open user menu</span>
               {userAvatarUrl ? (
-                <img 
+                <Image
+                  className="h-8 w-8 rounded-full object-cover"
                   src={userAvatarUrl} 
-                  alt="User avatar" 
-                  className="h-8 w-8 rounded-full border border-gray-900"
+                  alt="User avatar"
+                  width={32}
+                  height={32}
                 />
               ) : (
-                <div className="h-8 w-8 rounded-full bg-red-500 flex items-center justify-center text-white font-medium">
-                  {userInitial}
-                </div>
+                <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-gray-600">
+                  <span className="text-sm font-medium leading-none text-white">{userInitial}</span>
+                </span>
               )}
-              <span className="hidden sm:block text-sm text-gray-300">{user?.full_name || user?.email}</span>
             </button>
 
             {showProfile && (

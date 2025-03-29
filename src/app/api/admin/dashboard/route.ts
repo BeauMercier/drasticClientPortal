@@ -40,15 +40,49 @@ export async function GET() {
     
     // Get dashboard statistics
     
-    // Count active projects by type
-    const { data: projectStats, error: projectError } = await supabase
-      .from('projects')
-      .select('project_type, is_active')
-      .eq('is_active', true);
+    // Define project types and tables
+    const projectTables = [
+      { type: 'logo_design', table: 'logo_design_projects' },
+      { type: 'social_graphics', table: 'social_graphics_projects' },
+      { type: 'web_design', table: 'web_design_projects' }
+    ];
+    
+    const projectCounts: Record<string, number> = {};
+    let totalActiveProjects = 0;
+    let projectErrorOccurred = false;
+    let projectErrorMessage = '';
+
+    // Fetch counts for each project type
+    for (const proj of projectTables) {
+      try {
+        const { count, error } = await supabase
+          .from(proj.table)
+          .select('id', { count: 'exact', head: true })
+          .eq('active', true); // Assuming 'active' column exists in these tables
+          
+        if (error) {
+          console.error(`Error fetching count for ${proj.table}:`, error);
+          projectErrorOccurred = true;
+          projectErrorMessage = `Failed to retrieve statistics for ${proj.type}`; // Store first error
+          // Don't break, try to get counts for other types
+          projectCounts[proj.type] = 0; // Default to 0 on error for this type
+        } else {
+          const currentCount = count || 0;
+          projectCounts[proj.type] = currentCount;
+          totalActiveProjects += currentCount;
+        }
+      } catch (loopError) {
+         console.error(`Unexpected error fetching count for ${proj.table}:`, loopError);
+         projectErrorOccurred = true;
+         projectErrorMessage = `Unexpected error retrieving statistics for ${proj.type}`;
+         projectCounts[proj.type] = 0;
+      }
+    }
       
-    if (projectError) {
+    // If any project query failed, return an error
+    if (projectErrorOccurred) {
       return NextResponse.json(
-        { error: 'Failed to retrieve project statistics' },
+        { error: projectErrorMessage || 'Failed to retrieve project statistics' },
         { status: 500 }
       );
     }
@@ -65,13 +99,6 @@ export async function GET() {
       );
     }
     
-    // Process project stats
-    const projectCounts: Record<string, number> = {};
-    projectStats.forEach(project => {
-      const type = project.project_type as string;
-      projectCounts[type] = (projectCounts[type] || 0) + 1;
-    });
-    
     // Process user stats
     const userCounts: Record<string, number> = {};
     userStats.forEach(user => {
@@ -82,7 +109,7 @@ export async function GET() {
     // Return dashboard data
     return NextResponse.json({
       projects: {
-        total: projectStats.length,
+        total: totalActiveProjects,
         byType: projectCounts
       },
       users: {

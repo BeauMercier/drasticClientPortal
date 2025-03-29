@@ -1,4 +1,4 @@
-import { supabase } from './supabase/client';
+import supabase from '@/lib/api/client';
 
 /**
  * Helper function to make authenticated API calls

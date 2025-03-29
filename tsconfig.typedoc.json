@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false // Override: Allow emit for TypeDoc analysis
+  },
+  // Keep the include/exclude from the original tsconfig for consistency,
+  // although TypeDoc's input paths on the CLI will take precedence.
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+} 

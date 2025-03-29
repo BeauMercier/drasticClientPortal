@@ -12,8 +12,8 @@ import {
   BillingResult
 } from '../types';
 
-// Import Supabase client from shared services
-import { supabase } from '../../../shared/services/supabase';
+// Import Supabase client from the correct location
+import { supabase } from '@/lib/api';
 
 /**
  * Get a list of invoices for the current user

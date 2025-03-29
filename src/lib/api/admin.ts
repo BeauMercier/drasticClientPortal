@@ -38,8 +38,9 @@ export const ProjectStatus = {
 let adminClient: SupabaseClient | null = null;
 
 /**
- * Get the admin client instance
- * Using a singleton pattern for efficiency
+ * Retrieves a singleton instance of the Supabase client configured with the service role key.
+ * This client bypasses Row Level Security (RLS).
+ * @returns {SupabaseClient} The admin Supabase client instance.
  */
 function getAdminClient(): SupabaseClient {
   if (!adminClient) {
@@ -49,7 +50,10 @@ function getAdminClient(): SupabaseClient {
 }
 
 /**
- * Check if the admin client is working properly
+ * Performs a basic check to verify that the admin client can connect to the database.
+ * Attempts to count rows in the 'profiles' table.
+ * @returns {Promise<{ success: boolean; error?: string; count?: number }>} 
+ *          An object indicating success or failure, with an optional error message or row count.
  */
 export const checkAdminClient = async (): Promise<{ success: boolean; error?: string; count?: number }> => {
   try {
@@ -80,7 +84,10 @@ export const checkAdminClient = async (): Promise<{ success: boolean; error?: st
 };
 
 /**
- * List all users with their profile information
+ * Lists all users by combining data from Supabase Auth and the 'profiles' table.
+ * @returns {Promise<Array<object>>} An array of user objects containing combined auth and profile information.
+ *          Shape: { id, email, role, full_name, company, created_at, last_sign_in_at, updated_at }
+ * @throws {Error} If fetching users or profiles fails.
  */
 export const listUsers = async () => {
   const supabase = getAdminClient();
@@ -118,7 +125,15 @@ export const listUsers = async () => {
 };
 
 /**
- * Create a new user with profile
+ * Creates a new user in Supabase Auth and inserts a corresponding record in the 'profiles' table.
+ * @param {object} params - User details.
+ * @param {string} params.email - User's email address.
+ * @param {string} params.password - User's password.
+ * @param {string} params.role - User's role (e.g., 'client', 'designer', 'admin').
+ * @param {string} [params.full_name] - User's full name.
+ * @param {string} [params.company] - User's company name.
+ * @returns {Promise<object>} An object representing the newly created user with combined auth/profile info.
+ * @throws {Error} If creating the auth user or the profile fails.
  */
 export const createUser = async (params: {
   email: string;
@@ -177,7 +192,14 @@ export const createUser = async (params: {
 };
 
 /**
- * Update a user's profile
+ * Updates a user's profile information in the 'profiles' table and their metadata in Supabase Auth.
+ * @param {string} userId - The ID of the user to update.
+ * @param {object} params - Fields to update.
+ * @param {string} [params.role] - New role for the user.
+ * @param {string} [params.full_name] - New full name for the user.
+ * @param {string} [params.company] - New company name for the user.
+ * @returns {Promise<void>}
+ * @throws {Error} If updating the profile or user metadata fails.
  */
 export const updateUser = async (userId: string, params: {
   role?: string;
@@ -228,7 +250,10 @@ export const updateUser = async (userId: string, params: {
 };
 
 /**
- * Delete a user and their profile
+ * Deletes a user from Supabase Auth. Associated profile data should be handled by database triggers or policies.
+ * @param {string} userId - The ID of the user to delete.
+ * @returns {Promise<void>}
+ * @throws {Error} If deleting the user fails.
  */
 export const deleteUser = async (userId: string) => {
   const supabase = getAdminClient();
@@ -244,9 +269,12 @@ export const deleteUser = async (userId: string) => {
 };
 
 /**
- * Get a user's profile
+ * Fetches a specific user's profile from the 'profiles' table.
+ * @param {string} userId - The ID of the user whose profile to fetch.
+ * @returns {Promise<UserProfile | null>} The user's profile data or null if not found.
+ * @throws {Error} If fetching the profile fails.
  */
-export const getUserProfile = async (userId: string) => {
+export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   const supabase = getAdminClient();
   
   const { data, error } = await supabase
@@ -266,27 +294,32 @@ export const getUserProfile = async (userId: string) => {
 };
 
 /**
- * Get designers (users with designer role)
+ * Fetches all users with the 'designer' role from the 'profiles' table.
+ * @returns {Promise<UserProfile[]>} An array of designer profiles.
+ * @throws {Error} If fetching profiles fails.
  */
-export const getDesigners = async () => {
+export const getDesigners = async (): Promise<UserProfile[]> => {
   const supabase = getAdminClient();
   
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name')
+    .select('*')
     .eq('role', UserRole.DESIGNER);
   
   if (error) {
     throw new Error(`Error fetching designers: ${error.message}`);
   }
   
-  return data;
+  return data || [];
 };
 
 /**
- * Helper function to get the correct table name for a project type
+ * Helper function to get the correct project table name based on the project type.
+ * @param {ProjectType | string} projectType - The type of the project (e.g., 'web_design').
+ * @returns {string} The corresponding table name (e.g., 'web_design_projects').
+ * @throws {Error} If the project type is unsupported.
  */
-const getProjectTableName = (projectType: string): string => {
+const getProjectTableName = (projectType: ProjectType | string): string => {
   switch (projectType) {
     case 'web_design': return 'web_design_projects';
     case 'logo_design': return 'logo_design_projects';
@@ -297,12 +330,17 @@ const getProjectTableName = (projectType: string): string => {
 };
 
 /**
- * Assign a designer to a project
+ * Assigns a designer to a specific project by updating the project table.
+ * @param {string} projectId - The ID of the project.
+ * @param {string} designerId - The ID of the designer to assign.
+ * @param {ProjectType | string} projectType - The type of the project.
+ * @returns {Promise<void>}
+ * @throws {Error} If the project type is invalid or the update fails.
  */
 export const assignDesignerToProject = async (
   projectId: string,
   designerId: string,
-  projectType: string
+  projectType: ProjectType | string
 ) => {
   const supabase = getAdminClient();
   const tableName = getProjectTableName(projectType);
@@ -335,11 +373,15 @@ export const assignDesignerToProject = async (
 };
 
 /**
- * Remove a designer from a project
+ * Removes the assigned designer from a specific project by setting designer_id to null.
+ * @param {string} projectId - The ID of the project.
+ * @param {ProjectType | string} projectType - The type of the project.
+ * @returns {Promise<void>}
+ * @throws {Error} If the project type is invalid or the update fails.
  */
 export const removeDesignerFromProject = async (
   projectId: string,
-  projectType: string
+  projectType: ProjectType | string
 ) => {
   const supabase = getAdminClient();
   const tableName = getProjectTableName(projectType);
@@ -360,7 +402,18 @@ export const removeDesignerFromProject = async (
 };
 
 /**
- * Create a designer task
+ * Creates a new task for a designer.
+ * @param {object} taskData - The details of the task.
+ * @param {string} taskData.title - Task title.
+ * @param {string} [taskData.description] - Task description.
+ * @param {string} [taskData.status='todo'] - Task status.
+ * @param {string} [taskData.priority='medium'] - Task priority.
+ * @param {string} [taskData.due_date] - Task due date.
+ * @param {string} taskData.designer_id - ID of the assigned designer.
+ * @param {string} [taskData.project_id] - Optional associated project ID.
+ * @param {ProjectType | string} [taskData.project_type] - Optional associated project type.
+ * @returns {Promise<any>} The newly created task data (TODO: Define specific Task type).
+ * @throws {Error} If inserting the task fails.
  */
 export const createDesignerTask = async (taskData: {
   title: string;
@@ -410,7 +463,16 @@ export const createDesignerTask = async (taskData: {
 };
 
 /**
- * Update a designer task
+ * Updates an existing designer task.
+ * @param {string} taskId - The ID of the task to update.
+ * @param {object} updates - Fields to update.
+ * @param {string} [updates.title] - New title.
+ * @param {string | null} [updates.description] - New description.
+ * @param {string} [updates.status] - New status.
+ * @param {string} [updates.priority] - New priority.
+ * @param {string | null} [updates.due_date] - New due date.
+ * @returns {Promise<any>} The updated task data (TODO: Define specific Task type).
+ * @throws {Error} If updating the task fails.
  */
 export const updateDesignerTask = async (taskId: string, updates: {
   title?: string;
@@ -437,7 +499,10 @@ export const updateDesignerTask = async (taskId: string, updates: {
 };
 
 /**
- * Delete a designer task
+ * Deletes a specific designer task.
+ * @param {string} taskId - The ID of the task to delete.
+ * @returns {Promise<void>}
+ * @throws {Error} If deleting the task fails.
  */
 export const deleteDesignerTask = async (taskId: string) => {
   const supabase = getAdminClient();

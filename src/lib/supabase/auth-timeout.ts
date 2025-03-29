@@ -56,8 +56,9 @@ export const getClientWithTimeout = (role?: string) => {
 
 /**
  * Sets the appropriate cookie expiry time for a user session based on their role
- * @param session The current session object
- * @param role The user's role (admin or client)
+ * @param accessToken The user's access token.
+ * @param refreshToken The user's refresh token.
+ * @param role The user's role (e.g., 'admin', 'client') to determine timeout.
  */
 export const applySessionTimeout = async (accessToken: string, refreshToken: string, role: string) => {
   try {

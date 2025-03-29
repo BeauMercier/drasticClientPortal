@@ -10,7 +10,7 @@ import {
   ProjectListParams,
   ProjectMember
 } from '../types';
-import { supabase } from '../../../shared/services/supabase';
+import { supabase } from '@/lib/api';
 import { useAuth } from '../../../features/auth/hooks/useAuth';
 
 interface UseProjectsReturn {

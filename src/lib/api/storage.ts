@@ -8,29 +8,36 @@
 import { createClient } from './client';
 import { createServiceRoleClient } from './server';
 import { SupabaseClient } from '@supabase/supabase-js';
+// Import Supabase storage types
+import type { FileObject, Bucket } from '@supabase/storage-js'; 
 
 // Default bucket for file storage
 export const FILES_BUCKET = 'project-files';
 
-// Define transform options type for image transformations
+/**
+ * Options for Supabase Storage image transformations.
+ * @see https://supabase.com/docs/guides/storage/image-transformations
+ */
 interface TransformOptions {
   width?: number;
   height?: number;
   quality?: number;
-  format?: 'origin';
+  format?: 'origin'; // Note: Supabase docs mention 'origin', check if others are supported.
 }
 
 /**
- * StorageService class for managing file operations
+ * Provides methods for interacting with Supabase Storage.
+ * Can be instantiated with a regular client (for user operations)
+ * or a service role client (for admin operations like bucket management).
  */
 export class StorageService {
   private client: SupabaseClient;
   private isAdmin: boolean;
 
   /**
-   * Create a new StorageService instance
-   * @param client Optional Supabase client, defaults to the standard client
-   * @param isAdmin Whether this service has admin privileges
+   * Creates a new StorageService instance.
+   * @param {SupabaseClient} [client] - Optional Supabase client. Defaults to the standard client-side client.
+   * @param {boolean} [isAdmin=false] - Indicates if the service instance has admin privileges.
    */
   constructor(client?: SupabaseClient, isAdmin: boolean = false) {
     this.client = client || createClient();
@@ -38,10 +45,11 @@ export class StorageService {
   }
 
   /**
-   * Create a new admin StorageService instance
-   * This should only be used in API routes or server components
+   * Creates a new StorageService instance with admin privileges (using service role client).
+   * This method includes checks to prevent usage in client-side code.
    * 
-   * WARNING: Do not use this method in client components!
+   * **Warning:** Should only be used in server-side code (API routes, server components).
+   * @returns {StorageService} An admin-privileged StorageService instance.
    */
   static createAdminService(): StorageService {
     if (typeof window !== 'undefined') {
@@ -61,168 +69,152 @@ export class StorageService {
   }
 
   /**
-   * Get a storage bucket
-   * @param bucketName The name of the bucket
+   * Gets a reference to a Supabase Storage bucket.
+   * @param {string} bucketName - The name of the bucket.
+   * @returns {ReturnType<SupabaseClient['storage']['from']>} A Supabase storage bucket reference.
    */
   getBucket(bucketName: string) {
     return this.client.storage.from(bucketName);
   }
 
   /**
-   * Create a new storage bucket (admin only)
-   * @param bucketName The name of the bucket to create
-   * @param isPublic Whether the bucket should be public
+   * Creates a new storage bucket. Requires admin privileges.
+   * @param {string} bucketName - The name of the bucket to create.
+   * @param {boolean} [isPublic=false] - Whether the bucket should allow public access.
+   * @returns {Promise<ReturnType<SupabaseClient['storage']['createBucket']>>} The result of the bucket creation operation (inferred type).
+   * @throws {Error} If the service instance does not have admin privileges or if the Supabase API call fails.
    */
   async createBucket(bucketName: string, isPublic: boolean = false) {
     if (!this.isAdmin) {
       throw new Error('Only admin services can create buckets');
     }
-
-    const { data, error } = await this.client.storage.createBucket(bucketName, {
-      public: isPublic,
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
+    // Let return type be inferred from Supabase SDK
+    return this.client.storage.createBucket(bucketName, { public: isPublic });
   }
 
   /**
-   * Delete a storage bucket (admin only)
-   * @param bucketName The name of the bucket to delete
+   * Deletes a storage bucket. Requires admin privileges.
+   * @param {string} bucketName - The name of the bucket to delete.
+   * @returns {Promise<ReturnType<SupabaseClient['storage']['deleteBucket']>>} The result of the bucket deletion operation (inferred type).
+   * @throws {Error} If the service instance does not have admin privileges or if the Supabase API call fails.
    */
   async deleteBucket(bucketName: string) {
     if (!this.isAdmin) {
       throw new Error('Only admin services can delete buckets');
     }
-
-    const { error } = await this.client.storage.deleteBucket(bucketName);
-
-    if (error) {
-      throw error;
-    }
-
-    return true;
+    // Let return type be inferred from Supabase SDK
+    return this.client.storage.deleteBucket(bucketName);
   }
 
   /**
-   * Upload a file to a bucket
-   * @param bucketName The name of the bucket
-   * @param filePath The path to store the file at
-   * @param fileData The file data (File, Blob or ArrayBuffer)
-   * @param options Upload options
+   * Uploads a file to a specified bucket and path.
+   * @param {string} bucketName - The name of the target bucket.
+   * @param {string} filePath - The full path where the file will be stored (e.g., 'folder/subfolder/file.png').
+   * @param {File | Blob | ArrayBuffer} fileData - The file content to upload.
+   * @param {object} [options] - Optional upload parameters.
+   * @param {string} [options.cacheControl='3600'] - Cache control header for the file.
+   * @param {string} [options.contentType] - Mime type of the file. If omitted, Supabase attempts to detect it.
+   * @param {boolean} [options.upsert=false] - If true, replaces the file if it already exists.
+   * @returns {Promise<{ data: { path: string } | null; error: Error | null }>} The result of the upload operation.
+   * @throws {Error} If the Supabase API call fails.
    */
   async uploadFile(bucketName: string, filePath: string, fileData: File | Blob | ArrayBuffer, options?: {
     cacheControl?: string;
     contentType?: string;
     upsert?: boolean;
-  }) {
+  }): Promise<{ data: { path: string } | null; error: Error | null }> {
     const bucket = this.getBucket(bucketName);
-
-    const { data, error } = await bucket.upload(filePath, fileData, {
+    // Use Supabase return type directly
+    return bucket.upload(filePath, fileData, {
       cacheControl: options?.cacheControl || '3600',
       contentType: options?.contentType,
       upsert: options?.upsert || false,
     });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
   }
 
   /**
-   * Download a file from a bucket
-   * @param bucketName The name of the bucket
-   * @param filePath The path of the file
+   * Downloads a file from a bucket.
+   * @param {string} bucketName - The name of the bucket.
+   * @param {string} filePath - The path of the file to download.
+   * @returns {Promise<{ data: Blob | null; error: Error | null }>} The file content as a Blob or an error.
+   * @throws {Error} If the Supabase API call fails.
    */
-  async downloadFile(bucketName: string, filePath: string) {
+  async downloadFile(bucketName: string, filePath: string): Promise<{ data: Blob | null; error: Error | null }> {
     const bucket = this.getBucket(bucketName);
-
-    const { data, error } = await bucket.download(filePath);
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
+    // Use Supabase return type directly
+    return bucket.download(filePath);
   }
 
   /**
-   * Get a public URL for a file
-   * @param bucketName The name of the bucket
-   * @param filePath The path of the file
-   * @param options URL options
+   * Gets the public URL for a file in a bucket.
+   * Note: The bucket must be configured for public access, or this URL won't work without a signed token.
+   * @param {string} bucketName - The name of the bucket.
+   * @param {string} filePath - The path of the file.
+   * @param {object} [options] - URL generation options.
+   * @param {boolean | string} [options.download] - If true, sets Content-Disposition header for download. If string, uses string as filename.
+   * @param {TransformOptions} [options.transform] - Image transformation options.
+   * @returns {string} The public URL for the file.
    */
   getPublicUrl(bucketName: string, filePath: string, options?: {
     download?: boolean | string;
     transform?: TransformOptions;
-  }) {
+  }): string {
     const bucket = this.getBucket(bucketName);
     const { data } = bucket.getPublicUrl(filePath, options);
     return data.publicUrl;
   }
 
   /**
-   * List all files in a bucket or directory
-   * @param bucketName The name of the bucket
-   * @param path Optional path prefix to filter by
+   * Lists files within a specific bucket, optionally filtering by path prefix.
+   * @param {string} bucketName - The name of the bucket.
+   * @param {string} [path] - Optional path prefix to limit the listing (e.g., 'folder/subfolder/').
+   * @returns {Promise<FileObject[]>} An array of file objects.
+   * @throws {Error} If the Supabase API call fails.
    */
-  async listFiles(bucketName: string, path?: string) {
+  async listFiles(bucketName: string, path?: string): Promise<FileObject[]> {
     const bucket = this.getBucket(bucketName);
-
     const { data, error } = await bucket.list(path, {
       sortBy: { column: 'name', order: 'asc' },
     });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
+    if (error) throw error;
+    return data || []; // Ensure array return
   }
 
   /**
-   * Delete files from a bucket
-   * @param bucketName The name of the bucket
-   * @param filePaths Array of file paths to delete
+   * Deletes one or more files from a bucket.
+   * @param {string} bucketName - The name of the bucket.
+   * @param {string[]} filePaths - An array of file paths to delete.
+   * @returns {Promise<{ data: FileObject[] | null; error: Error | null }>} Result containing deleted file info or error.
+   * @throws {Error} If the Supabase API call fails.
    */
-  async deleteFiles(bucketName: string, filePaths: string[]) {
+  async deleteFiles(bucketName: string, filePaths: string[]): Promise<{ data: FileObject[] | null; error: Error | null }> {
     const bucket = this.getBucket(bucketName);
-
-    const { data, error } = await bucket.remove(filePaths);
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
+    // Use Supabase return type directly
+    return bucket.remove(filePaths);
   }
 
   /**
-   * Move a file within a bucket
-   * @param bucketName The name of the bucket
-   * @param fromPath The current file path
-   * @param toPath The destination file path
+   * Moves a file from one path to another within the same bucket.
+   * @param {string} bucketName - The name of the bucket.
+   * @param {string} fromPath - The current path of the file.
+   * @param {string} toPath - The desired new path of the file.
+   * @returns {Promise<{ data: { message: string } | null; error: Error | null }>} Result message or error.
+   * @throws {Error} If the Supabase API call fails.
    */
-  async moveFile(bucketName: string, fromPath: string, toPath: string) {
+  async moveFile(bucketName: string, fromPath: string, toPath: string): Promise<{ data: { message: string } | null; error: Error | null }> {
     const bucket = this.getBucket(bucketName);
-
-    const { data, error } = await bucket.move(fromPath, toPath);
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
+    // Use Supabase return type directly
+    return bucket.move(fromPath, toPath);
   }
 }
 
-// Export a default client-side instance for convenience
-export default new StorageService();
+// Create a default client-side instance
+const storageService = new StorageService();
+
+// Export the instance as default for convenience
+/** Default instance of StorageService for client-side usage. */
+export default storageService;
 
 // Export a function to create an admin service
+/** Factory function to create an admin-privileged StorageService instance (server-side only). */
 export const createAdminStorageService = StorageService.createAdminService; 

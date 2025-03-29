@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { useBilling } from '../hooks/useBilling';
 import { Invoice } from '../types';
 import { Button, Card } from '../../../shared/ui';
-import { MouseEvent } from '../../../shared/types/react';
+import type { MouseEvent } from 'react';
 
 export interface InvoiceListProps {
   invoices: Invoice[];

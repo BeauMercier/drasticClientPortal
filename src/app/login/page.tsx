@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../../lib/supabase/client';
+import supabase from '@/lib/api/client';
 import { Button, Card } from '../../shared/ui';
 
 export default function LoginPage() {
@@ -203,70 +203,54 @@ export default function LoginPage() {
       setDebug('Calling supabase.auth.signInWithPassword...');
       
       // Check if signInWithPassword exists
-      // @ts-expect-error - signInWithPassword might not be available in the type definition
-      if (typeof supabase.auth.signInWithPassword !== 'function') {
-        setDebug('Error: signInWithPassword method not available');
-        setError('Authentication method not available. Please try again later.');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setDebug(`Auth error: ${error.message}`);
+        setError(error.message || 'Invalid email or password');
         setIsLoading(false);
         return;
       }
-      
-      try {
-        // @ts-expect-error - signInWithPassword might not be available in the type definition
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
 
-        if (authError) {
-          setDebug(`Auth error: ${authError.message}`);
-          setError(authError.message || 'Invalid email or password');
+      setDebug(`Login successful, user: ${data.user?.email}`);
+      
+      // Verify token was created properly
+      try {
+        // Verify token creation with another check
+        const { data: sessionCheck, error: sessionError } = await supabase.auth.getUser();
+        
+        if (sessionError) {
+          setDebug(`Session verification error: ${sessionError.message}`);
+          setError('Login succeeded but session verification failed. Please try again.');
           setIsLoading(false);
           return;
         }
-
-        setDebug(`Login successful, user: ${data.user?.email}`);
         
-        // Verify token was created properly
-        try {
-          // Verify token creation with another check
-          const { data: sessionCheck, error: sessionError } = await supabase.auth.getUser();
-          
-          if (sessionError) {
-            setDebug(`Session verification error: ${sessionError.message}`);
-            setError('Login succeeded but session verification failed. Please try again.');
-            setIsLoading(false);
-            return;
-          }
-          
-          if (!sessionCheck.user) {
-            setDebug('Login appeared to succeed but no user is present in session check');
-            setError('Authentication succeeded but session is missing. Please try again.');
-            setIsLoading(false);
-            return;
-          }
-          
-          setDebug(`Session verified successfully with user ID: ${sessionCheck.user.id}`);
-          
-          // Add a small delay before redirecting to allow auth state to update
-          setTimeout(() => {
-            const redirectTo = new URLSearchParams(window.location.search).get('redirectedFrom');
-            if (redirectTo) {
-              router.push(redirectTo);
-            } else {
-              router.push('/dashboard');
-            }
-          }, 500);
-        } catch (verifyError) {
-          setDebug(`Session verification exception: ${verifyError instanceof Error ? verifyError.message : String(verifyError)}`);
-          setError('Login succeeded but verification failed. Please try again later.');
+        if (!sessionCheck.user) {
+          setDebug('Login appeared to succeed but no user is present in session check');
+          setError('Authentication succeeded but session is missing. Please try again.');
           setIsLoading(false);
+          return;
         }
-      } catch (authCallError) {
-        setDebug(`Auth call error: ${authCallError instanceof Error ? authCallError.message : String(authCallError)}`);
-        setError('Authentication method failed. Please try again later.');
+        
+        setDebug(`Session verified successfully with user ID: ${sessionCheck.user.id}`);
+        
+        // Add a small delay before redirecting to allow auth state to update
+        setTimeout(() => {
+          const redirectTo = new URLSearchParams(window.location.search).get('redirectedFrom');
+          if (redirectTo) {
+            router.push(redirectTo);
+          } else {
+            router.push('/dashboard');
+          }
+        }, 500);
+      } catch (verifyError) {
+        setDebug(`Session verification exception: ${verifyError instanceof Error ? verifyError.message : String(verifyError)}`);
+        setError('Login succeeded but verification failed. Please try again later.');
         setIsLoading(false);
-        return;
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

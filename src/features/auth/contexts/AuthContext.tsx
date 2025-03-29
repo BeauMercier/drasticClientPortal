@@ -21,7 +21,7 @@ import {
   updateProfile as updateProfileApi,
   getCurrentSession
 } from '../api';
-import { supabase } from '../../../lib/supabase/client';
+import supabase from '@/lib/api/client';
 import { Session as SupabaseSession } from '@supabase/supabase-js';
 import { getEnv, validateEnv } from '@/lib/env';
 import { handleRefreshTokenError } from '@/lib/supabase/auth-helpers';
@@ -131,7 +131,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Subscribe to auth changes if no environment error
     if (!envError) {
       try {
-        // @ts-expect-error - onAuthStateChange might not be available in the type definition but is available at runtime
         const { data: authListener } = supabase.auth.onAuthStateChange(
           (event: string, newSession: SupabaseSession | null) => {
             console.log(`Auth state changed: ${event}`);

@@ -13,10 +13,11 @@ import {
 } from '../types';
 
 // Import Supabase client from the lib module
-import { supabase } from '../../../lib/supabase/client';
+import supabase from '@/lib/api/client';
 
 // Import session timeout utilities
 import { applySessionTimeout } from '../../../lib/supabase/auth-timeout';
+import { getEnv } from '@/lib/env';
 
 // Simple cache for session data to prevent excessive API calls
 interface SessionCache {
@@ -37,16 +38,16 @@ export async function login(
 ): Promise<AuthResult> {
   try {
     // Use the default client for login
-    // @ts-expect-error - signInWithPassword might not be available in the type definition but is available at runtime
     const { data, error } = await supabase.auth.signInWithPassword({
       email: credentials.email,
       password: credentials.password,
     });
 
     if (error) {
+      console.error('Login error:', error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'Login failed'
       };
     }
 
@@ -108,7 +109,6 @@ export async function login(
 export async function register(data: RegisterData): Promise<AuthResult> {
   try {
     // Use the default client for registration
-    // @ts-expect-error - signUp might not be available in the type definition but is available at runtime
     const { data: authData, error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -122,9 +122,10 @@ export async function register(data: RegisterData): Promise<AuthResult> {
     });
 
     if (error) {
+      console.error('Registration error:', error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'An unexpected error occurred'
       };
     }
 
@@ -166,10 +167,10 @@ export async function logout(): Promise<AuthResult> {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      console.error('Supabase signOut error:', error);
+      console.error('Logout error:', error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'An unexpected error occurred during logout'
       };
     }
 
@@ -225,15 +226,15 @@ export async function logout(): Promise<AuthResult> {
  */
 export async function resetPassword(request: ResetPasswordRequest): Promise<AuthResult> {
   try {
-    // @ts-expect-error - resetPasswordForEmail might not be available in the type definition but is available at runtime
     const { error } = await supabase.auth.resetPasswordForEmail(request.email, {
       redirectTo: `${window.location.origin}/update-password`,
     });
 
     if (error) {
+      console.error('Password reset error:', error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'Failed to send password reset email'
       };
     }
 
@@ -255,7 +256,6 @@ export async function resetPassword(request: ResetPasswordRequest): Promise<Auth
  */
 export async function updatePassword(password: string): Promise<AuthResult> {
   try {
-    // @ts-expect-error - updateUser might not be available in the type definition but is available at runtime
     const { data, error } = await supabase.auth.updateUser({
       password
     });
@@ -292,7 +292,6 @@ export async function updatePassword(password: string): Promise<AuthResult> {
  */
 export async function updateProfile(profile: Partial<User>): Promise<AuthResult> {
   try {
-    // @ts-expect-error - updateUser might not be available in the type definition but is available at runtime
     const { data, error } = await supabase.auth.updateUser({
       data: {
         full_name: profile.full_name,
@@ -301,9 +300,10 @@ export async function updateProfile(profile: Partial<User>): Promise<AuthResult>
     });
 
     if (error) {
+      console.error('Update profile error:', error);
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'Failed to update profile'
       };
     }
 
@@ -364,7 +364,6 @@ export async function getCurrentSession() {
     }
     
     // If no valid cache, make the API call
-    // @ts-expect-error - getSession might not be available in the type definition but is available at runtime
     const { data, error } = await supabase.auth.getSession();
     
     if (error) {
@@ -372,7 +371,7 @@ export async function getCurrentSession() {
       sessionCache = null;
       return {
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'Unknown session error'
       };
     }
     
@@ -398,7 +397,7 @@ export async function getCurrentSession() {
     sessionCache = null;
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to get current session'
+      error: error instanceof Error ? error.message : 'Unknown session error'
     };
   }
 } 

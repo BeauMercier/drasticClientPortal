@@ -6,7 +6,7 @@
  */
 
 import { createBrowserClient } from '@supabase/ssr';
-import { createClient as createServerClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient as supabaseCreateClient, SupabaseClient } from '@supabase/supabase-js';
 import { getEnv } from '@/lib/env';
 
 // Session timeout configuration based on environment variables
@@ -17,7 +17,6 @@ const ADMIN_SESSION_TIMEOUT = env.ADMIN_SESSION_TIMEOUT; // Default 2 hours
 // Client instance singletons
 let browserClientInstance: SupabaseClient | null = null;
 let adminClientInstance: SupabaseClient | null = null;
-let serviceRoleClientInstance: SupabaseClient | null = null;
 
 /**
  * Get Supabase config values with fallbacks
@@ -157,44 +156,6 @@ export const createAdminClient = (): SupabaseClient => {
     return adminClientInstance;
   } catch (e) {
     console.error('Error creating admin Supabase client:', e);
-    return createDummyClient();
-  }
-};
-
-/**
- * Create a Supabase service role client that bypasses RLS policies
- * Will return the existing instance if already created
- */
-export const createServiceRoleClient = (): SupabaseClient => {
-  // Return existing instance if available
-  if (serviceRoleClientInstance) {
-    return serviceRoleClientInstance;
-  }
-  
-  // This should only be used in server components or API routes
-  if (typeof window !== 'undefined') {
-    console.error('Service role client cannot be used in browser environment');
-    return createDummyClient();
-  }
-  
-  try {
-    const { url, serviceKey } = getSupabaseConfig();
-    
-    if (!url || !serviceKey) {
-      console.error('Missing Supabase URL or service role key. Service client creation will fail.');
-      return createDummyClient();
-    }
-    
-    // Create and store new client instance
-    serviceRoleClientInstance = createServerClient(url, serviceKey, {
-      auth: {
-        persistSession: false,
-      }
-    });
-    
-    return serviceRoleClientInstance;
-  } catch (error) {
-    console.error('Error creating Supabase service role client:', error);
     return createDummyClient();
   }
 };

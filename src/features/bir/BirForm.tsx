@@ -117,68 +117,81 @@ export default function BirForm({ projectId }: BirFormProps) {
     }
 
     const onSubmit: SubmitHandler<FormValues> = async (values) => {
+        console.log('--- onSubmit triggered ---');
         setIsSaving(true);
         const method = isUpdateMode ? 'PATCH' : 'POST';
         let payload: any;
-
-        // Use the form values directly for answers, as the schema matches
-        const processedAnswers = values.answers;
-
-        // TODO: Handle file uploads separately - get file refs/paths to include here if needed
-
-        if (isUpdateMode && fetchedBir) {
-            const updatePayload: BirUpdateDTO = {
-                id: fetchedBir.id,
-                answers: processedAnswers,
-            };
-            const validationResult = birUpdateSchema.safeParse(updatePayload);
-            if (!validationResult.success) {
-                // ... (error handling) ...
-                const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
-                    .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
-                    .join('\n');
-                toast({ title: "Validation Error", description: errorMessages || "Invalid data for update.", variant: "destructive" });
-                setIsSaving(false);
-                return;
-            }
-            payload = validationResult.data;
-        } else {
-            const insertPayload = {
-                project_id: values.project_id,
-                client_id: values.client_id, // Will be ignored, but schema expects it
-                project_type: values.project_type,
-                answers: processedAnswers,
-            };
-            const validationResult = birInsertSchema.safeParse(insertPayload);
-            if (!validationResult.success) {
-                // ... (error handling) ...
-                const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
-                    .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
-                    .join('\n');
-                toast({ title: "Validation Error", description: errorMessages || "Invalid data for submission.", variant: "destructive" });
-                 setIsSaving(false);
-                 return;
-            }
-            const { client_id, ...finalPayload } = validationResult.data;
-            payload = finalPayload;
-        }
+        console.log('Method:', method);
 
         try {
-             // ... (API call) ...
+            const processedAnswers = values.answers;
+            console.log('Processed Answers (from form values):', processedAnswers);
+
+            // TODO: Handle file uploads separately - get file refs/paths to include here if needed
+
+            if (isUpdateMode && fetchedBir) {
+                const updatePayload: BirUpdateDTO = {
+                    id: fetchedBir.id,
+                    answers: processedAnswers,
+                };
+                console.log('Payload before PATCH validation:', updatePayload);
+                const validationResult = birUpdateSchema.safeParse(updatePayload);
+                if (!validationResult.success) {
+                    console.error('PATCH Validation failed:', validationResult.error.flatten());
+                    const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
+                        .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
+                        .join('\n');
+                    toast({ title: "Validation Error", description: errorMessages || "Invalid data for update.", variant: "destructive" });
+                    setIsSaving(false);
+                    return;
+                }
+                payload = validationResult.data;
+            } else {
+                const insertPayload = {
+                    project_id: values.project_id,
+                    client_id: values.client_id, // Will be ignored, but schema expects it
+                    project_type: values.project_type,
+                    answers: processedAnswers,
+                };
+                console.log('Payload before POST validation:', insertPayload);
+                const validationResult = birInsertSchema.safeParse(insertPayload);
+                if (!validationResult.success) {
+                    console.error('POST Validation failed:', validationResult.error.flatten());
+                    const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
+                        .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
+                        .join('\n');
+                    toast({ title: "Validation Error", description: errorMessages || "Invalid data for submission.", variant: "destructive" });
+                     setIsSaving(false);
+                     return;
+                }
+                const { client_id, ...finalPayload } = validationResult.data;
+                payload = finalPayload;
+            }
+
+            console.log('Payload validated, attempting fetch...', payload);
+
+            // --- API Call ---
             const res = await fetch('/api/bir', {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-             const result = await res.json();
-             if (!res.ok) throw new Error(result.error || 'Save failed');
+            console.log('Fetch response status:', res.status);
+
+            const result = await res.json();
+            console.log('Fetch response body:', result);
+
+            if (!res.ok) {
+                console.error('API Error Response:', result);
+                throw new Error(result.error || 'Save failed');
+            }
             toast({ title: "Success", description: `Business information ${isUpdateMode ? 'updated' : 'submitted'}.` });
             await mutate();
         } catch (error: any) {
-             // ... (error handling) ...
-            console.error('Save failed:', error);
+            console.error('Error during onSubmit:', error);
             toast({ title: "Error", description: error.message || 'An unexpected error occurred.', variant: "destructive" });
         } finally {
+            console.log('--- onSubmit finished ---');
             setIsSaving(false);
         }
     };

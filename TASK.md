@@ -71,9 +71,10 @@
 - [x] **Validation:** Define Zod schemas in `src/lib/validation/bir.ts` (`birStatusSchema`, `birInsertSchema`, `birUpdateSchema`) and derive DTO types.
 - [ ] **Frontend:** Create data fetching hook `useBir(projectId)` (e.g., using SWR).
 - [ ] **Frontend:** Create mutation hooks `useSaveBir()` (POST/PUT) and `useApproveBir()` (PATCH).
-- [ ] **Frontend:** Create `src/features/bir/BusinessInfoForm.tsx` component (RHF, ShadCN inputs, connect to `useSaveBir`).
+- [x] **Frontend:** Create `src/features/bir/BusinessInfoForm.tsx` component (RHF, ShadCN inputs, basic save logic).
+    *   Updated to reflect new field list. Needs file upload integration.
 - [ ] **Frontend:** Integrate existing file upload component/hook into `BusinessInfoForm.tsx` (passing correct metadata if needed).
-- [ ] **Frontend:** Create `src/features/bir/BusinessInfoSummary.tsx` component (read-only view).
+- [x] **Frontend:** Create `src/features/bir/BusinessInfoSummary.tsx` component (read-only view).
 - [x] **Frontend:** Create `src/features/bir/BusinessInfoGate.tsx` to manage display logic (form vs. summary) based on `useBir` data and user role.
 - [x] **Frontend:** Integrate `BusinessInfoGate` into the **client** web design project detail page component (`src/app/(client)/client/projects/web_design/[id]/page.tsx`).
 - [x] **Frontend:** Integrate `BusinessInfoGate` into the **designer** web design project detail page component (`src/app/(designer)/designer/projects/web_design/[id]/page.tsx`) (Note: Page uses placeholder data fetching).

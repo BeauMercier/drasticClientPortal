@@ -156,7 +156,8 @@ Key API routes for core functionality:
 
 2.  **Types & Validation Schemas:**
     *   Define domain types and enums in `src/lib/types/bir.ts` (e.g., `BirStatus`, `BirRow`, `Bir`, `BirInsert`, `BirUpdate`). Include Supabase generated types.
-    *   Define Zod schemas for runtime validation in `src/lib/validation/bir.ts` (e.g., `birStatusSchema`, `birInsertSchema`, `birUpdateSchema`). Derive DTO types (`BirInsertDTO`, `BirUpdateDTO`).
+    *   **[Updated]** Define Zod schemas for runtime validation in `src/lib/validation/bir.ts` (`birStatusSchema`, `birAnswersSchema`, `birInsertSchema`, `birUpdateSchema`). Derive DTO types.
+        *   **Current Fields:** Official Company Name, Phone, Email, Address, General Email, Website URL, Social Links (FB, IG, Other), Services Description, Company History/Mission, Team Profiles, Certs/Testimonials/Cases, Partnerships, FAQs, Specific Features, Additional Comments. (File uploads handled separately).
 
 3.  **Low-Level Supabase API Helpers:**
     *   **[Completed]** Create data access functions in `src/lib/api/bir.ts` (`fetchBirByProject`, `upsertBir`, `updateBir`).

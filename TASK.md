@@ -74,8 +74,9 @@
 - [ ] **Frontend:** Create `src/features/bir/BusinessInfoForm.tsx` component (RHF, ShadCN inputs, connect to `useSaveBir`).
 - [ ] **Frontend:** Integrate existing file upload component/hook into `BusinessInfoForm.tsx` (passing correct metadata if needed).
 - [ ] **Frontend:** Create `src/features/bir/BusinessInfoSummary.tsx` component (read-only view).
-- [ ] **Frontend:** Create `src/features/bir/BusinessInfoGate.tsx` to manage display logic (form vs. summary) based on `useBir` data and user role.
-- [ ] **Frontend:** Integrate `BusinessInfoGate` into the web design project detail page component (`src/app/(client)/client/projects/web_design/[id]/page.tsx`).
+- [x] **Frontend:** Create `src/features/bir/BusinessInfoGate.tsx` to manage display logic (form vs. summary) based on `useBir` data and user role.
+- [x] **Frontend:** Integrate `BusinessInfoGate` into the **client** web design project detail page component (`src/app/(client)/client/projects/web_design/[id]/page.tsx`).
+- [x] **Frontend:** Integrate `BusinessInfoGate` into the **designer** web design project detail page component (`src/app/(designer)/designer/projects/web_design/[id]/page.tsx`) (Note: Page uses placeholder data fetching).
 - [ ] **QA:** Test the entire flow thoroughly: form display logic, submission, validation, file upload, role-based access (client, designer, admin), mobile responsiveness.
 - [ ] **Documentation:** Update `README.md` or other relevant docs about the new feature.
 - [ ] **Documentation:** Update onboarding guides for clients explaining the new process.

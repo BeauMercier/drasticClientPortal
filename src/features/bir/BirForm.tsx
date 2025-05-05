@@ -3,7 +3,7 @@
 import { useBir } from './useBir';
 import { birInsertSchema, birUpdateSchema, birAnswersSchema, BirAnswersData } from '@/lib/validation/bir';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, FieldErrors } from 'react-hook-form';
 import { z } from 'zod';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { BirRow } from '@/lib/types/bir';
 import { BirUpdateDTO } from '@/lib/validation/bir';
+import { useAuth } from '@/features/auth';
 
 // Type for the form values, matching the insert schema exactly
 type FormValues = z.infer<typeof birInsertSchema>;
@@ -51,32 +52,36 @@ interface BirFormProps {
  * Form for Clients to submit or update their Business Information Request.
  */
 export default function BirForm({ projectId }: BirFormProps) {
-    const { bir: fetchedBir, mutate, isLoading, error } = useBir(projectId);
+    const { bir: fetchedBir, mutate, isLoading: birLoading, error: birError } = useBir(projectId);
+    const { user, isLoading: authLoading } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
     const isUpdateMode = !!fetchedBir;
+    const isLoading = authLoading || birLoading;
 
     const form = useForm<FormValues>({
         resolver: zodResolver(birInsertSchema),
         defaultValues: {
             project_id: projectId,
             project_type: 'web_design',
-            client_id: '', // Server sets this
+            client_id: user?.id || '',
             answers: getDefaultAnswers(),
         },
     });
 
-    // Effect to set form values when BIR data is fetched
+    // Effect to set form values when BIR data is fetched or user loads
     useEffect(() => {
+        if (user?.id && !form.getValues('client_id')) {
+            form.setValue('client_id', user.id);
+        }
+
         if (fetchedBir && isValidAnswersObject(fetchedBir.answers)) {
-            // Merge fetched answers with defaults to ensure all fields are present
             const mergedAnswers = { ...getDefaultAnswers(), ...fetchedBir.answers }; 
             form.reset({
                 project_id: fetchedBir.project_id,
-                client_id: fetchedBir.client_id || '',
+                client_id: user?.id || fetchedBir.client_id || '',
                 project_type: 'web_design',
-                // Ensure all expected answer fields are set, even if null/undefined in DB
                 answers: {
                     official_company_name: mergedAnswers.official_company_name || '',
                     official_company_phone: mergedAnswers.official_company_phone || '',
@@ -86,7 +91,6 @@ export default function BirForm({ projectId }: BirFormProps) {
                     website_url: mergedAnswers.website_url || '',
                     facebook_url: mergedAnswers.facebook_url || '',
                     instagram_url: mergedAnswers.instagram_url || '',
-                    // TODO: Handle array fields like other_social_links appropriately for form display if needed
                     other_social_links: Array.isArray(mergedAnswers.other_social_links) ? mergedAnswers.other_social_links : [],
                     services_description: mergedAnswers.services_description || '',
                     company_history_mission: mergedAnswers.company_history_mission || '',
@@ -98,89 +102,82 @@ export default function BirForm({ projectId }: BirFormProps) {
                     additional_comments: mergedAnswers.additional_comments || '',
                 },
             });
-        } else if (!isLoading && !error && !fetchedBir) {
-            // Reset to default empty form if no BIR exists
+        } else if (!birLoading && !birError && !fetchedBir && user?.id) {
             form.reset({
                 project_id: projectId,
                 project_type: 'web_design',
-                client_id: '',
+                client_id: user.id,
                 answers: getDefaultAnswers(),
             });
         }
-    }, [fetchedBir, projectId, isLoading, error, form]);
+    }, [fetchedBir, projectId, birLoading, birError, user, form]);
 
     if (isLoading) return <p>Loading Business Information Form...</p>;
-    if (error) return <p className="text-red-600">Error loading form: {error.message}</p>;
+    if (birError) return <p className="text-red-600">Error loading form: {birError.message}</p>;
+
+    if (!user) return <p className="text-red-600">Error: User not found. Cannot submit form.</p>;
 
     if (fetchedBir && fetchedBir.status === 'approved') {
         return <p className="text-yellow-600">This request has been approved and cannot be edited.</p>;
     }
 
-    const onSubmit: SubmitHandler<FormValues> = async (values) => {
-        console.log('--- onSubmit triggered ---');
+    const onFormSubmit: SubmitHandler<FormValues> = async (values) => {
+        console.log('--- onFormSubmit triggered (after validation) ---'); 
         setIsSaving(true);
         const method = isUpdateMode ? 'PATCH' : 'POST';
         let payload: any;
-        console.log('Method:', method);
+        const processedAnswers = values.answers;
+        console.log('Processed Answers (from form values):', processedAnswers);
 
-        try {
-            const processedAnswers = values.answers;
-            console.log('Processed Answers (from form values):', processedAnswers);
+        // TODO: Handle file uploads
 
-            // TODO: Handle file uploads separately - get file refs/paths to include here if needed
-
-            if (isUpdateMode && fetchedBir) {
-                const updatePayload: BirUpdateDTO = {
-                    id: fetchedBir.id,
-                    answers: processedAnswers,
-                };
-                console.log('Payload before PATCH validation:', updatePayload);
-                const validationResult = birUpdateSchema.safeParse(updatePayload);
-                if (!validationResult.success) {
-                    console.error('PATCH Validation failed:', validationResult.error.flatten());
-                    const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
-                        .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
-                        .join('\n');
-                    toast({ title: "Validation Error", description: errorMessages || "Invalid data for update.", variant: "destructive" });
-                    setIsSaving(false);
-                    return;
-                }
-                payload = validationResult.data;
-            } else {
-                const insertPayload = {
-                    project_id: values.project_id,
-                    client_id: values.client_id, // Will be ignored, but schema expects it
-                    project_type: values.project_type,
-                    answers: processedAnswers,
-                };
-                console.log('Payload before POST validation:', insertPayload);
-                const validationResult = birInsertSchema.safeParse(insertPayload);
-                if (!validationResult.success) {
-                    console.error('POST Validation failed:', validationResult.error.flatten());
-                    const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
-                        .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
-                        .join('\n');
-                    toast({ title: "Validation Error", description: errorMessages || "Invalid data for submission.", variant: "destructive" });
-                     setIsSaving(false);
-                     return;
-                }
-                const { client_id, ...finalPayload } = validationResult.data;
-                payload = finalPayload;
+        if (isUpdateMode && fetchedBir) {
+            const updatePayload: BirUpdateDTO = {
+                id: fetchedBir.id,
+                answers: processedAnswers,
+            };
+            console.log('Payload before PATCH validation:', updatePayload);
+            const validationResult = birUpdateSchema.safeParse(updatePayload);
+            if (!validationResult.success) {
+                console.error('PATCH Validation failed:', validationResult.error.flatten());
+                const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
+                    .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
+                    .join('\n');
+                toast({ title: "Validation Error", description: errorMessages || "Invalid data for update.", variant: "destructive" });
+                setIsSaving(false);
+                return;
             }
+            payload = validationResult.data;
+        } else {
+            const insertPayload = { ...values }; 
+            console.log('Payload before POST validation (from RHF):', insertPayload);
+            
+            const validationResult = birInsertSchema.safeParse(insertPayload);
+            if (!validationResult.success) {
+                console.error('POST Validation failed (double check):', validationResult.error.flatten());
+                const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
+                    .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
+                    .join('\n');
+                toast({ title: "Validation Error", description: errorMessages || "Invalid data for submission.", variant: "destructive" });
+                 setIsSaving(false);
+                 return;
+            }
+            const { client_id, ...finalPayload } = validationResult.data;
+            payload = finalPayload; 
+        }
 
-            console.log('Payload validated, attempting fetch...', payload);
+        console.log('Payload validated, attempting fetch...', payload);
 
-            // --- API Call ---
+        // --- API Call ---
+        try {
             const res = await fetch('/api/bir', {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
             console.log('Fetch response status:', res.status);
-
             const result = await res.json();
             console.log('Fetch response body:', result);
-
             if (!res.ok) {
                 console.error('API Error Response:', result);
                 throw new Error(result.error || 'Save failed');
@@ -188,17 +185,32 @@ export default function BirForm({ projectId }: BirFormProps) {
             toast({ title: "Success", description: `Business information ${isUpdateMode ? 'updated' : 'submitted'}.` });
             await mutate();
         } catch (error: any) {
-            console.error('Error during onSubmit:', error);
+            console.error('Error during API call:', error);
             toast({ title: "Error", description: error.message || 'An unexpected error occurred.', variant: "destructive" });
         } finally {
-            console.log('--- onSubmit finished ---');
+            console.log('--- onFormSubmit finished ---');
             setIsSaving(false);
         }
     };
 
+    // Error handler for react-hook-form validation failures
+    const onFormError = (errors: FieldErrors<FormValues>) => {
+        console.error('❌ RHF validation errors →', errors);
+        toast({ 
+            title: "Validation Error", 
+            description: "Please check the highlighted fields and correct any errors.", 
+            variant: "destructive"
+        });
+    };
+
     return (
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
+        <form onSubmit={form.handleSubmit(onFormSubmit, onFormError)} className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
             <h3 className="text-xl font-semibold mb-6">Business Information Request</h3>
+
+            {/* Hidden fields for required IDs */}
+            <input type="hidden" {...form.register('project_id')} value={projectId} />
+            <input type="hidden" {...form.register('client_id')} value={user.id} />
+             {/* project_type is implicitly set by schema/defaultValues */}
 
             {/* Global form error display */}
             {form.formState.errors.root?.message && (
@@ -272,7 +284,6 @@ export default function BirForm({ projectId }: BirFormProps) {
                         id="other_social_links" 
                         {...form.register('answers.other_social_links', { 
                             setValueAs: (v) => typeof v === 'string' ? v.split('\n').map(s => s.trim()).filter(Boolean) : [],
-                            // value: Array.isArray(form.getValues('answers.other_social_links')) ? form.getValues('answers.other_social_links').join('\n') : '' 
                          })}
                         rows={3}
                         placeholder="https://linkedin.com/company/...
@@ -280,7 +291,6 @@ https://twitter.com/..."
                         disabled={isSaving || isLoading} 
                     />
                     {form.formState.errors.answers?.other_social_links && <p className="text-sm text-destructive pt-1">Please enter valid URLs, one per line.</p>} 
-                    {/* Custom message as default array error might not be helpful */} 
                  </div>
              </fieldset>
 

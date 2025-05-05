@@ -122,73 +122,62 @@ export default function BirForm({ projectId }: BirFormProps) {
     }
 
     const onFormSubmit: SubmitHandler<FormValues> = async (values) => {
-        console.log('--- onFormSubmit triggered (after validation) ---'); 
         setIsSaving(true);
         const method = isUpdateMode ? 'PATCH' : 'POST';
         let payload: any;
-        const processedAnswers = values.answers;
-        console.log('Processed Answers (from form values):', processedAnswers);
 
-        // TODO: Handle file uploads
+        try { 
+            const processedAnswers = values.answers;
 
-        if (isUpdateMode && fetchedBir) {
-            const updatePayload: BirUpdateDTO = {
-                id: fetchedBir.id,
-                answers: processedAnswers,
-            };
-            console.log('Payload before PATCH validation:', updatePayload);
-            const validationResult = birUpdateSchema.safeParse(updatePayload);
-            if (!validationResult.success) {
-                console.error('PATCH Validation failed:', validationResult.error.flatten());
-                const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
-                    .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
-                    .join('\n');
-                toast({ title: "Validation Error", description: errorMessages || "Invalid data for update.", variant: "destructive" });
-                setIsSaving(false);
-                return;
+            // TODO: Handle file uploads
+
+            if (isUpdateMode && fetchedBir) {
+                const updatePayload: BirUpdateDTO = {
+                    id: fetchedBir.id,
+                    answers: processedAnswers,
+                };
+                const validationResult = birUpdateSchema.safeParse(updatePayload);
+                if (!validationResult.success) {
+                    const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
+                        .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
+                        .join('\n');
+                    toast({ title: "Validation Error", description: errorMessages || "Invalid data for update.", variant: "destructive" });
+                    setIsSaving(false);
+                    return;
+                }
+                payload = validationResult.data;
+            } else {
+                const insertPayload = { ...values }; 
+                const validationResult = birInsertSchema.safeParse(insertPayload);
+                if (!validationResult.success) {
+                    const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
+                        .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
+                        .join('\n');
+                    toast({ title: "Validation Error", description: errorMessages || "Invalid data for submission.", variant: "destructive" });
+                     setIsSaving(false);
+                     return;
+                }
+                const { client_id, ...finalPayload } = validationResult.data;
+                payload = finalPayload; 
             }
-            payload = validationResult.data;
-        } else {
-            const insertPayload = { ...values }; 
-            console.log('Payload before POST validation (from RHF):', insertPayload);
-            
-            const validationResult = birInsertSchema.safeParse(insertPayload);
-            if (!validationResult.success) {
-                console.error('POST Validation failed (double check):', validationResult.error.flatten());
-                const errorMessages = Object.entries(validationResult.error.flatten().fieldErrors)
-                    .map(([field, messages]) => `${field}: ${messages?.join(', ') || 'Invalid'}`)
-                    .join('\n');
-                toast({ title: "Validation Error", description: errorMessages || "Invalid data for submission.", variant: "destructive" });
-                 setIsSaving(false);
-                 return;
-            }
-            const { client_id, ...finalPayload } = validationResult.data;
-            payload = finalPayload; 
-        }
 
-        console.log('Payload validated, attempting fetch...', payload);
-
-        // --- API Call ---
-        try {
+            // --- API Call ---
             const res = await fetch('/api/bir', {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-            console.log('Fetch response status:', res.status);
+
             const result = await res.json();
-            console.log('Fetch response body:', result);
+
             if (!res.ok) {
-                console.error('API Error Response:', result);
                 throw new Error(result.error || 'Save failed');
             }
             toast({ title: "Success", description: `Business information ${isUpdateMode ? 'updated' : 'submitted'}.` });
             await mutate();
         } catch (error: any) {
-            console.error('Error during API call:', error);
             toast({ title: "Error", description: error.message || 'An unexpected error occurred.', variant: "destructive" });
         } finally {
-            console.log('--- onFormSubmit finished ---');
             setIsSaving(false);
         }
     };
@@ -196,11 +185,11 @@ export default function BirForm({ projectId }: BirFormProps) {
     // Error handler for react-hook-form validation failures
     const onFormError = (errors: FieldErrors<FormValues>) => {
         console.error('❌ RHF validation errors →', errors);
-        toast({ 
-            title: "Validation Error", 
-            description: "Please check the highlighted fields and correct any errors.", 
-            variant: "destructive"
-        });
+         toast({ 
+             title: "Validation Error", 
+             description: "Please check the highlighted fields and correct any errors.", 
+             variant: "destructive"
+         });
     };
 
     return (

@@ -1,8 +1,18 @@
 /**
- * Supabase Client Module
- * 
- * This module provides a standardized interface for interacting with Supabase.
- * It implements the singleton pattern to ensure only one client instance exists.
+ * Supabase Client Initialization for Browser Environments.
+ *
+ * This module initializes and exports a singleton Supabase client instance
+ * suitable for use in browser contexts (React components, etc.).
+ *
+ * It utilizes `@supabase/ssr`'s `createBrowserClient` to handle session management
+ * (persistence, refresh tokens) automatically via cookies, making it integrate
+ * seamlessly with Next.js SSR/CSR.
+ *
+ * Environment variables are used for configuration:
+ * - NEXT_PUBLIC_SUPABASE_URL: The project URL.
+ * - NEXT_PUBLIC_SUPABASE_ANON_KEY: The public anonymous key (never the service role key).
+ * - DEFAULT_SESSION_TIMEOUT: Session duration for regular users.
+ * - ADMIN_SESSION_TIMEOUT: Session duration for admin users (if createAdminClient is used).
  */
 
 import { createBrowserClient } from '@supabase/ssr';

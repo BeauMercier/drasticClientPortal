@@ -56,27 +56,30 @@ const FileList: React.FC<FileListProps> = ({
     return imageExtensions.includes(ext);
   }, []);
 
-  // Load initial files only once on mount with the initialFolder prop
+  // Load initial files only once on mount or when initialFolder changes
   useEffect(() => {
     let isMounted = true;
     
+    console.log('[FileList useEffect] Running initial load effect. initialFolder:', initialFolder);
+
     const loadInitialFiles = async () => {
-      if (initialFolder !== localFolderPath || files.length === 0) {
-        setIsLocalLoading(true);
-        try {
-          await loadFiles(initialFolder);
-          if (isMounted) {
-            setLocalFolderPath(initialFolder);
-            selectFile(null);
-          }
-        } catch (error) {
-          if (isMounted) {
-            console.error('Error loading files:', error);
-          }
-        } finally {
-          if (isMounted) {
-            setIsLocalLoading(false);
-          }
+      // We might still need localFolderPath if we allow navigation *within* FileList itself
+      // Let's simplify the condition for now to load whenever initialFolder is set
+      // or if the component mounts and hasn't loaded yet.
+      setIsLocalLoading(true);
+      try {
+        await loadFiles(initialFolder);
+        if (isMounted) {
+          setLocalFolderPath(initialFolder); // Sync local state if needed
+          // selectFile(null); // Avoid calling selectFile here if it causes issues
+        }
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error loading initial files:', error);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLocalLoading(false);
         }
       }
     };
@@ -86,7 +89,8 @@ const FileList: React.FC<FileListProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [initialFolder, localFolderPath, files.length, loadFiles, selectFile]);
+  // *** DEPENDENCIES CHANGED: Only depend on initialFolder and the stable loadFiles reference ***
+  }, [initialFolder, loadFiles]); // Removed localFolderPath, files.length, selectFile
 
   // Load preview URLs for images when files change
   useEffect(() => {
@@ -96,24 +100,38 @@ const FileList: React.FC<FileListProps> = ({
       
       if (urlsToFetch.length === 0) return;
       
-      const newUrls: Record<string, string> = { ...previewUrls };
+      // Start with a copy IF we are going to modify it
+      let newUrls: Record<string, string> | null = null; 
+      let addedNewUrl = false; // Flag to track if we actually added anything
       
       for (const file of urlsToFetch) {
         try {
           const { data } = await fetch(`/api/files/url?path=${encodeURIComponent(file.fullPath)}`).then(res => res.json());
-          if (data?.signedUrl) {
-            newUrls[file.id] = data.signedUrl;
+          if (data?.url) { // Check the correct property returned by the API
+            // Initialize newUrls only when we have the first URL to add
+            if (!newUrls) {
+              newUrls = { ...previewUrls }; // Create copy only when needed
+            }
+            newUrls[file.id] = data.url; // Assign the signed URL
+            addedNewUrl = true; // Mark that we added a URL
           }
         } catch (error) {
           console.error(`Failed to get preview URL for ${file.name}:`, error);
         }
       }
       
-      setPreviewUrls(newUrls);
+      // Only update state if we actually added a new URL
+      if (addedNewUrl && newUrls) {
+        console.log('[FileList loadPreviewUrls] Updating previewUrls state.');
+        setPreviewUrls(newUrls);
+      } else {
+        console.log('[FileList loadPreviewUrls] No new preview URLs fetched or added, skipping state update.');
+      }
     };
     
     loadPreviewUrls();
-  }, [files, previewUrls, isImage]);
+  // *** DEPENDENCIES CHANGED: Ensure isImage is stable (it uses useCallback) ***
+  }, [files, previewUrls, isImage]); // Keep files dependency, ensure isImage is stable
 
   // Handle file selection
   const handleFileSelect = useCallback((file: FileObject) => {
@@ -169,45 +187,53 @@ const FileList: React.FC<FileListProps> = ({
 
   // Download file functionality
   const downloadFile = useCallback(async (file: FileObject) => {
+    if (!file || !file.fullPath) {
+       alert('Cannot download: File path is missing.');
+       return;
+    }
     try {
-      // Get file URL from Supabase with auth token and force download parameter
+      // Get file URL from Supabase via our API route
       const urlResponse = await fetch(`/api/files/url?path=${encodeURIComponent(file.fullPath)}&download=true`);
       
       if (!urlResponse.ok) {
-        const errorData = await urlResponse.json();
-        throw new Error(errorData.error || `Failed to get file URL: ${urlResponse.statusText}`);
+        const errorData = await urlResponse.json().catch(() => ({ error: "Failed to parse error response" }));
+        throw new Error(errorData.error || `Failed to get download URL: ${urlResponse.statusText}`);
       }
       
-      const { data } = await urlResponse.json();
+      // *** CHANGE EXPECTED STRUCTURE HERE ***
+      const responseData = await urlResponse.json(); 
+      console.log('[FileList downloadFile] Raw response data from API:', responseData);
+
+      // Expect { url: "..." } directly from the API route
+      const signedUrl = responseData?.url; 
+      console.log('[FileList downloadFile] Extracted signedUrl:', signedUrl);
       
-      if (!data || !data.signedUrl) {
-        throw new Error('Could not get file URL');
+      if (!signedUrl || typeof signedUrl !== 'string') { // Check if it's a non-empty string
+        throw new Error('Could not get valid file URL from API response'); // Updated error
       }
       
-      console.log('Got download URL:', data.signedUrl);
+      console.log('Got download URL:', signedUrl);
       
-      // Fetch the file contents as a blob
-      const fileResponse = await fetch(data.signedUrl);
-      const blob = await fileResponse.blob();
-      
-      // Create a blob URL and use it for download
-      const blobUrl = window.URL.createObjectURL(blob);
+      // Trigger download using the signed URL
       const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = file.name || data.fileName || 'download';
+      link.href = signedUrl;
+      link.download = file.name || 'download'; // Use original file name
       document.body.appendChild(link);
       link.click();
       
       // Clean up
       setTimeout(() => {
         document.body.removeChild(link);
-        window.URL.revokeObjectURL(blobUrl);
       }, 100);
+      
+      alert(`Download started for ${file.name}.`); // Use alert or toast
+
     } catch (error) {
       console.error('Error downloading file:', error);
       alert('Failed to download file: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
-  }, []);
+    // Removed the finally block setting download state as it wasn't used
+  }, []); // Dependencies removed as it doesn't rely on component state directly
 
   // Preview file
   const previewFileHandler = useCallback((file: FileObject) => {

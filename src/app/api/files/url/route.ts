@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
     const filePath = url.searchParams.get('path');
     const forceDownload = url.searchParams.get('download') === 'true';
 
+    console.log(`[API /files/url] Received request for filePath: ${filePath}`);
+
     if (!filePath) {
       return NextResponse.json(
         { error: 'Missing file path parameter' },
@@ -38,10 +40,14 @@ export async function GET(req: NextRequest) {
     // Set download option based on parameter
     const options = forceDownload ? { download: true } : undefined;
     
+    console.log(`[API /files/url] Attempting to create signed URL for path: ${filePath} in bucket: ${FILES_BUCKET}`);
+    
     const { data, error } = await serviceClient
       .storage
       .from(FILES_BUCKET)
       .createSignedUrl(filePath, 60, options);
+
+    console.log('[API /files/url] Signed URL result:', { data, error });
 
     if (error) {
       console.error('Error creating signed URL:', error.message);
@@ -51,7 +57,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ url: data.signedUrl });
+    if (!data || !data.signedUrl) {
+       console.error('[API /files/url] createSignedUrl succeeded but data or signedUrl is missing', { data });
+       throw new Error('Could not get file URL');
+    }
+
+    const responsePayload = { url: data.signedUrl };
+    
+    console.log('[API /files/url] Returning JSON payload:', responsePayload);
+
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error('Error generating file URL:', error);
     return NextResponse.json(

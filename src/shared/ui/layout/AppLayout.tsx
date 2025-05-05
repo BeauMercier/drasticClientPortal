@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Sidebar from './Sidebar';
+// import Sidebar from './Sidebar';
 import Header from './Header';
 import { useUI } from '../../contexts/UIContext';
 
@@ -36,24 +36,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!mounted) {
     return (
       <div className="w-full min-h-screen bg-gray-100">
-        <div className="w-16 h-screen bg-black fixed top-0 left-0"></div>
-        <div className="pl-16 w-full min-h-screen transition-all duration-300">
-          {children}
-        </div>
+        {/* Basic loading or placeholder */} 
+        {children}
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-screen bg-gray-100 dark:bg-black">
-      <Sidebar />
-      <div 
-        className={`transition-all duration-300 ${
-          sidebarExpanded ? 'pl-64' : 'pl-16'
-        } w-full h-screen flex flex-col bg-gray-100 dark:bg-black`}
-      >
+    <div className="w-full min-h-screen flex flex-col bg-gray-100 dark:bg-black">
+      <div className="w-full h-screen flex flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto pt-20 bg-gray-100 dark:bg-black">
+        <main className="flex-1 overflow-y-auto pt-20">
           {children}
         </main>
       </div>

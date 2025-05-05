@@ -17,7 +17,8 @@ export function PasswordResetForm({ onSuccess, redirectUrl }: PasswordResetFormP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setSuccessMessage(null);
+
     const data: ResetPasswordRequest = {
       email
     };

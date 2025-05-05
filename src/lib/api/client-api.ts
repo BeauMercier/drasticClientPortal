@@ -251,40 +251,65 @@ export const getLogoDesignProject = async (projectId: string) => {
 export const getDesignerAssignedProjects = async () => {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   if (!user) throw new Error('Not authenticated');
-  
-  // Get web design projects
-  const { data: webProjects, error: webError } = await supabase
-    .from('web_design_projects')
-    .select('*, profiles:user_id(full_name)')
+
+  // 1. Fetch all assignments for the current designer
+  const { data: assignments, error: assignmentsError } = await supabase
+    .from('project_assignments')
+    .select('project_id, project_type') // Only fetch needed fields
     .eq('designer_id', user.id);
-  
-  if (webError) throw webError;
-  
-  // Get logo design projects
-  const { data: logoProjects, error: logoError } = await supabase
-    .from('logo_design_projects')
-    .select('*, profiles:user_id(full_name)')
-    .eq('designer_id', user.id);
-  
-  if (logoError) throw logoError;
-  
-  // Get social graphics projects
-  const { data: socialProjects, error: socialError } = await supabase
-    .from('social_graphics_projects')
-    .select('*, profiles:user_id(full_name)')
-    .eq('designer_id', user.id);
-  
-  if (socialError) throw socialError;
-  
-  // Combine all projects with project type
-  const allProjects = [
-    ...webProjects.map(p => ({ ...p, project_type: 'web_design' })),
-    ...logoProjects.map(p => ({ ...p, project_type: 'logo_design' })),
-    ...socialProjects.map(p => ({ ...p, project_type: 'social_graphics' }))
-  ];
-  
+
+  if (assignmentsError) {
+    console.error('Error fetching project assignments:', assignmentsError);
+    throw assignmentsError;
+  }
+
+  if (!assignments || assignments.length === 0) {
+    return []; // No assignments found
+  }
+
+  // 2. Group assignment IDs by project type
+  const projectIdsByType: { [key: string]: string[] } = {};
+  assignments.forEach(assignment => {
+    if (!projectIdsByType[assignment.project_type]) {
+      projectIdsByType[assignment.project_type] = [];
+    }
+    projectIdsByType[assignment.project_type].push(assignment.project_id);
+  });
+
+  // 3. Fetch projects for each type using the collected IDs
+  const allProjectsPromises = Object.entries(projectIdsByType).map(async ([type, ids]) => {
+    let tableName: string;
+    switch (type) {
+      case 'web_design': tableName = 'web_design_projects'; break;
+      case 'logo_design': tableName = 'logo_design_projects'; break;
+      case 'social_graphics': tableName = 'social_graphics_projects'; break;
+      default:
+        console.warn(`Skipping unknown project type: ${type}`);
+        return []; // Skip unknown types
+    }
+
+    // Fetch projects of this type where ID is in the list
+    const { data: projects, error } = await supabase
+      .from(tableName)
+      .select('*, profiles:user_id(full_name)') // Select project details and owner name
+      .in('id', ids);
+
+    if (error) {
+      console.error(`Error fetching projects of type ${type}:`, error);
+      // Depending on desired behavior, you might throw, return partial data, or return empty
+      return [];
+    }
+
+    // Add project_type to each project object
+    return projects ? projects.map(p => ({ ...p, project_type: type })) : [];
+  });
+
+  // 4. Wait for all fetches to complete and flatten the results
+  const results = await Promise.all(allProjectsPromises);
+  const allProjects = results.flat();
+
   return allProjects;
 };
 
@@ -546,62 +571,99 @@ export const deleteProjectNote = async (noteId: string): Promise<boolean> => {
  */
 export const getDesignerTasks = async (userId?: string) => {
   const supabase = createClient();
-  
-  // If userId not provided, use current user
-  let designerId = userId;
-  if (!designerId) {
+
+  // Determine the designer ID to fetch tasks for
+  let designerIdToFetch = userId;
+  if (!designerIdToFetch) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
-    designerId = user.id;
+    designerIdToFetch = user.id;
   }
-  
-  const { data, error } = await supabase
+
+  // 1. Fetch base task details for the designer
+  const { data: tasks, error: tasksError } = await supabase
     .from('designer_tasks')
-    .select(`
-      *,
-      web_design_projects: project_id(
-        id, title
-      ),
-      logo_design_projects: project_id(
-        id, title
-      ),
-      social_graphics_projects: project_id(
-        id, title
-      )
-    `)
-    .eq('designer_id', designerId)
+    .select('*') // Select all base columns
+    .eq('designer_id', designerIdToFetch)
     .order('due_date', { ascending: true, nullsFirst: false });
-  
-  if (error) throw error;
-  
-  // Process data to create a project field
-  return data.map(task => {
-    let project = null;
+
+  if (tasksError) {
+    console.error('Error fetching designer tasks:', tasksError);
+    throw tasksError;
+  }
+
+  if (!tasks || tasks.length === 0) {
+    return []; // No tasks found
+  }
+
+  // 2. Group project IDs by type from the fetched tasks
+  const projectIdsByType: { [key: string]: string[] } = {};
+  tasks.forEach(task => {
+    // Only consider tasks with both project_id and project_type
     if (task.project_id && task.project_type) {
-      switch (task.project_type) {
-        case 'web_design':
-          project = task.web_design_projects;
-          break;
-        case 'logo_design':
-          project = task.logo_design_projects;
-          break;
-        case 'social_graphics':
-          project = task.social_graphics_projects;
-          break;
+      if (!projectIdsByType[task.project_type]) {
+        projectIdsByType[task.project_type] = [];
+      }
+      // Add project_id only if it's not already included for this type
+      if (!projectIdsByType[task.project_type].includes(task.project_id)) {
+        projectIdsByType[task.project_type].push(task.project_id);
       }
     }
+  });
+
+  // 3. Fetch project details (id, title) for each type using the collected IDs
+  const projectDetailsMap = new Map<string, { id: string; title: string }>();
+
+  const fetchProjectDetailsPromises = Object.entries(projectIdsByType).map(async ([type, ids]) => {
+    if (ids.length === 0) return; // Skip if no IDs for this type
+
+    let tableName: string;
+    switch (type) {
+      case 'web_design': tableName = 'web_design_projects'; break;
+      case 'logo_design': tableName = 'logo_design_projects'; break;
+      case 'social_graphics': tableName = 'social_graphics_projects'; break;
+      default:
+        console.warn(`Skipping project fetch for unknown type: ${type}`);
+        return; // Skip unknown types
+    }
+
+    const { data: projects, error } = await supabase
+      .from(tableName)
+      .select('id, title') // Only fetch id and title
+      .in('id', ids);
+
+    if (error) {
+      console.error(`Error fetching project details for type ${type}:`, error);
+      // Continue without details for this type
+      return;
+    }
+
+    // Populate the map with fetched project details
+    projects?.forEach(p => {
+      if (p.id) { // Ensure project has an id
+        projectDetailsMap.set(p.id, { id: p.id, title: p.title || 'Untitled Project' });
+      }
+    });
+  });
+
+  // Wait for all project detail fetches to complete
+  await Promise.all(fetchProjectDetailsPromises);
+
+  // 4. Map tasks to their final structure, attaching project details from the map
+  const finalTasks = tasks.map(task => {
+    let projectInfo = null;
+    if (task.project_id) {
+      projectInfo = projectDetailsMap.get(task.project_id) || null;
+    }
     
-    // Create a clean task object without the join fields
-    const cleanTask = { ...task };
-    delete cleanTask.web_design_projects;
-    delete cleanTask.logo_design_projects;
-    delete cleanTask.social_graphics_projects;
-    
+    // Return the task with the embedded project title (if found)
     return {
-      ...cleanTask,
-      project
+      ...task,
+      project: projectInfo, // Attach the fetched { id, title } object or null
     };
   });
+
+  return finalTasks;
 };
 
 /**

@@ -3,7 +3,6 @@ import React from 'react';
 import { ToastProvider } from '@/components/ui/use-toast';
 import { AuthProvider } from '../features/auth';
 import UIProvider from '../shared/contexts/UIContext';
-import AppLayout from '../shared/ui/layout/AppLayout';
 import { reportEnvValidation } from '@/lib/env';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import EnvFallback from '@/components/EnvFallback';
@@ -26,16 +25,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-gray-100 dark:bg-black">
+    <html lang="en" className="dark h-full">
+      <body className="h-full">
         <ToastProvider>
           <UIProvider>
             <AuthProvider>
               <ErrorBoundary>
                 <EnvFallback />
-                <AppLayout>
-                  {children}
-                </AppLayout>
+                {children}
               </ErrorBoundary>
             </AuthProvider>
           </UIProvider>

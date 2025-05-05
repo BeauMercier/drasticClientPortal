@@ -23,9 +23,10 @@ export * from './project';
 export * from './task';
 export * from './file';
 export * from './billing';
-
-// Export common utilities
+export * from './support';
 export * from './common';
+// export * from './api'; // Removed: Causes duplicate exports (ApiResponse, ProjectStatus, etc.)
+export * from './bir';
 
 // Re-export database types for convenience
 export type { Database } from '@/lib/database.types'; 

@@ -42,41 +42,74 @@ import { createApiClient, requireAuth } from '@/lib/api/server-utils';
 
 // Client-safe imports also work in server components
 import { createServiceRoleClient } from '@/lib/api/server';
+
+// Specific data access helpers (can be used server-side)
+import { fetchSomeAdminData } from '@/lib/api/admin';
+import { fetchBirByProject } from '@/lib/api/bir'; // Example for BIR feature
+```
+
+## Data Access Helper Pattern
+
+For interacting with specific database tables or logical data domains (like Projects, Users, Files, Business Information Requests), we create dedicated helper files within `src/lib/api/`:
+
+- **Example:** `src/lib/api/admin.ts`, `src/lib/api/bir.ts`
+- **Purpose:** Encapsulate Supabase client calls (`createClient` or `createServiceRoleClient` depending on needs) and specific queries/mutations related to that data domain.
+- **Usage:** These helper functions are typically called from API routes (`src/app/api/...`) or server components.
+- **Benefits:** Centralizes data logic, promotes reusability, separates data access concerns from API route handling.
+
+```typescript
+// Example: src/lib/api/bir.ts
+import { createClient } from '@/lib/supabase/server'; // Use server client for RLS
+import { birInsertSchema } from '@/lib/validation/bir';
+
+export async function fetchBirByProject(projectId: string) {
+  const supabase = createClient(); // RLS is enforced
+  // ... Supabase query ...
+}
+
+export async function upsertBir(payload: unknown) {
+  const parsed = birInsertSchema.parse(payload);
+  const supabase = createClient();
+  // ... Supabase upsert ...
+}
 ```
 
 ## API Routes Pattern
 
-For API routes, follow this pattern:
+API routes in `src/app/api/...` handle incoming HTTP requests, perform authentication/authorization, validate input (often using Zod schemas), call the relevant data access helper functions, and return JSON responses.
+
+**Example Routes:** `/api/admin/users`, `/api/projects/files/upload`, `/api/bir`
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { createApiClient, requireAuth } from '@/lib/api/server-utils';
-import { createServiceRoleClient } from '@/lib/api/server';
+// Example: src/app/api/bir/route.ts
+import { NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/api/auth-helpers'; // Assuming this exists
+import { fetchBirByProject, upsertBir } from '@/lib/api/bir'; // Use helpers
+import { birInsertSchema } from '@/lib/validation/bir'; // Use validation
 
-export async function GET(request: NextRequest) {
+export async function GET(req: Request) {
+  const { user } = await requireAuth(req);
+  const { searchParams } = new URL(req.url);
+  const projectId = searchParams.get('projectId');
+  // ... validation ...
   try {
-    // Check authentication
-    const authResult = await requireAuth();
-    
-    if (!authResult.authenticated) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-    
-    // Get data using the API client
-    const supabase = createApiClient();
-    
-    // Rest of the API logic...
-    
-    return NextResponse.json({ success: true, data });
-  } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process request' },
-      { status: 500 }
-    );
+    const bir = await fetchBirByProject(projectId!);
+    return NextResponse.json(bir);
+  } catch (e: any) {
+    // ... error handling ...
+  }
+}
+
+export async function POST(req: Request) {
+  const { user } = await requireAuth(req);
+  const body = await req.json();
+  try {
+    // Use Zod schema directly or within the helper
+    // const validatedData = birInsertSchema.parse(body);
+    const bir = await upsertBir(body); // Helper handles validation
+    return NextResponse.json(bir, { status: 201 });
+  } catch (e: any) {
+    // ... error handling ...
   }
 }
 ```

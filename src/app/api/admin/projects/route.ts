@@ -62,59 +62,69 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
-    // Explicitly cast type to ProjectType or null
     const type = searchParams.get('type') as ProjectType | null;
     const status = searchParams.get('status');
     const userId = searchParams.get('userId');
 
     const adminClient = createAdminClient();
+    const selectQuery = 'id, user_id, title, description, status, deadline, created_at, updated_at, client:user_id (id, full_name, email, company)';
+
+    let allProjects: (AdminProjectListItem & { type: ProjectType })[] = [];
+
+    // Helper function to fetch and map data
+    const fetchAndMap = async (
+      tableName: string,
+      projectType: ProjectType,
+      client: SupabaseClient
+    ): Promise<(AdminProjectListItem & { type: ProjectType })[]> => {
+      let query = client
+        .from(tableName)
+        .select(selectQuery);
+        
+      if (status && status !== 'all') query = query.eq('status', status);
+      if (userId) query = query.eq('user_id', userId);
+      
+      const { data, error } = await query as PostgrestResponse<AdminProjectListItem>;
+      
+      if (error) {
+        console.error(`Error fetching ${tableName}:`, error);
+        throw new Error(`Failed to fetch ${tableName}`);
+      }
+      
+      // Add the type to each project and ensure client is an object
+      return (data || []).map(p => ({
+        ...p,
+        client: p.profiles, // Rename profiles to client for consistency
+        type: projectType
+      }));
+    };
+
+    if (type) {
+      // Fetch only the specified type
+      allProjects = await fetchAndMap(type === 'web_design' ? 'web_design_projects' :
+                                     type === 'logo_design' ? 'logo_design_projects' :
+                                     'social_graphics_projects', type, adminClient);
+    } else {
+      // Fetch all types if no specific type is requested
+      const webPromise = fetchAndMap('web_design_projects', 'web_design', adminClient);
+      const logoPromise = fetchAndMap('logo_design_projects', 'logo_design', adminClient);
+      const socialPromise = fetchAndMap('social_graphics_projects', 'social_graphics', adminClient);
+      
+      const results = await Promise.all([webPromise, logoPromise, socialPromise]);
+      allProjects = results.flat(); // Combine results from all types
+    }
     
-    let queryResponse: PostgrestResponse<AdminProjectListItem>;
-    const selectQuery = '*, profiles:user_id(full_name)';
+    // Sort projects by creation date, newest first
+    // Handle potential null created_at dates by defaulting to epoch 0
+    allProjects.sort((a, b) => 
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
 
-    // Use switch to handle different project types and apply correct typing
-    switch (type) {
-      case 'logo_design':
-        let logoQuery = adminClient
-          .from('logo_design_projects')
-          .select(selectQuery);
-        if (status) logoQuery = logoQuery.eq('status', status);
-        if (userId) logoQuery = logoQuery.eq('user_id', userId);
-        queryResponse = await logoQuery as PostgrestResponse<AdminProjectListItem>; // Assert final type
-        break;
-
-      case 'social_graphics':
-        let socialQuery = adminClient
-          .from('social_graphics_projects')
-          .select(selectQuery);
-        if (status) socialQuery = socialQuery.eq('status', status);
-        if (userId) socialQuery = socialQuery.eq('user_id', userId);
-        queryResponse = await socialQuery as PostgrestResponse<AdminProjectListItem>; // Assert final type
-        break;
-
-      case 'web_design':
-      default: // Default to web_design if type is null or unknown
-        let webQuery = adminClient
-          .from('web_design_projects')
-          .select(selectQuery);
-        if (status) webQuery = webQuery.eq('status', status);
-        if (userId) webQuery = webQuery.eq('user_id', userId);
-        queryResponse = await webQuery as PostgrestResponse<AdminProjectListItem>; // Assert final type
-        break;
-    }
-
-    const { data, error: queryError } = queryResponse;
-
-    if (queryError) {
-      console.error('Error fetching projects:', queryError);
-      return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
-    }
-
-    // Data should now be correctly typed as AdminProjectListItem[] | null
-    return NextResponse.json(data);
+    return NextResponse.json(allProjects);
 
   } catch (error) {
     console.error('Error in admin projects API:', error);
-    return NextResponse.json({ error: 'Server error processing request' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Server error processing request';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

@@ -1,0 +1,227 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createApiClient } from '@/lib/api/server-utils'; // Needed for verifyAdminAccess
+import { createAdminClient } from '@/lib/api/server';
+
+interface Params {
+  params: { projectId: string };
+}
+
+// Helper to verify admin access (copied for simplicity, consider refactoring to shared util)
+async function verifyAdminAccess() {
+  try {
+    const supabase = createApiClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return { authorized: false, error: 'Authentication required' };
+    }
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    if (profileError || !profile) {
+      return { authorized: false, error: 'Could not verify user role' };
+    }
+    if (profile.role !== 'admin') {
+      return { authorized: false, error: 'Admin access required' };
+    }
+    return { authorized: true, user };
+  } catch (error) {
+    console.error('Error verifying admin access:', error);
+    return { authorized: false, error: 'Error verifying admin access' };
+  }
+}
+
+/**
+ * @swagger
+ * /api/admin/projects/social_graphics/{projectId}:
+ *   get:
+ *     summary: Fetch detailed social graphics project information (Admin)
+ *     description: Retrieves detailed information for a specific social graphics project, including client and assigned designer data. Requires admin privileges.
+ *     tags: [Admin Projects]
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the social graphics project.
+ *     responses:
+ *       200:
+ *         description: Project details fetched successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object # Add specific schema for SocialGraphicsProject + client + designer_assignment
+ *       401:
+ *         description: Authentication required.
+ *       403:
+ *         description: Admin access required.
+ *       404:
+ *         description: Project not found.
+ *       500:
+ *         description: Server error.
+ */
+export async function GET(request: NextRequest, { params }: Params) {
+  try {
+    const { authorized, error: authError } = await verifyAdminAccess();
+    if (!authorized) {
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
+    }
+
+    const { projectId } = params;
+    const adminClient = createAdminClient();
+
+    // Step 1: Fetch specific project details, joining with client info
+    const { data: projectData, error: projectError } = await adminClient
+      .from('social_graphics_projects')
+      .select(`
+        *,
+        client:user_id (id, full_name, email, company)
+      `)
+      .eq('id', projectId)
+      .maybeSingle();
+
+    if (projectError) {
+      console.error('Error fetching social_graphics_project details:', projectError);
+      return NextResponse.json({ error: `Failed to fetch project details: ${projectError.message}` }, { status: 500 });
+    }
+
+    if (!projectData) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    // Step 2: Fetch assignment details separately
+    const { data: assignmentData, error: assignmentError } = await adminClient
+      .from('project_assignments')
+      .select('*, designer:designer_id (id, full_name, email)')
+      .eq('project_id', projectId)
+      .eq('project_type', 'social_graphics') // Explicitly match type
+      .maybeSingle();
+      
+    if (assignmentError) {
+        console.warn(`Could not fetch assignment details for project ${projectId}: ${assignmentError.message}`);
+        // Don't fail the request, just return project without assignment info
+    }
+    
+    // Step 3: Combine the data
+    const combinedData = {
+        ...projectData,
+        designer_assignment: assignmentData?.designer || null,
+    };
+
+    return NextResponse.json(combinedData);
+
+  } catch (error: any) {
+    console.error('Unexpected error in GET handler:', error);
+    return NextResponse.json({ error: error.message || 'Failed to fetch project details due to server error' }, { status: 500 });
+  }
+}
+
+/**
+ * @swagger
+ * /api/admin/projects/social_graphics/{projectId}:
+ *   put:
+ *     summary: Update a social graphics project (Admin)
+ *     description: Updates fields for a specific social graphics project. Requires admin privileges. Validates status against allowed values.
+ *     tags: [Admin Projects]
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: The UUID of the social graphics project to update.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title: { type: string } # Note: uses 'title', not 'name'
+ *               description: { type: string }
+ *               status: { type: string, enum: [pending, in_progress, completed, on_hold, cancelled] }
+ *               deadline: { type: string, format: date-time, nullable: true }
+ *               # Add other updatable fields for social_graphics_projects
+ *     responses:
+ *       200:
+ *         description: Project updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string }
+ *                 project: { type: object } # Updated project object
+ *       400:
+ *         description: Bad request (e.g., invalid status value).
+ *       401:
+ *         description: Authentication required.
+ *       403:
+ *         description: Admin access required.
+ *       404:
+ *         description: Project not found.
+ *       500:
+ *         description: Server error.
+ */
+export async function PUT(request: NextRequest, { params }: Params) {
+  try {
+    const { authorized, error: authError } = await verifyAdminAccess();
+    if (!authorized) {
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
+    }
+
+    const { projectId } = params;
+    const dataToUpdate = await request.json();
+
+    // --- Status Validation Start ---
+    // Allowed statuses for social_graphics_projects (confirm this matches schema if needed)
+    const allowedStatuses = ['pending', 'in_progress', 'completed', 'on_hold', 'cancelled']; 
+    if (dataToUpdate.hasOwnProperty('status')) { // Check if status is being updated
+      if (!allowedStatuses.includes(dataToUpdate.status)) {
+        console.error(`Invalid status value received: ${dataToUpdate.status}`);
+        return NextResponse.json(
+          { error: `Invalid status value '${dataToUpdate.status}'. Allowed values are: ${allowedStatuses.join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
+    // --- Status Validation End ---
+
+    // Remove projectId from data if it exists
+    delete dataToUpdate.id;
+    delete dataToUpdate.projectId;
+    // Add updated_at timestamp
+    dataToUpdate.updated_at = new Date().toISOString();
+
+    const adminClient = createAdminClient();
+
+    const { data, error } = await adminClient
+      .from('social_graphics_projects')
+      .update(dataToUpdate)
+      .eq('id', projectId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating social_graphics_project:', error);
+      // Database constraint error is now less likely
+      if (error.message.includes('_status_check')) {
+        return NextResponse.json(
+          { error: `Database rejected status. Allowed values are: ${allowedStatuses.join(', ')}. Details: ${error.message}` },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({ error: `Failed to update project: ${error.message}` }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Social graphics project updated successfully!', project: data });
+
+  } catch (error: any) {
+    console.error('Unexpected error in PUT handler:', error);
+    return NextResponse.json({ error: error.message || 'Failed to update project due to server error' }, { status: 500 });
+  }
+} 

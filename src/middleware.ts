@@ -11,33 +11,6 @@ console.log('[middleware.ts] Checking environment variables at middleware start:
   VERCEL_ENV: process.env.VERCEL_ENV, // Vercel specific env
 });
 
-// Define protected routes and required roles
-const PROTECTED_ROUTES: Record<string, string[]> = {
-  // Client-specific routes
-  '/dashboard': ['client', 'admin', 'partner'],
-  '/files': ['client', 'admin', 'partner'],
-  '/projects': ['client', 'admin', 'partner'],
-  '/billing': ['client', 'admin', 'partner'],
-  '/settings': ['client', 'admin', 'partner'],
-  // Admin-specific routes
-  '/admin': ['admin'],
-  '/admin/users': ['admin'],
-  '/admin/projects': ['admin'],
-  '/admin/billing': ['admin'],
-  '/admin/support': ['admin'],
-  // Designer-specific routes - strictly designer role only
-  '/designer': ['designer'],
-  '/designer/dashboard': ['designer'],
-  '/designer/calendar': ['designer'],
-  '/designer/tasks': ['designer'],
-  '/designer/projects': ['designer'],
-  // Test endpoints 
-  '/api/test/designer-role': ['designer', 'admin'],
-};
-
-// Routes that should redirect to specific locations based on role
-const DESIGNER_ROUTES = ['/designer', '/designer/dashboard', '/designer/calendar', '/designer/tasks', '/designer/projects'];
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
@@ -92,64 +65,85 @@ export async function middleware(request: NextRequest) {
     return response; 
   }
 
-  const isProtectedRoute = Object.keys(PROTECTED_ROUTES).some(route => 
-    pathname === route || pathname.startsWith(`${route}/`)
-  );
+  // --- NEW Redirect & Authorization Logic ---
 
-  // --- Redirect Logic --- 
+  // Define role-specific base paths
+  const roleBasePaths: { [key: string]: string } = {
+    admin: '/admin',
+    designer: '/designer',
+    client: '/client',
+    partner: '/partner', // Add other roles as needed
+  };
 
-  // 1. If NO user AND accessing a protected route
-  if (!user && isProtectedRoute) {
-    console.log(`Redirecting to login: No user and accessing protected route ${pathname}`);
-    const redirectUrl = new URL('/login', request.url);
-    redirectUrl.searchParams.set('redirectedFrom', pathname);
-    return NextResponse.redirect(redirectUrl); // Return direct redirect
+  // Define paths that require authentication
+  const authenticatedPathsPrefixes = [...Object.values(roleBasePaths), '/dashboard'];
+  const requiresAuth = authenticatedPathsPrefixes.some(prefix => pathname.startsWith(prefix) || pathname === prefix);
+
+  // === Handle Unauthenticated Users ===
+  if (!user) {
+    if (requiresAuth) {
+      console.log(`Redirecting to login: No user and accessing protected route ${pathname}`);
+      const redirectUrl = new URL('/login', request.url);
+      redirectUrl.searchParams.set('redirectedFrom', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+    // Allow unauthenticated access to non-protected routes (like /, /login, etc.)
+    return response;
   }
 
-  // 2. If USER EXISTS
+  // === Handle Authenticated Users ===
   if (user) {
-    // Redirect logged-in users away from login/register pages
-    if (isPublicAuthRoute) {
-      console.log(`Redirecting logged-in user away from ${pathname}`);
-      return NextResponse.redirect(new URL('/dashboard', request.url)); // Return direct redirect
-    }
-
-    // Get user role (Assuming profile fetch is needed for role)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    const userRole = getUserRole({ ...user, role: profile?.role }); 
-
-    // Role-based redirects and access checks
-    const isDesignerRoute = DESIGNER_ROUTES.some(route => pathname === route || pathname.startsWith(`${route}/`));
-
-    if (userRole === 'designer' && !isDesignerRoute) {
-      console.log(`Redirecting designer to designer dashboard from ${pathname}`);
-      return NextResponse.redirect(new URL('/designer/dashboard', request.url));
-    }
-
-    if (userRole === 'client' && isDesignerRoute) {
-      console.log(`Redirecting client away from designer route ${pathname}`);
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    if (isProtectedRoute) {
-      const matchedRoute = Object.keys(PROTECTED_ROUTES).find(route => pathname === route || pathname.startsWith(`${route}/`));
-      if (matchedRoute) {
-        const allowedRoles = PROTECTED_ROUTES[matchedRoute];
-        const hasAccess = allowedRoles.some(role => userRole.toLowerCase().includes(role.toLowerCase()));
-        if (!hasAccess) {
-          console.log(`Redirecting to dashboard due to role mismatch: ${pathname}, Role: ${userRole}`);
-          const dashboardUrl = userRole === 'designer' ? '/designer/dashboard' : '/dashboard';
-          return NextResponse.redirect(new URL(dashboardUrl, request.url));
-        }
+    // Fetch user role (ensure getUserRole works correctly)
+    let userRole = 'client'; // Default role if fetch fails or is missing
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      // Use the utility function or directly use profile role, ensure it's lowercase
+      userRole = profile?.role?.toLowerCase() || 'client'; 
+      // Validate role if needed
+      if (!roleBasePaths[userRole]) {
+        console.warn(`User ${user.id} has invalid role '${profile?.role}'. Defaulting to client.`);
+        userRole = 'client';
       }
+    } catch (roleError) {
+      console.error(`Failed to fetch role for user ${user.id}:`, roleError);
+      // Keep default role 'client'
     }
+
+    const expectedBasePath = roleBasePaths[userRole];
+
+    // 1. Redirect logged-in users away from public auth pages OR old /dashboard
+    if (isPublicAuthRoute || pathname === '/dashboard') {
+      console.log(`Redirecting logged-in user (${userRole}) from ${pathname} to ${expectedBasePath}`);
+      return NextResponse.redirect(new URL(expectedBasePath, request.url));
+    }
+
+    // 2. Enforce role access for protected paths (excluding /dashboard, already handled)
+    if (requiresAuth && pathname !== '/dashboard') {
+      // If user is trying to access a protected path that IS NOT their own
+      if (!pathname.startsWith(expectedBasePath)) {
+        console.log(`Role mismatch: User role '${userRole}' attempting to access ${pathname}. Redirecting to ${expectedBasePath}.`);
+        return NextResponse.redirect(new URL(expectedBasePath, request.url));
+      }
+      // Allow access if path starts with expectedBasePath
+      return response;
+    }
+
+    // 3. Handle root path (/) for logged-in users (Optional: redirect or let page handle)
+    // If you want middleware to redirect from root immediately:
+    /*
+    if (isRoot) {
+      console.log(`Redirecting logged-in user (${userRole}) from / to ${expectedBasePath}`);
+      return NextResponse.redirect(new URL(expectedBasePath, request.url));
+    }
+    */
+    // Otherwise, allow access to root (homepage logic will likely redirect anyway)
   }
 
-  // Default case: Allow access, return response with potentially updated cookies
+  // Default case: Allow access if none of the above conditions caused a redirect
   return response;
 }
 

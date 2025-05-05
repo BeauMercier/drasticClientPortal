@@ -55,3 +55,7 @@ Thumbs.db
 # Optional: Cache directories
 .swc/
 .turbo
+
+.cursor/
+
+.cursor/mcp.json

@@ -14,6 +14,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { BirRow } from '@/lib/types/bir';
 import { BirUpdateDTO } from '@/lib/validation/bir';
 import { useAuth } from '@/features/auth';
+import BirFileUploader from '@/components/BirFileUploader';
+import { BirFileType } from '@/app/api/bir/upload/route';
+import { KeyedMutator } from 'swr';
 
 // Type for the form values, matching the insert schema exactly
 type FormValues = z.infer<typeof birInsertSchema>;
@@ -46,12 +49,13 @@ const getDefaultAnswers = (): BirAnswersData => ({
 
 interface BirFormProps {
     projectId: string;
+    mutateBir: KeyedMutator<any>;
 }
 
 /**
  * Form for Clients to submit or update their Business Information Request.
  */
-export default function BirForm({ projectId }: BirFormProps) {
+export default function BirForm({ projectId, mutateBir }: BirFormProps) {
     const { bir: fetchedBir, mutate, isLoading: birLoading, error: birError } = useBir(projectId);
     const { user, isLoading: authLoading } = useAuth();
     const [isSaving, setIsSaving] = useState(false);
@@ -174,7 +178,7 @@ export default function BirForm({ projectId }: BirFormProps) {
                 throw new Error(result.error || 'Save failed');
             }
             toast({ title: "Success", description: `Business information ${isUpdateMode ? 'updated' : 'submitted'}.` });
-            await mutate();
+            await mutateBir();
         } catch (error: any) {
             toast({ title: "Error", description: error.message || 'An unexpected error occurred.', variant: "destructive" });
         } finally {
@@ -338,21 +342,32 @@ https://twitter.com/..."
                     <Textarea id="specific_features_requests" {...form.register('answers.specific_features_requests')} rows={4} disabled={isSaving || isLoading} />
                     {form.formState.errors.answers?.specific_features_requests && <p className="text-sm text-destructive pt-1">{form.formState.errors.answers.specific_features_requests.message}</p>}
                 </div>
-                 {/* File Uploads - TODO */} 
-                 <div className="space-y-2">
-                     <Label>File Uploads</Label>
-                     <div className="p-4 border border-dashed rounded-md bg-muted/50">
-                         <p className="text-sm text-muted-foreground">TODO: Integrate file upload components here for:</p>
-                         <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
-                            <li>Logos</li>
-                            <li>Brand Style Guides</li>
-                            <li>Product or Business Photos</li>
-                             <li>Certifications/Licenses (PDF, JPG)</li>
-                         </ul>
-                         <p className="text-sm text-muted-foreground mt-2">Use the general file upload section below for now.</p>
-                     </div>
+                 
+                 {/* --- File Uploads --- */}
+                 <div className="space-y-4 pt-4">
+                     <Label className="font-semibold">File Uploads</Label>
+                     <p className="text-sm text-muted-foreground">
+                       Please upload relevant files such as your logo, brand style guide, photos, or certifications.
+                       Accepted types: Images, PDF, ZIP up to 20 MB each.
+                     </p>
+                     {/* Conditionally render uploaders only if BIR exists (has an ID) */}
+                     {fetchedBir?.id ? (
+                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                         <BirFileUploader birId={fetchedBir.id} fileType={BirFileType.Logo} onUploadSuccess={mutateBir} />
+                         <BirFileUploader birId={fetchedBir.id} fileType={BirFileType.StyleGuide} onUploadSuccess={mutateBir} />
+                         <BirFileUploader birId={fetchedBir.id} fileType={BirFileType.Photo} onUploadSuccess={mutateBir} />
+                         <BirFileUploader birId={fetchedBir.id} fileType={BirFileType.Certificate} onUploadSuccess={mutateBir} />
+                         <BirFileUploader birId={fetchedBir.id} fileType={BirFileType.Misc} onUploadSuccess={mutateBir} />
+                       </div>
+                     ) : (
+                       <p className="text-sm text-amber-600">
+                         Please save the initial information first to enable file uploads.
+                       </p>
+                     )}
                  </div>
-            </fieldset>
+                 {/* --- End File Uploads --- */}
+
+             </fieldset>
 
             {/* Additional Comments Section */}
             <fieldset className="space-y-4 border p-4 rounded-md">

@@ -11,12 +11,19 @@ export type BirStatus = (typeof BirStatusArray)[number];
 export type BirRow =
   Database['public']['Tables']['business_information_requests']['Row'];
 
+// Type for BIR files, assuming types are regenerated
+export type BirFileRow = Database['public']['Tables']['bir_file']['Row'];
+
 /* 3. Insert / Update payloads ------------------------------------ */
 export type BirInsert =
   Database['public']['Tables']['business_information_requests']['Insert'];
 
 export type BirUpdate =
   Database['public']['Tables']['business_information_requests']['Update'];
+
+// Insert/Update types for bir_file if needed (usually Row type is sufficient for reads)
+export type BirFileInsert = Database['public']['Tables']['bir_file']['Insert'];
+export type BirFileUpdate = Database['public']['Tables']['bir_file']['Update'];
 
 /* 4. Client-side shape (denormalised helper) --------------------- */
 export interface Bir extends BirRow {
@@ -29,7 +36,7 @@ export interface Bir extends BirRow {
 export const isBirStatus = (val: unknown): val is BirStatus =>
   typeof val === 'string' && (BirStatusArray as readonly string[]).includes(val);
 
-// NEW: Enum for BIR file types (moved from API route)
+// Enum for BIR file types
 export enum BirFileType {
   Logo = 'logo',
   StyleGuide = 'style_guide',
@@ -38,18 +45,5 @@ export enum BirFileType {
   Misc = 'misc',
 }
 
-// Placeholder type for BirFileRow until types are regenerated and verified
-// TODO: Remove once Database['public']['Tables']['bir_file']['Row'] is confirmed working
-export type BirFileRowPlaceholder = {
-  id: string;
-  bir_id: string;
-  file_type: string; // Use BirFileType enum ideally
-  original_name: string;
-  storage_path: string;
-  mime_type: string;
-  size_bytes: number;
-  uploaded_at: string;
-};
-
 // Type combining BirFileRow with a potential signed URL
-export type SignedBirFilePlaceholder = BirFileRowPlaceholder & { publicUrl?: string }; 
+export type SignedBirFile = BirFileRow & { publicUrl?: string }; 

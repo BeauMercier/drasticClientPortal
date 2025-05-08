@@ -1,26 +1,13 @@
 import useSWR from 'swr';
-import { createClient } from '@/lib/api/client'; // Assuming client-side Supabase client setup
-import { BirRow } from '@/lib/types/bir';
-import { Database } from '@/lib/database.types'; // Assuming generated types
-
-// Define placeholder type for BirFileRow until types are regenerated
-// TODO: Replace with Database['public']['Tables']['bir_file']['Row'] after regenerating types
-type BirFileRow = {
-  id: string;
-  bir_id: string;
-  file_type: string; // 'logo' | 'style_guide' | 'photo' | 'certificate' | 'misc'
-  original_name: string;
-  storage_path: string;
-  mime_type: string;
-  size_bytes: number;
-  uploaded_at: string;
-};
+import { createClient } from '@/lib/api/client';
+import { BirRow, BirFileRow, SignedBirFile } from '@/lib/types/bir'; // Use updated types
+import { Database } from '@/lib/database.types';
 
 // Type for the data returned by the hook
 export interface UseBirData {
   bir: BirRow | null;
-  files: BirFileRow[] | null; // Use placeholder type
-  signedFiles: (BirFileRow & { publicUrl?: string })[] | null; // Use placeholder type
+  files: BirFileRow[] | null;
+  signedFiles: SignedBirFile[] | null;
 }
 
 const fetcher = async (projectId: string): Promise<UseBirData> => {
@@ -43,13 +30,11 @@ const fetcher = async (projectId: string): Promise<UseBirData> => {
   }
 
   if (!birData) {
-    // No BIR found for this project, return nulls
     return { bir: null, files: null, signedFiles: null };
   }
 
   // 2. Fetch associated files if BIR exists
-  // TODO: Remove 'as any' once Supabase types are regenerated
-  const { data: birFiles, error: filesError } = await (supabase as any)
+  const { data: birFilesData, error: filesError } = await supabase // No 'as any' needed if types are correct
     .from('bir_file') // Use the correct table name
     .select('*')
     .eq('bir_id', birData.id)
@@ -57,36 +42,34 @@ const fetcher = async (projectId: string): Promise<UseBirData> => {
 
   if (filesError) {
     console.error('Error fetching BIR files:', filesError);
-    // Don't throw, maybe just return BIR data without files
     return { bir: birData, files: null, signedFiles: null };
   }
 
+  const typedBirFiles: BirFileRow[] = birFilesData || []; // Ensure it's an array
+
   // 3. Generate Signed URLs for the files
-  let signedFiles: (BirFileRow & { publicUrl?: string })[] | null = null; // Use placeholder type
-  if (birFiles && birFiles.length > 0) {
+  let generatedSignedFiles: SignedBirFile[] | null = null;
+  if (typedBirFiles.length > 0) {
     try {
-      const typedBirFiles = birFiles as BirFileRow[]; // Assert type here
       const signedUrlPromises = typedBirFiles.map(async (file) => {
         const { data: signedUrlData, error: signError } = await supabase.storage
-          .from('bir-files') // Use the correct bucket name
+          .from('bir-files')
           .createSignedUrl(file.storage_path, 60 * 60); // 1 hour expiry
 
         if (signError) {
           console.error(`Error creating signed URL for ${file.storage_path}:`, signError);
-          return { ...file, publicUrl: undefined }; // Return file data without URL on error
+          return { ...file, publicUrl: undefined };
         }
         return { ...file, publicUrl: signedUrlData?.signedUrl };
       });
-      signedFiles = await Promise.all(signedUrlPromises);
+      generatedSignedFiles = await Promise.all(signedUrlPromises);
     } catch (error) {
       console.error('Error generating signed URLs:', error);
-      // Proceed without signed URLs if generation fails
-      signedFiles = (birFiles as BirFileRow[]).map((file) => ({ ...file, publicUrl: undefined })); // Assert type here
+      generatedSignedFiles = typedBirFiles.map((file) => ({ ...file, publicUrl: undefined }));
     }
   }
 
-  // Return combined data
-  return { bir: birData, files: (birFiles as BirFileRow[] | null), signedFiles: signedFiles };
+  return { bir: birData, files: typedBirFiles, signedFiles: generatedSignedFiles };
 };
 
 /**
@@ -108,10 +91,10 @@ const fetcher = async (projectId: string): Promise<UseBirData> => {
  */
 export function useBir(projectId: string | undefined) {
   const { data, error, mutate, isLoading } = useSWR<UseBirData>(
-    projectId ? `bir-${projectId}` : null, // Unique key per project, null if no projectId
-    () => (projectId ? fetcher(projectId) : Promise.resolve({ bir: null, files: null, signedFiles: null })), // Pass projectId to fetcher
+    projectId ? `bir-${projectId}` : null,
+    () => (projectId ? fetcher(projectId) : Promise.resolve({ bir: null, files: null, signedFiles: null })),
     {
-      revalidateOnFocus: false, // Optional: configure SWR as needed
+      revalidateOnFocus: false,
       shouldRetryOnError: false,
     }
   );
@@ -122,6 +105,6 @@ export function useBir(projectId: string | undefined) {
     signedBirFiles: data?.signedFiles ?? null,
     isLoading,
     error,
-    mutate, // Expose mutate for revalidation
+    mutate,
   };
 } 

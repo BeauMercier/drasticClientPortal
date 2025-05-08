@@ -1,4 +1,4 @@
-import { BirRow } from '@/lib/types/bir';
+import { BirRow, BirFileRow, SignedBirFile } from '@/lib/types/bir';
 import {
   Card,
   CardContent,
@@ -19,21 +19,6 @@ import { BirAnswersData } from '@/lib/validation/bir';
 import { format } from 'date-fns';
 import { FileIcon, ImageIcon, DownloadIcon } from 'lucide-react'; // Import icons
 import { cn } from '@/lib/utils'; // Assuming cn utility is available
-
-// Use the placeholder type defined in useBir.ts or define it here
-// TODO: Replace with Database['public']['Tables']['bir_file']['Row'] after regenerating types
-type BirFileRow = {
-  id: string;
-  bir_id: string;
-  file_type: string; // 'logo' | 'style_guide' | 'photo' | 'certificate' | 'misc'
-  original_name: string;
-  storage_path: string;
-  mime_type: string;
-  size_bytes: number;
-  uploaded_at: string;
-};
-
-type SignedBirFile = BirFileRow & { publicUrl?: string };
 
 interface BirSummaryProps {
   bir: BirRow;
@@ -172,7 +157,7 @@ export default function BirSummary({ bir, signedFiles }: BirSummaryProps) {
                       <span className="hidden sm:inline">•</span>
                       <span className="truncate" title={file.mime_type}>{file.mime_type}</span>
                       <span className="hidden md:inline">•</span>
-                      <span className="capitalize">{formatFieldName(file.file_type)}</span>
+                      <span className="capitalize">{formatFieldName(file.file_type as string)}</span>
                     </div>
                   </div>
                   {file.publicUrl && (

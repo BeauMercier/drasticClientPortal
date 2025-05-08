@@ -3,31 +3,25 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
-import { Database } from '@/lib/database.types'; // Assuming generated types exist
+import { Database } from '@/lib/database.types';
+import { BirFileType } from '@/lib/types/bir'; // Import shared enum
 
 // Define the bucket name as a constant
 const BUCKET_NAME = 'bir-files';
 
-// Define allowed file types using an enum for clarity and reuse
-enum BirFileType {
-  Logo = 'logo',
-  StyleGuide = 'style_guide',
-  Photo = 'photo',
-  Certificate = 'certificate',
-  Misc = 'misc',
-}
+// No longer need InternalBirFileType, use BirFileType directly with Zod
+// enum InternalBirFileType { ... }
 
 const paramsSchema = z.object({
   birId: z.string().uuid({ message: 'Invalid BIR ID format.' }),
-  fileType: z.nativeEnum(BirFileType, {
+  fileType: z.nativeEnum(BirFileType, { // Use the shared BirFileType enum directly
     errorMap: () => ({ message: 'Invalid file type specified.' }),
   }),
 });
 
 // Helper function to get Supabase client
 const getSupabaseClient = () => {
-  // TODO: Regenerate Supabase types (`npx supabase gen types typescript --project-id <your-project-id> --schema public > src/lib/database.types.ts`) to include the new 'bir_file' table.
-  // Using 'as any' temporarily to bypass TypeScript errors until types are updated.
+  // Assuming types are regenerated, no 'as any' needed here
   return createRouteHandlerClient<Database>({ cookies });
 };
 
@@ -43,7 +37,7 @@ export async function POST(req: NextRequest) {
   const form = await req.formData();
 
   const birId = form.get('birId') as string | null;
-  const fileType = form.get('fileType') as string | null; // Keep as string for initial Zod parse
+  const fileType = form.get('fileType') as string | null;
   const file = form.get('file') as File | null;
 
   // Refined validation
@@ -73,7 +67,8 @@ export async function POST(req: NextRequest) {
 
   const validatedData = parseResult.data;
   const validatedBirId = validatedData.birId;
-  const validatedFileType = validatedData.fileType;
+  // validatedData.fileType is now directly of type BirFileType
+  const validatedDatabaseFileType = validatedData.fileType;
 
   // Construct storage path
   const fileExtension = file.name.split('.').pop();
@@ -97,18 +92,18 @@ export async function POST(req: NextRequest) {
   }
 
   // Insert metadata into the database
-  // TODO: Remove 'as any' once Supabase types are regenerated to include 'bir_file'
-  const { data: insertedFile, error: insertError } = await (supabase as any)
+  // Assuming types are regenerated, no 'as any' for supabase client or insert payload
+  const { data: insertedFile, error: insertError } = await supabase
     .from('bir_file')
     .insert({
       bir_id: validatedBirId,
-      file_type: validatedFileType, // Use the validated enum value
+      file_type: validatedDatabaseFileType, // This is now correctly typed as BirFileType
       original_name: file.name,
       storage_path: storagePath,
       mime_type: file.type,
       size_bytes: file.size,
       // uploaded_at is set by default in DB schema
-    } as any) // Use 'as any' for the insert payload as well
+    })
     .select() // Select the inserted row
     .single(); // Expect exactly one row
 

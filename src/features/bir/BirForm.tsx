@@ -15,7 +15,7 @@ import { BirRow } from '@/lib/types/bir';
 import { BirUpdateDTO } from '@/lib/validation/bir';
 import { useAuth } from '@/features/auth';
 import BirFileUploader from '@/components/BirFileUploader';
-import { BirFileType } from '@/app/api/bir/upload/route';
+import { BirFileType } from '@/lib/types/bir';
 import { KeyedMutator } from 'swr';
 
 // Type for the form values, matching the insert schema exactly

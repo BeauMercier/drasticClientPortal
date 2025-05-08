@@ -9,7 +9,7 @@ import { Database } from '@/lib/database.types'; // Assuming generated types exi
 const BUCKET_NAME = 'bir-files';
 
 // Define allowed file types using an enum for clarity and reuse
-export enum BirFileType {
+enum BirFileType {
   Logo = 'logo',
   StyleGuide = 'style_guide',
   Photo = 'photo',

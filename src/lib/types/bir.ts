@@ -27,4 +27,29 @@ export interface Bir extends BirRow {
 /* 5. Utility guards ---------------------------------------------- */
 // Update guard to work with 'as const' array (no cast needed)
 export const isBirStatus = (val: unknown): val is BirStatus =>
-  typeof val === 'string' && (BirStatusArray as readonly string[]).includes(val); 
+  typeof val === 'string' && (BirStatusArray as readonly string[]).includes(val);
+
+// NEW: Enum for BIR file types (moved from API route)
+export enum BirFileType {
+  Logo = 'logo',
+  StyleGuide = 'style_guide',
+  Photo = 'photo',
+  Certificate = 'certificate',
+  Misc = 'misc',
+}
+
+// Placeholder type for BirFileRow until types are regenerated and verified
+// TODO: Remove once Database['public']['Tables']['bir_file']['Row'] is confirmed working
+export type BirFileRowPlaceholder = {
+  id: string;
+  bir_id: string;
+  file_type: string; // Use BirFileType enum ideally
+  original_name: string;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_at: string;
+};
+
+// Type combining BirFileRow with a potential signed URL
+export type SignedBirFilePlaceholder = BirFileRowPlaceholder & { publicUrl?: string }; 

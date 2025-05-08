@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input'; // Use Shadcn Input for consistency
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils'; // Assuming you have cn utility
-import { BirFileType } from '@/app/api/bir/upload/route'; // Import the enum
+import { BirFileType } from '@/lib/types/bir'; // Import from the new shared location
 
 interface Props {
   birId: string;

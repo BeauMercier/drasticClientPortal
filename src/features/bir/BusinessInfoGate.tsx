@@ -23,7 +23,7 @@ export default function BusinessInfoGate({ projectId, projectType }: BusinessInf
     // Fetch BIR data
     // Fetch only if projectType is web_design and projectId is valid
     const shouldFetchBir = projectType === 'web_design' && !!projectId;
-    const { bir, isLoading: birLoading, error: birError } = useBir(shouldFetchBir ? projectId : undefined);
+    const { bir, signedBirFiles, isLoading: birLoading, error: birError, mutate: mutateBir } = useBir(shouldFetchBir ? projectId : undefined);
 
     // --- Loading States --- //
     // Wait for both auth state and BIR data (if applicable)
@@ -58,13 +58,13 @@ export default function BusinessInfoGate({ projectId, projectType }: BusinessInf
     if (userRole === 'client') {
         // BIR doesn't exist yet or is pending -> Show editable form
         if (!bir || bir.status === 'pending') {
-            return <BirForm projectId={projectId} />;
+            return <BirForm projectId={projectId} mutateBir={mutateBir} />;
         }
         
         // BIR submitted or approved -> Show summary + status message
         return (
             <div className="space-y-4">
-                <BirSummary bir={bir} />
+                <BirSummary bir={bir} signedFiles={signedBirFiles} />
                 {bir.status === 'submitted' && (
                     <p className="text-sm italic text-yellow-600 bg-yellow-50 border border-yellow-200 p-3 rounded-md">
                         Your answers have been submitted and are awaiting review.
@@ -80,7 +80,7 @@ export default function BusinessInfoGate({ projectId, projectType }: BusinessInf
     if (userRole === 'designer' || userRole === 'admin') {
         // Show summary if BIR exists
         if (bir) {
-            return <BirSummary bir={bir} />;
+            return <BirSummary bir={bir} signedFiles={signedBirFiles} />;
         }
         // Show placeholder if BIR doesn't exist
         return (

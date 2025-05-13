@@ -55,37 +55,52 @@
 
 *This feature replaces the external Zoho form with an integrated, project-specific form.*
 
+- [ ] **Refactor: Convert BIR to Multi-Step Form** (Current Date - as per PLANNING.md)
+    - [x] Create directory `src/features/bir/steps/`. (Done)
+    - [x] Define `birStepConfig.ts` (optional, for step definitions). (Done)
+    - [x] Create individual step components (e.g., `OfficialInfoStep.tsx`, `ContactPresenceStep.tsx`, etc.). (Done: OfficialInfoStep, ContactPresenceStep, CompanyDetailsStep, SupportingInfoStep, WebsiteSpecificsStep, FinalCommentsStep)
+    - [ ] Create `MultiStepBirForm.tsx` orchestrator.
+    - [ ] Create `FileUploadStep.tsx`.
+    - [ ] Update `BusinessInfoGate.tsx` to use `MultiStepBirForm.tsx`.
+    - [ ] Implement UI/UX enhancements (stepper, validation).
+    - [ ] Clean up old `BirForm.tsx`.
+
 - [x] **Planning:** Confirm final BIR field list & validations with stakeholders. ⚠
 - [x] **Database:** Write migration script (`supabase/migrations/..._add_business_information_requests.sql`) for `business_information_requests` table, FKs, enum, trigger, indexes.
 - [x] **Database:** Apply migration using `supabase db push` (or standard migration process).
 - [x] **Database:** Implement RLS policies for `business_information_requests` (Admin, Client, Designer access) including `project_type = 'web_design'` constraint.
 - [x] **Database:** Verify RLS policies work correctly using PostgREST API calls for various user roles (Admin, Client A, Client B, Designer C).
-    - *Note: Verification initially blocked by SQL Editor `auth.uid()` issues. Subsequent testing revealed a `VOLATILE` function issue (fixed via migration `$(date +'%Y%m%d%H%M%S')_fix_designer_assignment_function_volatility.sql`) and missing `project_assignments` test data (corrected manually). Final PostgREST tests confirmed all policies function as expected.*
 - [x] **Types:** Create `src/lib/types/bir.ts` with `BirStatus` enum, `BirRow`, `BirInsert`, `BirUpdate`, and `Bir` interface.
 - [x] **Types:** Run `supabase gen types typescript --local > src/lib/database.types.ts` to update generated types.
 - [x] **Backend (API Helpers):** Create `src/lib/api/bir.ts` with low-level Supabase data access functions (`fetchBirByProject`, `upsertBir`, `updateBir`).
 - [x] **Backend (API Route):** Implement API route `src/app/api/bir/route.ts` with GET, POST, PATCH handlers using helpers and auth checks.
-- [ ] **Backend:** (Optional) Implement PATCH `/status` handler for admin/designer approval.
-- [ ] **Backend:** Add unit/integration tests for the new API routes (using Jest/Vitest).
 - [x] **Frontend:** Define Zod schema for BIR fields (`src/lib/validation/bir.ts`).
 - [x] **Validation:** Define Zod schemas in `src/lib/validation/bir.ts` (`birStatusSchema`, `birInsertSchema`, `birUpdateSchema`) and derive DTO types.
-- [ ] **Frontend:** Create data fetching hook `useBir(projectId)` (e.g., using SWR).
-- [ ] **Frontend:** Create mutation hooks `useSaveBir()` (POST/PUT) and `useApproveBir()` (PATCH).
+- [x] **Frontend:** Create data fetching hook `useBir(projectId)` (`src/features/bir/useBir.ts`).
 - [x] **Frontend:** Create `src/features/bir/BusinessInfoForm.tsx` component (RHF, ShadCN inputs, basic save logic).
-    *   Updated to reflect new field list. Needs file upload integration.
-- [ ] **Frontend:** Integrate existing file upload component/hook into `BusinessInfoForm.tsx` (passing correct metadata if needed).
 - [x] **Frontend:** Create `src/features/bir/BusinessInfoSummary.tsx` component (read-only view).
 - [x] **Frontend:** Create `src/features/bir/BusinessInfoGate.tsx` to manage display logic (form vs. summary) based on `useBir` data and user role.
 - [x] **Frontend:** Integrate `BusinessInfoGate` into the **client** web design project detail page component (`src/app/(client)/client/projects/web_design/[id]/page.tsx`).
 - [x] **Frontend:** Integrate `BusinessInfoGate` into the **designer** web design project detail page component (`src/app/(designer)/designer/projects/web_design/[id]/page.tsx`) (Note: Page uses placeholder data fetching).
 - [x] **QA:** Basic form submission/update verified (Client view). Data saves correctly to DB after UNIQUE constraint added.
-- [ ] **QA:** Test the entire flow thoroughly: form display logic, submission, validation, file upload, role-based access (client, designer, admin), mobile responsiveness.
-- [ ] **Documentation:** Update `README.md` or other relevant docs about the new feature.
+- [x] **Build Fix:** Resolved Vercel build error caused by client components importing server-only API route files by moving shared `BirFileType` enum to `src/lib/types/bir.ts` and correcting import paths. Resolved TypeScript error in `BusinessInfoGate.tsx` by passing `mutateBir` prop to `BirForm`.
+
+- [x] **File Upload - DB Migration:** Create `bir_file` table (`supabase/migrations/..._add_bir_file_table.sql`). (User to confirm applied)
+- [x] **File Upload - API Route:** Create `POST /api/bir/upload` endpoint.
+- [x] **File Upload - Client Component:** Create `BirFileUploader.tsx`.
+- [x] **File Upload - Form Integration:** Add `BirFileUploader` instances to `BirForm.tsx`.
+- [x] **File Upload - Summary Display:** Update `useBir` hook and `BirSummary.tsx` to fetch and display files with signed URLs.
+- [x] **File Upload - RLS & Storage Policies:** Create migration (`..._bir_file_rls.sql`) for `bir_file` RLS and `storage.objects` policies. (User to confirm applied)
+- [ ] **File Upload - Type Regeneration:** Regenerate Supabase types (`npx supabase gen types ...`) and remove placeholder types/casts. (User to confirm completion)
+
+- [ ] **Backend:** (Optional) Implement PATCH `/status` handler for admin/designer approval.
+- [ ] **Backend:** Add unit/integration tests for the new API routes (using Jest/Vitest).
+- [ ] **Frontend:** Create mutation hooks `useSaveBir()` (POST/PUT) and `useApproveBir()` (PATCH). (*Note: Basic POST/PATCH logic implemented within `BirForm.tsx` for now. Refactor into dedicated hooks if complexity increases.*)
+- [ ] **Frontend:** Refine "Other Social Links" input in `BirForm.tsx`.
+- [ ] **Designer Page:** Implement actual data fetching for the designer web design project detail page.
+- [ ] **QA:** Test the entire flow thoroughly: form display logic, submission, validation, file handling, role-based access (client, designer, admin), mobile responsiveness.
+- [ ] **UI Polishing:** Refine styles, layout, component usage (e.g., status badges), and add more specific field validation messages in `BirForm.tsx`.
+- [ ] **Documentation:** Update `README.md` and `PLANNING.md` with details about the BIR file upload feature.
 - [ ] **Documentation:** Update onboarding guides for clients explaining the new process.
 - [ ] **Deployment:** Consider releasing behind a feature flag (`NEXT_PUBLIC_ENABLE_BIR=true`).
 - [ ] **Notifications (Optional):** Implement Edge Function/Realtime listener to notify relevant users on BIR submission.
-- [x] **Frontend:** Create data fetching hook `useBir(projectId)` (`src/features/bir/useBir.ts`) using SWR.
-- [ ] **Frontend:** Create mutation hooks `useSaveBir()` (POST/PUT) and `useApproveBir()` (PATCH). (*Note: Basic POST/PATCH logic implemented within `BirForm.tsx` for now. Refactor into dedicated hooks if complexity increases.*)
-- [x] **Frontend:** Create `src/features/bir/BusinessInfoForm.tsx` component (RHF, ShadCN inputs, basic save logic).
-- [ ] **Frontend:** Integrate existing file upload component/hook into `BusinessInfoForm.tsx` (passing correct metadata if needed).
-- [x] **Frontend:** Create `src/features/bir/BusinessInfoSummary.tsx` component (read-only view). 

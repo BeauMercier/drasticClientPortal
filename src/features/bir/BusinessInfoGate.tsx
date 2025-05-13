@@ -2,7 +2,8 @@
 
 import { useAuth } from '@/features/auth'; // Use the main hook export
 import { useBir } from './useBir';
-import BirForm from './BirForm';
+// import BirForm from './BirForm'; // Old form
+import MultiStepBirForm from './MultiStepBirForm'; // New multi-step form
 import BirSummary from './BirSummary';
 import { Skeleton } from '@/components/ui/skeleton'; // For loading state
 
@@ -58,7 +59,8 @@ export default function BusinessInfoGate({ projectId, projectType }: BusinessInf
     if (userRole === 'client') {
         // BIR doesn't exist yet or is pending -> Show editable form
         if (!bir || bir.status === 'pending') {
-            return <BirForm projectId={projectId} mutateBir={mutateBir} />;
+            // return <BirForm projectId={projectId} mutateBir={mutateBir} />;
+            return <MultiStepBirForm projectId={projectId} mutateBir={mutateBir} />;
         }
         
         // BIR submitted or approved -> Show summary + status message

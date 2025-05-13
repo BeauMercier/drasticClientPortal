@@ -31,18 +31,24 @@
     - `api/`: API routes.
         - `projects/`: Project-specific API endpoints.
             - `files/`: Endpoints for project file operations (`upload`, etc.).
-    - Other standard auth routes (`login`, `register`, etc.).
+            - `bir/`: Endpoints for Business Information Request operations.
+                - `route.ts`: Handles GET, POST, PATCH for BIR text data.
+                - `upload/route.ts`: Handles POST for BIR file uploads.
+        - Other standard auth routes (`login`, `register`, etc.).
 - `src/components/`: Reusable UI components.
     - `admin/AdminSidebar.tsx`: Dedicated sidebar for the admin section.
     - `client/ClientSidebar.tsx`: Dedicated sidebar for the client section (styled like AdminSidebar).
     - `RoleSidebar.tsx`: Sidebar component used by Designers (dynamically shows menu based on role).
     - `layout/`: Layout-related components (e.g., `DashboardLayout`).
     - `ui/`: Likely base components from shadcn/ui.
+    - `BirFileUploader.tsx`: Component for uploading files related to BIR.
 - `src/features/`: Feature-specific modules (e.g., `auth`).
+    - `bir/`: Module for Business Information Request feature (hooks, form, summary, gate components).
 - `src/lib/`: Core utilities, API clients, type definitions.
     - `api/`: Supabase client setup and data fetching functions.
     - `types/`: TypeScript type definitions.
     - `utils/`: Utility functions.
+    - `bir.ts`: API helper functions for BIR data operations.
 - `src/shared/`: Code shared across features/layers.
     - `contexts/`: Shared React contexts (e.g., `UIContext`, `FileContext`).
     - `ui/`: Shared UI components (atoms, molecules).
@@ -78,12 +84,15 @@ Files are stored in a single Supabase storage bucket (`project-files`). Metadata
 *   **Project-Specific Files:** These files are uploaded in the context of a particular project (e.g., assets for a Web Design project).
     *   Storage Path: `{user_id}/projects/{project_type}/{project_id}/{filename}`
     *   Database Record: A row is created in `user_files` with `user_id`, `project_id`, and `project_type` all populated.
+*   **BIR-Specific Files:** Stored in a separate, private `bir-files` bucket. Metadata in `public.bir_file` table.
+    *   Storage Path: `{bir_id}/{uuid}.{ext}` (within `bir-files` bucket)
+    *   Database: `bir_file` table with `bir_id` (FK to `business_information_requests`), `file_type`, `original_name`, `storage_path`, `mime_type`, `size_bytes`.
 
 ### Access Control:
 
 Access to both storage objects and the corresponding `user_files` database records is controlled primarily by Supabase Row Level Security (RLS) policies. These policies ensure users can only access their own files or files related to projects they are assigned to (if they are designers). Admins have broader access.
 
-**The definitive RLS policies for all tables, including `user_files`, can be found in the `Full_Schema.sql` file in the workspace root.** This file provides a complete snapshot of the database schema, including RLS, functions, and triggers, whereas `supabase/migrations/` may contain incremental changes.
+**The definitive RLS policies for all tables, including `user_files` and `bir_file`, can be found in the `Full_Schema.sql` file in the workspace root or respective migration files.** This file provides a complete snapshot of the database schema, including RLS, functions, and triggers, whereas `supabase/migrations/` may contain incremental changes.
 
 ## API Routes
 
@@ -108,6 +117,12 @@ Key API routes for core functionality:
     *   `DELETE`: Deletes a specific user file record (and potentially the storage object via triggers/storage policies). Requires ownership or admin role.
 *   **/api/files/url**
     *   `GET`: Generates a temporary signed URL for downloading a file from storage. Requires appropriate access rights (via RLS/policies).
+*   **/api/bir?projectId=[uuid]**
+    *   `GET`: Fetches BIR text data.
+*   **/api/bir**
+    *   `POST`: Creates/updates BIR text data.
+*   **/api/bir/upload**
+    *   `POST`: Handles file uploads for a specific BIR.
 
 ## UI Components
 
@@ -142,6 +157,13 @@ Key API routes for core functionality:
     - Handled via the `project_revisions` and `revision_files` tables.
     - `revision_files` stores metadata for files specifically part of an official revision.
     - Intended for designer submissions needing client approval.
+- **Business Information Request (BIR) Files**:
+    - Uploaded via the BIR form integrated into web design project pages (`src/features/bir/BirForm.tsx` using `BirFileUploader.tsx`).
+    - Uses the `/api/bir/upload` endpoint.
+    - Files stored in a dedicated private Supabase Storage bucket: `bir-files`.
+    - Path: `{bir_id}/{uuid}.{ext}` within the `bir-files` bucket.
+    - Metadata stored in the `bir_file` table (linking to `business_information_requests.id`).
+    - Access controlled by RLS on `bir_file` and `storage.objects` for the `bir-files` bucket. Downloads via signed URLs.
 
 ## Feature: Business Information Request (BIR)
 
@@ -153,6 +175,8 @@ Key API routes for core functionality:
     *   Created `public.business_information_requests` table linked to `projects` and `profiles`.
     *   Includes `status` (enum: `pending`, `submitted`, `approved`), `answers` (jsonb), timestamps.
     *   Implemented and verified strict RLS policies (`bir_admin_all`, `bir_client_rw`, `bir_designer_read`) enforcing role-based access and the `project_type = 'web_design'` constraint. Helper functions (`get_user_role`, `is_designer_assigned_to_project`) are in place and corrected (`VOLATILE`).
+    *   Created `public.bir_file` table to store metadata for BIR-specific file uploads, linked to `business_information_requests`. RLS policies implemented.
+    *   Supabase Storage: Private bucket `bir-files` created for BIR file storage. RLS policies on `storage.objects` implemented for authenticated uploads.
 
 2.  **Types & Validation Schemas:**
     *   Define domain types and enums in `src/lib/types/bir.ts` (e.g., `BirStatus`, `BirRow`, `Bir`, `BirInsert`, `BirUpdate`). Include Supabase generated types.
@@ -168,6 +192,7 @@ Key API routes for core functionality:
     *   `GET /api/bir?projectId=[uuid]`: Fetches the BIR for a specific project. Requires authenticated user (via `requireAuth`). Authorization (project access) handled by RLS.
     *   `POST /api/bir`: Creates/Upserts a BIR record. Requires authenticated user (`requireAuth`). Uses `upsertBir` helper. Validates input (`birInsertSchema`) and enforces `client_id` from authenticated user.
     *   `PATCH /api/bir`: Updates an existing BIR record (e.g., answers or status). Requires authenticated user (`requireAuth`). Uses `updateBir` helper. Validates input (`birUpdateSchema`). Authorization (record access) handled by RLS.
+    *   `src/app/api/bir/upload/route.ts`: POST for BIR file uploads.
 
 5.  **Client-Side React Hooks:**
     *   Create a data fetching hook `useBir(projectId)` in `src/features/bir/useBir.ts` using `useSWR` or similar to call the `GET /api/bir` endpoint.
@@ -190,4 +215,83 @@ Key API routes for core functionality:
     *   Update `README.md` with details about the BIR feature.
     *   Update this `PLANNING.md` file as development progresses.
 
-**(Database, RLS, API Helpers, and API Route layers are complete and verified).** 
+**(Database, RLS, API Helpers, and API Route layers are complete and verified).**
+
+### Refactor: Business Information Request (BIR) - Multi-Step Form
+
+**Goal:** Improve user experience for the BIR by converting the single-page form into a multi-step process. This will make the form less intimidating and easier to navigate.
+
+**Phase 1: Title Redundancy (Already Addressed)**
+*   The main title for the BIR section is now provided by the Card on the project detail page.
+*   The redundant `<h3>` title within the `BirForm` component has been commented out.
+
+**Phase 2: Refactor `BirForm.tsx` into `MultiStepBirForm.tsx`**
+
+1.  **Directory for Step Components**:
+    *   A new directory will be created: `src/features/bir/steps/`.
+
+2.  **Step Configuration (Optional but Recommended)**:
+    *   Consider creating a configuration file (e.g., `src/features/bir/birStepConfig.ts`).
+    *   This file would export an array or object defining each step:
+        *   `id`: Unique identifier (e.g., 'officialInfo').
+        *   `title`: User-friendly title for the step (e.g., "Official Company Information").
+        *   `fields`: An array of `react-hook-form` field names (e.g., `'answers.official_company_name'`) relevant to this step, used for per-step validation.
+        *   `component`: The React component rendering this step's UI.
+
+3.  **Individual Step Components**:
+    *   For each `<fieldset>` in the current `BirForm.tsx`, a new component will be created in `src/features/bir/steps/`. Examples:
+        *   `OfficialInfoStep.tsx`
+        *   `ContactPresenceStep.tsx`
+        *   `CompanyDetailsStep.tsx`
+        *   `SupportingInfoStep.tsx`
+        *   `WebsiteSpecificsStep.tsx` (This step will initially handle only text fields).
+        *   `FinalCommentsStep.tsx`
+    *   Each step component will:
+        *   Receive `form: UseFormReturn<FormValues>` (from `react-hook-form`) and `isSubmitting: boolean` (or similar for disabling inputs) as props.
+        *   Render its specific set of input fields using `form.register` and display field-level errors.
+        *   The content will be extracted from the respective `<fieldset>` in the original `BirForm.tsx`.
+
+4.  **`MultiStepBirForm.tsx` (Orchestrator Component)**:
+    *   Location: `src/features/bir/MultiStepBirForm.tsx`. This component will replace the functionality of the old `BirForm.tsx`.
+    *   **Props**:
+        *   `projectId: string`
+        *   `mutateBir: KeyedMutator<any>` (from `useBir` hook, for triggering data revalidation)
+    *   **State**:
+        *   `currentStepIndex: number` (to track the active step).
+        *   `isSubmittingAll: boolean` (for the final submission of all text data).
+    *   **Hooks and Core Logic** (adapted from `BirForm.tsx`):
+        *   `useBir(projectId)` to fetch `fetchedBir`, manage `birLoading`, `birError`.
+        *   `useAuth()` for `user` details.
+        *   `useForm<FormValues>` for overall form management, validation schema (`birInsertSchema`), and default values. The `useEffect` for pre-filling the form with `fetchedBir` data will reside here.
+        *   `handleNextStep()`:
+            *   Trigger validation for the current step's fields using `await form.trigger(fieldsForCurrentStep)`.
+            *   If valid, increment `currentStepIndex`.
+        *   `handlePreviousStep()`: Decrement `currentStepIndex`.
+        *   `handleSubmitAllAnswers()`:
+            *   This function is called when the user completes the last textual step.
+            *   It will contain the API call logic (POST/PATCH to `/api/bir`) from the original `BirForm.tsx`'s `onFormSubmit`.
+            *   On successful submission, it will call `mutateBir()` to refresh `fetchedBir`. This is crucial so that `fetchedBir.id` is populated, which is needed for the file upload step.
+            *   After successful submission of text data, it will advance to the file upload step.
+    *   **Rendering**:
+        *   Display overall loading/error states.
+        *   If `fetchedBir.status === 'approved'`, display the "cannot be edited" message.
+        *   Dynamically render the current step's component based on `currentStepIndex` and the step configuration.
+        *   Navigation UI: "Previous" and "Next" buttons. The "Next" button on the last textual step will change to "Save and Continue to File Uploads" (or similar), triggering `handleSubmitAllAnswers`.
+
+5.  **`FileUploadStep.tsx` (New Step Component)**:
+    *   Location: `src/features/bir/steps/FileUploadStep.tsx`.
+    *   This step will be displayed *after* all textual BIR data has been successfully submitted and `fetchedBir.id` is available.
+    *   It will receive `birId={fetchedBir.id!}` and `mutateBir` as props.
+    *   It will render the `BirFileUploader` components (for Logo, Style Guide, etc.) as seen in the original `BirForm.tsx`.
+    *   A "Finish" or "Complete Submission" button might be present on this step, though individual file uploads already trigger `mutateBir`.
+
+6.  **Update `BusinessInfoGate.tsx`**:
+    *   Modify `BusinessInfoGate.tsx` to import and render `<MultiStepBirForm />` instead of the old `<BirForm />` when the form is to be displayed.
+
+7.  **UI/UX Enhancements for Multi-Step**:
+    *   Implement a visual stepper component (e.g., numbered steps, progress bar) to show the user their current position in the form.
+    *   Ensure clear validation messages are shown per step if "Next" is clicked with invalid data.
+    *   The overall layout for each step should be more focused and less overwhelming than the current single long form.
+
+8.  **Cleanup**:
+    *   Once the multi-step form is fully functional and tested, the old `BirForm.tsx` can be safely removed or archived. 

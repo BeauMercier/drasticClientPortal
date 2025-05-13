@@ -17,9 +17,7 @@ import { useAuth } from '@/features/auth';
 import BirFileUploader from '@/components/BirFileUploader';
 import { BirFileType } from '@/lib/types/bir';
 import { KeyedMutator } from 'swr';
-
-// Type for the form values, matching the insert schema exactly
-type FormValues = z.infer<typeof birInsertSchema>;
+import { FormValues } from '@/lib/validation/bir'; // Import the centralized type
 
 // Type guard to check if answers is a valid object (basic check)
 function isValidAnswersObject(answers: any): answers is Partial<BirAnswersData> {
@@ -198,7 +196,7 @@ export default function BirForm({ projectId, mutateBir }: BirFormProps) {
 
     return (
         <form onSubmit={form.handleSubmit(onFormSubmit, onFormError)} className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
-            <h3 className="text-xl font-semibold mb-6">Business Information Request</h3>
+            {/* <h3 className="text-xl font-semibold mb-6">Business Information Request</h3> */}
 
             {/* Hidden fields for required IDs */}
             <input type="hidden" {...form.register('project_id')} value={projectId} />

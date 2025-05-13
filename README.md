@@ -9,8 +9,10 @@ A comprehensive client portal built with Next.js, TypeScript, Tailwind CSS, and 
 - **Designer Workload Dashboard**: View and manage designer workloads and project assignments
 - **User Management**: Admin interface for creating and managing users
 - **Responsive UI**: Modern UI built with Tailwind CSS and shadcn/ui components
-- **File Management**: Upload, view, download, and delete general user files and project-specific files via Supabase Storage, with metadata tracked in `user_files` table and access controlled by RLS.
+- **File Management**: 
+    - General user files and project-specific files (non-BIR) via Supabase Storage (`project-files` bucket), with metadata in `user_files` table and RLS.
 - **Business Information Request (BIR)**: (Web Design Projects Only) An integrated form for clients to submit required business details directly within their web design project workspace, replacing external tools.
+   - Includes file uploads for BIR-specific documents (e.g., logos, style guides) stored in a separate private Supabase Storage bucket (`bir-files`) with metadata in `bir_file` table, all controlled by RLS.
 
 ## Getting Started
 
@@ -71,6 +73,9 @@ The project follows a standard Next.js App Router structure with key directories
         /[projectId]/user-files/ # Lists files for a project from user_files
         /files/   # API routes for project file handling
           /upload/ # Handles project file uploads (inserts into user_files)
+      /bir/       # API routes for Business Information Request
+        route.ts  # Handles GET/POST/PATCH for BIR text data
+        /upload/route.ts # Handles POST for BIR file uploads
       /files/     # General file operations
         /url/     # Generates signed URLs for storage objects
       /user-files/ # Operations on user_files table records
@@ -85,6 +90,7 @@ The project follows a standard Next.js App Router structure with key directories
     /admin/       # Admin-specific components (AdminSidebar)
     /client/      # Client-specific components (ClientSidebar)
     RoleSidebar.tsx # Sidebar showing different links based on role (used by Designer)
+    BirFileUploader.tsx # Component for BIR file uploads
     ...           # Other shared or feature-specific components
 
   /lib/          # Core logic, utilities, types, and external service integrations
@@ -95,12 +101,15 @@ The project follows a standard Next.js App Router structure with key directories
       server.ts     # Server-side Supabase client initialization
       server-utils.ts # Server-only helpers (authentication, client creation)
       API_ARCHITECTURE.md # Detailed explanation of API structure
+      bir.ts        # Helper functions for BIR data operations
     /types/       # Centralized TypeScript types (including ProjectFile, RevisionFile)
+    bir.ts        # Types and enums for the BIR feature
     utils.ts      # General utility functions
     ...
 
   /features/     # Modules for specific application features (e.g., auth)
     /[feature]/   # Contains components, hooks, types specific to a feature
+    /bir/         # Hooks, Form, Summary, Gate components for BIR feature
 
   /shared/       # Shared hooks, types, or UI utilities (e.g., contexts, atoms, molecules)
 
@@ -110,6 +119,7 @@ The project follows a standard Next.js App Router structure with key directories
 
 /public/         # Static assets (images, fonts)
 /supabase/       # Supabase CLI related files (e.g., migrations, config)
+  /migrations/  # Database migration files (including for bir_file table)
 ```
 
 ## API Endpoints & Logic
@@ -124,10 +134,11 @@ The project follows a standard Next.js App Router structure with key directories
 Key API routes include:
 *   `/api/admin/...`: Routes for administrative tasks (fetching all projects, users, assigning designers).
 *   `/api/projects/[projectType]/[projectId]`: Fetching project details (client/designer view).
-*   `/api/projects/files/upload`: Handling project-specific file uploads.
+*   `/api/projects/files/upload`: Handling project-specific file uploads (non-BIR).
 *   `/api/user-files/[userFileId]`: Deleting user files.
 *   `/api/files/url`: Generating download URLs for files.
-*   `/api/bir`: Handling Business Information Request data (GET by projectId, POST for create/upsert, PATCH for updates).
+*   `/api/bir`: Handling Business Information Request text data (GET by projectId, POST for create/upsert, PATCH for updates).
+*   `/api/bir/upload`: Handling file uploads specific to a Business Information Request.
 
 ## Database Schema
 
@@ -137,4 +148,7 @@ The application uses Supabase with the following main tables:
 - `projects` - Project information
 - `web_design_projects`, `logo_design_projects`, `social_graphics_projects` - Specific project type tables
 - `project_assignments` - Tracks which designer is assigned to which project
-- `project_revisions`, `
+- `project_revisions`, `revision_files` - For project revision deliverables.
+- `user_files` - Metadata for general user files and non-BIR project files.
+- `business_information_requests` - Stores the main data for BIR.
+- `bir_file` - Stores metadata for files uploaded as part of a BIR.

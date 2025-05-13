@@ -1,0 +1,267 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useForm, SubmitHandler, FieldErrors, Path } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { KeyedMutator } from 'swr';
+
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import { useBir } from './useBir';
+import { useAuth } from '@/features/auth';
+import {
+  birInsertSchema,
+  birUpdateSchema,
+  BirAnswersData,
+  BirUpdateDTO,
+  FormValues as BirFormValues, // Renaming to avoid conflict if MultiStepBirForm has its own FormValues
+} from '@/lib/validation/bir';
+import { birStepsConfig, BirStep, StepProps } from './birStepConfig';
+// Import FileUploadStep when it's created
+// import FileUploadStep from './steps/FileUploadStep';
+
+// Helper to get default values for the complex answers object (can be reused or adapted)
+const getDefaultAnswers = (): BirAnswersData => ({
+  official_company_name: '',
+  official_company_phone: '',
+  official_company_email: '',
+  official_company_address: '',
+  email: '',
+  website_url: '',
+  facebook_url: '',
+  instagram_url: '',
+  other_social_links: [],
+  services_description: '',
+  company_history_mission: '',
+  team_member_profiles: '',
+  certifications_testimonials_case_studies: '',
+  partnerships_affiliations: '',
+  faqs_key_information: '',
+  specific_features_requests: '',
+  additional_comments: '',
+});
+
+// Type guard (can be reused or adapted)
+function isValidAnswersObject(answers: any): answers is Partial<BirAnswersData> {
+  return typeof answers === 'object' && answers !== null && !Array.isArray(answers);
+}
+
+interface MultiStepBirFormProps {
+  projectId: string;
+  mutateBir: KeyedMutator<any>; // This is the mutate function from the parent useBir hook
+}
+
+/**
+ * Orchestrator component for the multi-step Business Information Request form.
+ * Manages form state using react-hook-form, navigates between different steps
+ * defined in `birStepsConfig`, handles data fetching via `useBir` and `useAuth`,
+ * and processes the submission of BIR data.
+ *
+ * @param {MultiStepBirFormProps} props The component props.
+ * @param {string} props.projectId The ID of the current project.
+ * @param {KeyedMutator<any>} props.mutateBir The SWR mutate function from the parent
+ *   component (likely BusinessInfoGate) to revalidate BIR data globally after submission.
+ * @returns {JSX.Element} The multi-step BIR form component.
+ */
+export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir }: MultiStepBirFormProps) {
+  const { bir: fetchedBir, isLoading: birLoading, error: birError, mutate: localMutateBir } = useBir(projectId);
+  const { user, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
+
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isSubmittingTextData, setIsSubmittingTextData] = useState(false);
+
+  // Filter out FileUploadStep initially from the textual steps
+  // const textualSteps = birStepsConfig.filter(step => step.id !== 'fileUpload');
+  // Let's assume for now birStepsConfig only contains textual steps
+  const textualSteps = birStepsConfig; 
+  const isLastTextualStep = currentStepIndex === textualSteps.length - 1;
+
+  const form = useForm<BirFormValues>({
+    resolver: zodResolver(birInsertSchema),
+    defaultValues: {
+      project_id: projectId,
+      project_type: 'web_design',
+      client_id: user?.id || '',
+      answers: getDefaultAnswers(),
+    },
+  });
+
+  useEffect(() => {
+    if (user?.id && !form.getValues('client_id')) {
+      form.setValue('client_id', user.id);
+    }
+    if (fetchedBir && isValidAnswersObject(fetchedBir.answers)) {
+      const mergedAnswers = { ...getDefaultAnswers(), ...fetchedBir.answers };
+      form.reset({
+        project_id: fetchedBir.project_id,
+        client_id: user?.id || fetchedBir.client_id || '',
+        project_type: 'web_design',
+        answers: mergedAnswers,
+      });
+    } else if (!birLoading && !birError && !fetchedBir && user?.id) {
+      form.reset({
+        project_id: projectId,
+        project_type: 'web_design',
+        client_id: user.id,
+        answers: getDefaultAnswers(),
+      });
+    }
+  }, [fetchedBir, projectId, birLoading, birError, user, form]);
+
+  const handleNextStep = async () => {
+    const currentStepFields = textualSteps[currentStepIndex].fields;
+    // Need to cast field names to Path<BirFormValues> for trigger
+    const fieldsToValidate = currentStepFields.map(field => `answers.${field}` as Path<BirFormValues>);
+
+    const isValid = await form.trigger(fieldsToValidate.length > 0 ? fieldsToValidate : undefined);
+    if (isValid) {
+      if (!isLastTextualStep) {
+        setCurrentStepIndex((prev) => prev + 1);
+      }
+    } else {
+      toast({
+        title: "Validation Error",
+        description: "Please check the current step for errors before proceeding.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePreviousStep = () => {
+    setCurrentStepIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleSubmitAllAnswers: SubmitHandler<BirFormValues> = async (values) => {
+    setIsSubmittingTextData(true);
+    const isUpdateMode = !!fetchedBir;
+    const method = isUpdateMode ? 'PATCH' : 'POST';
+    let payload: any;
+
+    try {
+      const processedAnswers = values.answers;
+      if (isUpdateMode && fetchedBir) {
+        const updatePayload: BirUpdateDTO = { id: fetchedBir.id, answers: processedAnswers };
+        const validationResult = birUpdateSchema.safeParse(updatePayload);
+        if (!validationResult.success) {
+          throw new Error('Validation failed for update.'); // Simplified error
+        }
+        payload = validationResult.data;
+      } else {
+        const validationResult = birInsertSchema.safeParse(values);
+        if (!validationResult.success) {
+          throw new Error('Validation failed for insert.'); // Simplified error
+        }
+        const { client_id, ...finalPayload } = validationResult.data;
+        payload = finalPayload;
+      }
+
+      const res = await fetch('/api/bir', {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Save failed');
+
+      toast({ title: "Success", description: `Business information ${isUpdateMode ? 'updated' : 'submitted'}.` });
+      await parentMutateBir(); // Mutate using the prop from BusinessInfoGate
+      await localMutateBir();  // Mutate local SWR state
+      // TODO: Potentially advance to FileUploadStep if it exists and this was successful
+      // if (birStepsConfig.find(step => step.id === 'fileUpload')) {
+      //   const fileUploadStepIndex = birStepsConfig.findIndex(step => step.id === 'fileUpload');
+      //   setCurrentStepIndex(fileUploadStepIndex);
+      // }
+    } catch (error: any) {
+      console.error("Error submitting BIR answers:", error);
+      toast({ title: "Error", description: error.message || 'An unexpected error occurred.', variant: "destructive" });
+    } finally {
+      setIsSubmittingTextData(false);
+    }
+  };
+
+  const onFormError = (errors: FieldErrors<BirFormValues>) => {
+    console.error('❌ RHF validation errors →', errors);
+    toast({
+      title: "Validation Error",
+      description: "Please review the form for errors. Check all steps if necessary.",
+      variant: "destructive"
+    });
+  };
+
+  if (authLoading || birLoading) return <p>Loading Business Information Form...</p>;
+  if (birError) return <p className="text-red-600">Error loading form data: {birError.message}</p>;
+  if (!user) return <p className="text-red-600">Error: User not found. Cannot display form.</p>;
+  if (fetchedBir && fetchedBir.status === 'approved') {
+    return <p className="text-yellow-600">This request has been approved and cannot be edited.</p>;
+  }
+
+  const CurrentStepComponent = textualSteps[currentStepIndex].component as React.ComponentType<StepProps>;
+
+  return (
+    <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
+      {/* Visual Stepper */}
+      <div className="mb-8 flex items-center justify-center space-x-2 sm:space-x-4 overflow-x-auto pb-2">
+        {textualSteps.map((step, index) => (
+          <div key={step.id} className="flex flex-col items-center min-w-max">
+            <div
+              className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-300 ease-in-out 
+                ${index === currentStepIndex
+                  ? 'bg-primary text-primary-foreground scale-110' 
+                  : index < currentStepIndex 
+                    ? 'bg-green-500 text-white' 
+                    : 'bg-muted text-muted-foreground'}`}
+            >
+              {index < currentStepIndex ? (
+                // Checkmark SVG for completed steps
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
+                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                index + 1
+              )}
+            </div>
+            <p 
+              className={`mt-1.5 text-xs sm:text-sm text-center max-w-[100px] truncate 
+                ${index === currentStepIndex ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+            >
+              {step.name}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <h2 className="text-xl font-semibold text-center sm:text-left">{textualSteps[currentStepIndex].name}</h2>
+      
+      <form onSubmit={form.handleSubmit(handleSubmitAllAnswers, onFormError)} className="space-y-6">
+        {/* Hidden fields for required IDs, react-hook-form handles them via defaultValues & schema */}
+        
+        <CurrentStepComponent form={form} isSubmitting={isSubmittingTextData || authLoading || birLoading} />
+
+        <div className="flex justify-between items-center pt-6">
+          <div>
+            {currentStepIndex > 0 && (
+              <Button type="button" onClick={handlePreviousStep} variant="outline" disabled={isSubmittingTextData}>
+                Previous
+              </Button>
+            )}
+          </div>
+          <div>
+            {!isLastTextualStep && (
+              <Button type="button" onClick={handleNextStep} disabled={isSubmittingTextData}>
+                Next
+              </Button>
+            )}
+            {isLastTextualStep && (
+              <Button type="submit" disabled={isSubmittingTextData || authLoading || birLoading}>
+                {isSubmittingTextData ? 'Saving...' : (!!fetchedBir ? 'Update & Save All Answers' : 'Save All Answers')}
+              </Button>
+            )}
+          </div>
+        </div>
+        {/* TODO: Render FileUploadStep after text data is submitted and fetchedBir.id exists */}
+      </form>
+    </div>
+  );
+} 

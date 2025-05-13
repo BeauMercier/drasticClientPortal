@@ -54,3 +54,6 @@ export const birUpdateSchema = z
 export type BirInsertDTO = z.infer<typeof birInsertSchema>;
 export type BirUpdateDTO = z.infer<typeof birUpdateSchema>;
 export type BirAnswersData = z.infer<typeof birAnswersSchema>; // Export Answers type 
+
+// FormValues is based on the complete insert schema
+export type FormValues = z.infer<typeof birInsertSchema>; 

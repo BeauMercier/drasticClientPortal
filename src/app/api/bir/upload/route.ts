@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { Database } from '@/lib/database.types';
 import { BirFileType } from '@/lib/types/bir'; // Import shared enum
+import { createApiClient, requireAuth } from '@/lib/api/server-utils'; // Updated import
 
 // Define the bucket name as a constant
 const BUCKET_NAME = 'bir-files';
@@ -22,19 +23,20 @@ const paramsSchema = z.object({
 });
 
 // Helper function to get Supabase client
-const getSupabaseClient = () => {
-  // Assuming types are regenerated, no 'as any' needed here
-  return createRouteHandlerClient<Database>({ cookies });
-};
+// const getSupabaseClient = () => {
+//   // Assuming types are regenerated, no 'as any' needed here
+//   return createRouteHandlerClient<Database>({ cookies });
+// };
 
 export async function POST(req: NextRequest) {
-  const supabase = getSupabaseClient();
+  // const supabase = getSupabaseClient(); // Old client instantiation
+  const supabase = createApiClient(); // Use new client from server-utils
 
-  // Validate Authentication (Assuming you have a helper like this)
-  // const { user, error: authError } = await requireAuth(req); // Or similar check
-  // if (authError || !user) {
-  //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  // }
+  // Validate Authentication
+  const { authenticated, user, error: authError_ } = await requireAuth();
+  if (!authenticated || !user) {
+    return NextResponse.json({ error: authError_ || 'Unauthorized' }, { status: 401 });
+  }
 
   const form = await req.formData();
 

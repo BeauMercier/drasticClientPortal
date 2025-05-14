@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input'; // Use Shadcn Input for consistency
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils'; // Assuming you have cn utility
-import { BirFileType } from '@/lib/types/bir'; // Import from the new shared location
+import { BirFileType, BirFileRow } from '@/lib/types/bir'; // Import from the new shared location
 
 interface Props {
   birId: string;
   fileType: BirFileType; // Use the enum type
-  onUploadSuccess?: (uploadedFile: any) => void; // Pass uploaded file data back
+  onUploadSuccess?: (uploadedFile: BirFileRow) => void; // Pass uploaded file data back
   className?: string;
   accept?: string; // Allow specifying accepted file types
   disabled?: boolean;

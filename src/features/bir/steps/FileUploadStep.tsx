@@ -5,11 +5,11 @@ import BirFileUploader from '@/components/BirFileUploader';
 import { BirFileType } from '@/lib/types/bir'; // Assuming BirFileType is here
 import { KeyedMutator } from 'swr';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-
+import { UseBirData } from '@/features/bir/useBir'; // Added import
 
 interface FileUploadStepProps {
   birId: string;
-  mutateBir: KeyedMutator<any>; // Or a more specific type if available
+  mutateBir: KeyedMutator<UseBirData>; // Updated type
   onUploadComplete?: () => void; // Optional: callback for when all uploads are done or step is "finished"
   // Add any other props needed, e.g., for styling or controlling behavior
 }

@@ -438,20 +438,17 @@ export default function WebDesignProjectDetails() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="business_info" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="business_info">Business Information</TabsTrigger>
-          <TabsTrigger value="bir_project_files" disabled={!fetchedBir?.id || birLoadingBir}>
-            BIR Project Files
-          </TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardContent className="pt-6">
+          <Tabs defaultValue="business_info" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="business_info">Business Information</TabsTrigger>
+              <TabsTrigger value="bir_project_files" disabled={!fetchedBir?.id || birLoadingBir}>
+                Project Files
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="business_info">
-          <Card>
-            <CardHeader>
-              <CardTitle>Business Information Request</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <TabsContent value="business_info" className="mt-4">
               {project && !isLoading ? (
                 <BusinessInfoGate
                   projectId={project.id}
@@ -463,19 +460,9 @@ export default function WebDesignProjectDetails() {
               ) : (
                  <p>Project details are not available.</p>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </TabsContent>
 
-        <TabsContent value="bir_project_files">
-          <Card>
-            <CardHeader>
-              <CardTitle>BIR Supporting Files</CardTitle>
-              <CardDescription>
-                Upload files specifically requested for the Business Information Request.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
+            <TabsContent value="bir_project_files" className="mt-4">
               {birLoadingBir ? (
                 <Skeleton className="h-40 w-full" />
               ) : fetchedBir?.id ? (
@@ -488,60 +475,8 @@ export default function WebDesignProjectDetails() {
                   Please complete and save the 'Business Information' section first to enable BIR file uploads.
                 </p>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Project Files</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-medium">Project Files</h3>
-              <Button variant="ghost" size="sm">
-                {isFetchingFiles ? 'Loading...' : 'Hide'}
-              </Button>
-            </div>
-            {isFetchingFiles ? (
-              <p className="text-sm text-muted-foreground">Loading files...</p>
-            ) : projectUserFiles.length > 0 ? (
-              <ul className="space-y-2 border rounded-md p-3 bg-white">
-                {projectUserFiles.map((file) => (
-                  <li key={file.id} className="text-sm flex items-center justify-between py-1 border-b last:border-b-0">
-                    <div className="flex items-center overflow-hidden mr-2">
-                      {getFileIcon(file.file_type)}
-                      <span className="truncate" title={file.file_name}>{file.file_name}</span>
-                    </div>
-                    <div className="flex items-center space-x-2 flex-shrink-0">
-                        <span className="text-xs text-muted-foreground">{formatFileSize(file.file_size)}</span>
-                        <span className="text-xs text-muted-foreground">{format(new Date(file.uploaded_at), 'MMM d, yyyy')}</span>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          // onClick={() => handleDownloadFile(file)} // Temporarily comment out to stop error flood
-                          disabled={isDownloading[file.id] || isDeleting[file.id]}
-                        >
-                          {isDownloading[file.id] ? 'Downloading...' : <DownloadIcon className="h-4 w-4" />}
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => handleDeleteFile(file)}
-                          disabled={isDownloading[file.id] || isDeleting[file.id]}
-                        >
-                           {isDeleting[file.id] ? 'Deleting...' : <Trash2Icon className="h-4 w-4" />}
-                        </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">No files uploaded for this project yet.</p>
-            )}
-          </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 

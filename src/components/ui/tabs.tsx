@@ -1,24 +1,55 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface TabsProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: string;
+  defaultValue?: string;
   onValueChange?: (value: string) => void;
   className?: string;
 }
 
 // Create a context for the tabs
 interface TabsContextValue {
-  value?: string;
-  onValueChange?: (value: string) => void;
+  activeValue: string;
+  onValueChange: (value: string) => void;
 }
 
 const TabsContext = React.createContext<TabsContextValue | undefined>(undefined);
 
-export const Tabs = ({ value, onValueChange, className = '', children, ...props }: TabsProps) => {
+export const Tabs = ({
+  value: controlledValue,
+  defaultValue,
+  onValueChange,
+  className = '',
+  children,
+  ...props
+}: TabsProps) => {
+  const [internalValue, setInternalValue] = useState(defaultValue || '');
+
+  // Determine the effective value: controlled takes precedence
+  const activeValue = controlledValue !== undefined ? controlledValue : internalValue;
+
+  // Handle value changes
+  const handleValueChange = (newValue: string) => {
+    if (onValueChange) {
+      onValueChange(newValue);
+    }
+    // If not controlled, update internal state
+    if (controlledValue === undefined) {
+      setInternalValue(newValue);
+    }
+  };
+
+  // Effect to update internal state if defaultValue changes (though rare for defaultValue)
+  useEffect(() => {
+    if (controlledValue === undefined && defaultValue !== undefined) {
+      setInternalValue(defaultValue);
+    }
+  }, [defaultValue, controlledValue]);
+
   return (
-    <TabsContext.Provider value={{ value, onValueChange }}>
+    <TabsContext.Provider value={{ activeValue, onValueChange: handleValueChange }}>
       <div className={`w-full ${className}`} {...props}>
         {children}
       </div>
@@ -54,12 +85,13 @@ export const TabsTrigger = ({
   ...props
 }: TabsTriggerProps) => {
   const context = React.useContext(TabsContext);
-  const isSelected = context?.value === value;
+  if (!context) {
+    throw new Error('TabsTrigger must be used within a TabsProvider');
+  }
+  const isSelected = context.activeValue === value;
 
   const handleClick = () => {
-    if (context?.onValueChange) {
-      context.onValueChange(value);
-    }
+    context.onValueChange(value);
   };
 
   return (
@@ -93,7 +125,10 @@ export const TabsContent = ({
   ...props
 }: TabsContentProps) => {
   const context = React.useContext(TabsContext);
-  const isSelected = context?.value === value;
+  if (!context) {
+    throw new Error('TabsContent must be used within a TabsProvider');
+  }
+  const isSelected = context.activeValue === value;
 
   if (!isSelected) {
     return null;

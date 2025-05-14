@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';     // 👈 forces Vercel to use a Node lambda
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';

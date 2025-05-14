@@ -34,7 +34,9 @@
             - `files/`: Endpoints for general project file operations (`upload`, etc.). (Note: UI for this removed from web-design project page).
             - `bir/`: Endpoints for Business Information Request operations.
                 - `route.ts`: Handles GET, POST, PATCH for BIR text data.
-                - `upload/route.ts`: Handles POST for BIR file uploads.
+                - `upload/route.ts`: (DEPRECATED) Was previously for BIR file uploads, now superseded by signed URL flow.
+                - `create-upload-url/route.ts`: Handles POST to generate a signed URL for direct client-to-storage BIR file uploads.
+                - `record-file/route.ts`: Handles POST to record BIR file metadata in `bir_file` table after successful client-to-storage upload.
         - Other standard auth routes (`login`, `register`, etc.).
 - `src/components/`: Reusable UI components.
     - `admin/AdminSidebar.tsx`: Dedicated sidebar for the admin section.
@@ -91,6 +93,10 @@ Files are stored in a single Supabase storage bucket (`project-files`). Metadata
     *   Database Record: A row is created in `user_files` with `user_id`, `project_id`, and `project_type` all populated.
 *   **BIR-Specific Files (Web Design Projects):** Stored in a separate, private `bir-files` bucket. Metadata in `public.bir_file` table.
     *   Uploaded via the "Project Files" tab within the Web Design project detail page (`src/app/(client)/client/projects/web-design/[id]/page.tsx`), which uses `FileUploadStep.tsx`.
+    *   The upload process uses a signed URL flow:
+        1. Client requests a signed URL from `/api/bir/create-upload-url`.
+        2. File is uploaded directly from the client to the Supabase `bir-files` bucket using the signed URL.
+        3. Client sends metadata to `/api/bir/record-file` to create an entry in the `bir_file` table.
     *   This tab is specifically for files related to the Business Information Request.
     *   Storage Path: `{bir_id}/{uuid}.{ext}` (within `bir-files` bucket)
     *   Database: `bir_file` table with `bir_id` (FK to `business_information_requests`), `file_type`, `original_name`, `storage_path`, `mime_type`, `size_bytes`.
@@ -131,7 +137,11 @@ Key API routes for core functionality:
 *   **/api/bir**
     *   `POST`/`PATCH`: Creates/updates BIR text data.
 *   **/api/bir/upload**
-    *   `POST`: Handles file uploads for a specific BIR, storing in `bir-files` bucket and `bir_file` table.
+    *   `POST`: (DEPRECATED) Previously handled file uploads for a specific BIR. This route is no longer used for BIR file uploads due to Vercel payload limitations and has been replaced by a signed URL flow.
+*   **/api/bir/create-upload-url**
+    *   `POST`: Generates a signed URL for direct client upload of a BIR file to Supabase Storage. Expects `birId`, `filename`, `mime`. Returns `uploadUrl` and `objectKey`.
+*   **/api/bir/record-file**
+    *   `POST`: Records metadata of a BIR file in the `bir_file` table after successful direct upload to Supabase Storage. Expects `birId`, `objectKey`, `size`, `mime`, `originalName`, `fileType`.
 
 ## UI Components (Duplicated Section - Consolidate Later if needed)
 
@@ -168,7 +178,10 @@ Key API routes for core functionality:
     - Intended for designer submissions needing client approval.
 - **Business Information Request (BIR) Files**:
     - Uploaded via the "Project Files" tab on web design project pages (`src/app/(client)/client/projects/web-design/[id]/page.tsx` using `FileUploadStep.tsx`).
-    - Uses the `/api/bir/upload` endpoint.
+    - Uses a signed URL flow:
+        1. Client requests a signed URL from `/api/bir/create-upload-url`.
+        2. File is uploaded directly to the `bir-files` Supabase Storage bucket.
+        3. Client notifies `/api/bir/record-file` to create metadata entry in `bir_file` table.
     - Files stored in a dedicated private Supabase Storage bucket: `bir-files`.
     - Path: `{bir_id}/{uuid}.{ext}` within the `bir-files` bucket.
     - Metadata stored in the `bir_file` table (linking to `business_information_requests.id`).
@@ -201,7 +214,9 @@ Key API routes for core functionality:
     *   `GET /api/bir?projectId=[uuid]`: Fetches the BIR for a specific project. Requires authenticated user (via `requireAuth`). Authorization (project access) handled by RLS.
     *   `POST /api/bir`: Creates/Upserts a BIR record. Requires authenticated user (`requireAuth`). Uses `upsertBir` helper. Validates input (`birInsertSchema`) and enforces `client_id` from authenticated user.
     *   `PATCH /api/bir`: Updates an existing BIR record (e.g., answers or status). Requires authenticated user (`requireAuth`). Uses `updateBir` helper. Validates input (`birUpdateSchema`). Authorization (record access) handled by RLS.
-    *   `src/app/api/bir/upload/route.ts`: POST for BIR file uploads.
+    *   `src/app/api/bir/upload/route.ts`: (DEPRECATED) POST for BIR file uploads. Superseded by signed URL flow.
+    *   `src/app/api/bir/create-upload-url/route.ts`: POST to generate a signed URL for direct client-to-storage BIR file uploads.
+    *   `src/app/api/bir/record-file/route.ts`: POST to record BIR file metadata in `bir_file` table after successful client-to-storage upload.
 
 5.  **Client-Side React Hooks:**
     *   Create a data fetching hook `useBir(projectId)` in `src/features/bir/useBir.ts` using `useSWR` or similar to call the `GET /api/bir` endpoint.

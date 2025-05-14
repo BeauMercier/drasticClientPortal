@@ -6,10 +6,15 @@ import { BirFileType } from '@/lib/types/bir'; // Assuming BirFileType is here
 import { KeyedMutator } from 'swr';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UseBirData } from '@/features/bir/useBir'; // Added import
+import { SignedBirFile } from '@/lib/types/bir'; // Ensure BirFileType is imported if not already
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { DownloadIcon, FileTextIcon, ImageIcon, Trash2Icon } from 'lucide-react'; // Assuming these are used
 
 interface FileUploadStepProps {
   birId: string;
   mutateBir: KeyedMutator<UseBirData>; // Updated type
+  uploadedFiles: SignedBirFile[] | null; // New prop for existing files
   onUploadComplete?: () => void; // Optional: callback for when all uploads are done or step is "finished"
   // Add any other props needed, e.g., for styling or controlling behavior
 }
@@ -20,17 +25,43 @@ interface FileUploadStepProps {
  *
  * @param birId - The ID of the Business Information Request.
  * @param mutateBir - SWR mutator function to revalidate BIR data after uploads.
+ * @param uploadedFiles - New prop for existing files
  * @param onUploadComplete - Optional callback when the user considers this step finished.
  */
 const FileUploadStep: React.FC<FileUploadStepProps> = ({ 
   birId, 
   mutateBir,
+  uploadedFiles, // Destructure new prop
   onUploadComplete 
 }) => {
   // TODO: Potentially manage loading states for individual uploaders or overall step
 
   const handleUploadSuccess = () => {
     mutateBir(); // Call SWR mutate to revalidate/refetch BIR data (including files)
+  };
+
+  const formatFileSize = (bytes: number | null | undefined): string => {
+    if (bytes === null || bytes === undefined || bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (fileMimeType: string | null): React.ReactElement => {
+    const type = fileMimeType?.split('/')[0];
+    if (type === 'image') {
+        return <ImageIcon className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" />;
+    }
+    // Add more specific icons based on mime_type or file_type from BirFileRow if needed
+    return <FileTextIcon className="h-5 w-5 text-gray-500 mr-2 flex-shrink-0" />;
+  };
+
+  // TODO: Implement handleDeleteBirFile function
+  const handleDeleteBirFile = async (fileId: string, storagePath: string) => {
+    console.warn("Delete functionality for BIR file not yet implemented.", fileId, storagePath);
+    // This will require a new API endpoint: DELETE /api/bir/file/[fileId]?path=[storagePath]
+    // And then calling mutateBir()
   };
 
   return (
@@ -50,6 +81,52 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
           <BirFileUploader birId={birId} fileType={BirFileType.Certificate} onUploadSuccess={handleUploadSuccess} />
           <BirFileUploader birId={birId} fileType={BirFileType.Misc} onUploadSuccess={handleUploadSuccess} />
         </div>
+
+        {uploadedFiles && uploadedFiles.length > 0 && (
+          <div className="mt-8">
+            <h4 className="text-lg font-medium mb-2">Uploaded BIR Files</h4>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>File Name</TableHead>
+                  <TableHead>Size</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {uploadedFiles.map((file) => (
+                  <TableRow key={file.id}>
+                    <TableCell className="font-medium flex items-center">
+                      {getFileIcon(file.mime_type)}
+                      {file.original_name}
+                    </TableCell>
+                    <TableCell>{formatFileSize(file.size_bytes)}</TableCell>
+                    <TableCell>{file.file_type}</TableCell>
+                    <TableCell className="space-x-2">
+                      {file.publicUrl && (
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={file.publicUrl} download={file.original_name} target="_blank" rel="noopener noreferrer">
+                            <DownloadIcon className="h-4 w-4 mr-1" /> Download
+                          </a>
+                        </Button>
+                      )}
+                      {/* TODO: Enable delete button once implemented */}
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => handleDeleteBirFile(file.id, file.storage_path)}
+                        disabled // Disabled for now
+                      >
+                        <Trash2Icon className="h-4 w-4 mr-1" /> Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
         
         {onUploadComplete && (
            <div className="flex justify-end pt-4">

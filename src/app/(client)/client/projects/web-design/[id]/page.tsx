@@ -94,7 +94,7 @@ export default function WebDesignProjectDetails() {
   const [isDeleting, setIsDeleting] = useState<{[key: string]: boolean}>({});
   const { toast } = useToast();
 
-  const { bir: fetchedBir, mutate: mutateBir, isLoading: birLoadingBir } = useBir(project?.id);
+  const { bir: fetchedBir, signedBirFiles, mutate: mutateBir, isLoading: birLoadingBir } = useBir(project?.id);
 
   const fetchProjectUserFiles = async (projectId: string) => {
     if (!projectId) return;
@@ -469,6 +469,7 @@ export default function WebDesignProjectDetails() {
                 <FileUploadStep
                   birId={fetchedBir.id}
                   mutateBir={mutateBir}
+                  uploadedFiles={signedBirFiles}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">

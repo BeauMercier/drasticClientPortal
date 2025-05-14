@@ -156,10 +156,11 @@ const FileList: React.FC<FileListProps> = ({
 
   // Handle folder creation
   const handleCreateFolder = useCallback(async () => {
-    const folderName = prompt('Enter folder name:');
-    if (folderName) {
-      await createFolder(folderName);
-    }
+    // Intentionally disabled: New Folder functionality
+    // const folderName = prompt('Enter folder name:');
+    // if (folderName) {
+    //   await createFolder(folderName);
+    // }
   }, [createFolder]);
 
   // Handle file deletion
@@ -341,18 +342,29 @@ const FileList: React.FC<FileListProps> = ({
     <div className={`flex flex-col w-full bg-white rounded shadow-sm ${className || ''}`}>
       {/* Breadcrumb navigation */}
       <div className="flex items-center p-4 border-b border-gray-200">
-        <button 
-          onClick={() => navigateToFolder('')}
-          className="text-blue-600 hover:underline"
-        >
-          Root
-        </button>
+        {folderPath.length === 0 ? (
+          // At root: display a non-clickable title based on the context's folderPath or initialFolder.
+          // Since folderPath from useFiles() is the current path segments, if it's empty, we are at root.
+          <span className="text-gray-700 font-medium">
+            {/* Display "Root" or the name of the root folder if initialFolder provides it and it's not empty */}
+            {(initialFolder && initialFolder !== '') ? initialFolder.split('/').pop() : 'Root'}
+          </span>
+        ) : (
+          // In a subfolder: display clickable "Root"
+          <button
+            onClick={() => navigateToFolder('')} // Navigate to empty string for root
+            className="text-blue-600 hover:underline"
+          >
+            Root
+          </button>
+        )}
+        {/* Display path segments from the context's folderPath */}
         {folderPath.map((folder) => (
-          <React.Fragment key={folder.id}>
+          <React.Fragment key={folder.id}> {/* Assuming folder.id is unique & represents the segment path/id */}
             <span className="mx-2 text-gray-500">/</span>
             <button
               className="text-blue-600 hover:underline"
-              onClick={() => navigateToFolder(folder.id)}
+              onClick={() => navigateToFolder(folder.id)} // navigateToFolder uses the segment id/path
             >
               {folder.name}
             </button>
@@ -455,18 +467,18 @@ const FileList: React.FC<FileListProps> = ({
                 onChange={(e) => handleFileUpload(e.target.files)}
                 className="hidden"
               />
-              <label 
+              <label
                 htmlFor="file-upload"
                 className="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700"
               >
                 Upload File
               </label>
-              <button
+              {/* <button
                 onClick={handleCreateFolder}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
               >
                 New Folder
-              </button>
+              </button> */}
             </div>
           )}
         </div>

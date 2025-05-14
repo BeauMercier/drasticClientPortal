@@ -23,6 +23,7 @@
 
 - [x] Deprecated and removed the `/client/settings` page (`src/app/(client)/client/settings/page.tsx`).
 - [x] Updated `PLANNING.md` and `README.md` to remove references to the settings page.
+- TODO: Thoroughly test the new signed URL BIR file upload flow on Vercel (various file types, sizes, edge cases).
 
 ### Discovered During Work
 
@@ -98,21 +99,24 @@
 - [x] **Build Fix:** Resolved Vercel build error caused by client components importing server-only API route files by moving shared `BirFileType` enum to `src/lib/types/bir.ts` and correcting import paths. Resolved TypeScript error in `BusinessInfoGate.tsx` by passing `mutateBir` prop to `BirForm`.
 
 - [x] **File Upload - DB Migration:** Create `bir_file` table (`supabase/migrations/..._add_bir_file_table.sql`). (User to confirm applied)
-- [x] **File Upload - API Route:** Create `POST /api/bir/upload` endpoint.
-- [x] **File Upload - Client Component:** Create `BirFileUploader.tsx`.
+- [x] **File Upload - API Routes (Signed URL Flow):** Created `/api/bir/create-upload-url` and `/api/bir/record-file` endpoints, deprecating old `/api/bir/upload` direct upload.
+- [x] **File Upload - Client Component:** Created and refactored `BirFileUploader.tsx` to use the signed URL upload flow.
 - [x] **File Upload - Form Integration:** Add `BirFileUploader` instances to `BirForm.tsx`. (Old form)
 - [x] **File Upload - Summary Display:** Update `useBir` hook and `BirSummary.tsx` to fetch and display files with signed URLs.
 - [x] **File Upload - RLS & Storage Policies:** Create migration (`..._bir_file_rls.sql`) for `bir_file` RLS and `storage.objects` policies. (User to confirm applied)
 - [ ] **File Upload - Type Regeneration:** Regenerate Supabase types (`npx supabase gen types ...`) and remove placeholder types/casts. (User to confirm completion)
+- [ ] **File Upload - BIR File Deletion:** Implement delete functionality for uploaded BIR files in the "Project Files" tab (requires new API endpoint and client-side logic in `FileUploadStep.tsx`).
 
 - [ ] **Backend:** (Optional) Implement PATCH `/status` handler for admin/designer approval.
 - [ ] **Backend:** Add unit/integration tests for the new API routes (using Jest/Vitest).
 - [ ] **Frontend:** Create mutation hooks `useSaveBir()` (POST/PUT) and `useApproveBir()` (PATCH). (*Note: Basic POST/PATCH logic implemented within `BirForm.tsx` for now. Refactor into dedicated hooks if complexity increases.*)
 - [ ] **Frontend:** Refine "Other Social Links" input in `BirForm.tsx`.
 - [ ] **Designer Page:** Implement actual data fetching for the designer web design project detail page.
-- [ ] **QA:** Test the entire flow thoroughly: form display logic, submission, validation, file handling, role-based access (client, designer, admin), mobile responsiveness.
+- [ ] **QA:** Test the entire flow thoroughly: form display logic, submission, validation, file handling (now using signed URLs), role-based access (client, designer, admin), mobile responsiveness.
 - [ ] **UI Polishing:** Refine styles, layout, component usage (e.g., status badges), and add more specific field validation messages in `BirForm.tsx`.
-- [ ] **Documentation:** Update `README.md` and `PLANNING.md` with details about the BIR file upload feature and recent UI changes.
+- [x] **Documentation:** Update `PLANNING.md` with details about the BIR signed URL file upload feature.
+- [x] **Documentation:** Update `TASK.md` to reflect BIR signed URL file upload implementation.
+- [ ] **Documentation:** Update `README.md` with details about the BIR signed URL file upload feature (if applicable).
 - [ ] **Documentation:** Update onboarding guides for clients explaining the new process.
 - [ ] **Deployment:** Consider releasing behind a feature flag (`NEXT_PUBLIC_ENABLE_BIR=true`).
 - [ ] **Notifications (Optional):** Implement Edge Function/Realtime listener to notify relevant users on BIR submission.

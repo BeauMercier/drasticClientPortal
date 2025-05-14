@@ -75,7 +75,9 @@ The project follows a standard Next.js App Router structure with key directories
           /upload/ # Handles project file uploads (inserts into user_files)
       /bir/       # API routes for Business Information Request
         route.ts  # Handles GET/POST/PATCH for BIR text data
-        /upload/route.ts # Handles POST for BIR file uploads
+        /upload/route.ts # (DEPRECATED) Was for BIR file uploads, now uses signed URL flow.
+        /create-upload-url/route.ts # POST to generate a signed URL for direct BIR file upload.
+        /record-file/route.ts # POST to record BIR file metadata after direct upload.
       /files/     # General file operations
         /url/     # Generates signed URLs for storage objects
       /user-files/ # Operations on user_files table records
@@ -138,7 +140,9 @@ Key API routes include:
 *   `/api/user-files/[userFileId]`: Deleting user files.
 *   `/api/files/url`: Generating download URLs for files.
 *   `/api/bir`: Handling Business Information Request text data (GET by projectId, POST for create/upsert, PATCH for updates).
-*   `/api/bir/upload`: Handling file uploads specific to a Business Information Request.
+*   `/api/bir/upload`: (DEPRECATED) Previously handled BIR file uploads. Superseded by:
+*   `/api/bir/create-upload-url`: POST to generate a signed URL for direct client upload of a BIR file.
+*   `/api/bir/record-file`: POST to record metadata of a BIR file after direct upload.
 
 ## Database Schema
 

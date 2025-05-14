@@ -79,7 +79,7 @@ export default function BirFileUploader({
           size: file.size,
           mime: file.type || 'application/octet-stream',
           originalName: file.name,
-          // fileType: fileType, // Pass BirFileType if your record-file route expects it
+          fileType: fileType, // Pass BirFileType as it's required by the table
         }),
       });
 

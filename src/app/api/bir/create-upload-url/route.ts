@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { randomUUID } from 'crypto'; // Import for crypto.randomUUID in Node.js
+import { requireAuth } from '@/lib/api/server-utils';
 
 // Initialize Supabase client with service role key
 // Ensure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are in your Vercel environment variables
@@ -12,6 +13,11 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(req: NextRequest) {
+  const { authenticated, user, error: authError_ } = await requireAuth();
+  if (!authenticated || !user) {
+    return NextResponse.json({ error: authError_ || 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const parse = z.object({
@@ -30,9 +36,9 @@ export async function POST(req: NextRequest) {
     const objectKey = `${birId}/${randomUUID()}-${filename}`;
 
     const { data, error } =
-      await supabaseAdmin
+      await (supabaseAdmin
         .storage
-        .from('bir-files') // Your BIR files bucket
+        .from('bir-files') as any) // Your BIR files bucket - cast to any here
         .createSignedUploadUrl(objectKey, 60 * 10, { // 10 minute expiry
           contentType: mime 
         });

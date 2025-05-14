@@ -29,6 +29,10 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
 }) => {
   // TODO: Potentially manage loading states for individual uploaders or overall step
 
+  const handleUploadSuccess = () => {
+    mutateBir(); // Call SWR mutate to revalidate/refetch BIR data (including files)
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -40,11 +44,11 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          <BirFileUploader birId={birId} fileType={BirFileType.Logo} onUploadSuccess={mutateBir} />
-          <BirFileUploader birId={birId} fileType={BirFileType.StyleGuide} onUploadSuccess={mutateBir} />
-          <BirFileUploader birId={birId} fileType={BirFileType.Photo} onUploadSuccess={mutateBir} />
-          <BirFileUploader birId={birId} fileType={BirFileType.Certificate} onUploadSuccess={mutateBir} />
-          <BirFileUploader birId={birId} fileType={BirFileType.Misc} onUploadSuccess={mutateBir} />
+          <BirFileUploader birId={birId} fileType={BirFileType.Logo} onUploadSuccess={handleUploadSuccess} />
+          <BirFileUploader birId={birId} fileType={BirFileType.StyleGuide} onUploadSuccess={handleUploadSuccess} />
+          <BirFileUploader birId={birId} fileType={BirFileType.Photo} onUploadSuccess={handleUploadSuccess} />
+          <BirFileUploader birId={birId} fileType={BirFileType.Certificate} onUploadSuccess={handleUploadSuccess} />
+          <BirFileUploader birId={birId} fileType={BirFileType.Misc} onUploadSuccess={handleUploadSuccess} />
         </div>
         
         {onUploadComplete && (

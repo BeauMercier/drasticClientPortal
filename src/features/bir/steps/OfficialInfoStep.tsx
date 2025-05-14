@@ -21,7 +21,7 @@ interface OfficialInfoStepProps {
 export default function OfficialInfoStep({ form, isSubmitting }: OfficialInfoStepProps) {
   return (
     <fieldset className="space-y-4 border p-4 rounded-md">
-      <legend className="text-lg font-semibold px-2">Official Company Information</legend>
+      {/* <legend className="text-lg font-semibold px-2">Official Company Information</legend> */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Official Company Name */}
         <div className="space-y-1">

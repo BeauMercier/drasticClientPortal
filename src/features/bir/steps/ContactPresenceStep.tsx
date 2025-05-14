@@ -22,7 +22,7 @@ interface ContactPresenceStepProps {
 export default function ContactPresenceStep({ form, isSubmitting }: ContactPresenceStepProps) {
   return (
     <fieldset className="space-y-4 border p-4 rounded-md">
-      <legend className="text-lg font-semibold px-2">Contact & Online Presence</legend>
+      {/* <legend className="text-lg font-semibold px-2">Contact & Online Presence</legend> */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* General Email */}
         <div className="space-y-1">

@@ -59,10 +59,16 @@
     - [x] Create directory `src/features/bir/steps/`. (Done)
     - [x] Define `birStepConfig.ts` (optional, for step definitions). (Done)
     - [x] Create individual step components (e.g., `OfficialInfoStep.tsx`, `ContactPresenceStep.tsx`, etc.). (Done: OfficialInfoStep, ContactPresenceStep, CompanyDetailsStep, SupportingInfoStep, WebsiteSpecificsStep, FinalCommentsStep)
-    - [ ] Create `MultiStepBirForm.tsx` orchestrator.
+    - [x] Create `MultiStepBirForm.tsx` orchestrator.
+        - [x] Implemented visual stepper UI.
+        - [x] Enhanced stepper UI for better spacing and text visibility.
+        - [x] Implemented logic for step navigation, per-step validation, and overall form submission.
+        - [x] Implemented summary card view post-submission with "Edit" functionality.
+        - [x] Ensured submitted state (summary card) persists on page reload if data exists and BIR is not approved.
+        - [x] Resolved duplicate step headers by removing legends from individual step components.
+    - [x] Update `BusinessInfoGate.tsx` to use `MultiStepBirForm.tsx`.
     - [ ] Create `FileUploadStep.tsx`.
-    - [ ] Update `BusinessInfoGate.tsx` to use `MultiStepBirForm.tsx`.
-    - [ ] Implement UI/UX enhancements (stepper, validation).
+    - [ ] Implement UI/UX enhancements (stepper, validation). (Ongoing, initial enhancements done)
     - [ ] Clean up old `BirForm.tsx`.
 
 - [x] **Planning:** Confirm final BIR field list & validations with stakeholders. ⚠

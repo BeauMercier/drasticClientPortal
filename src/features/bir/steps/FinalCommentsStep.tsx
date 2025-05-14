@@ -21,7 +21,7 @@ interface FinalCommentsStepProps {
 export default function FinalCommentsStep({ form, isSubmitting }: FinalCommentsStepProps) {
   return (
     <fieldset className="space-y-4 border p-4 rounded-md">
-      <legend className="text-lg font-semibold px-2">Final Comments</legend>
+      {/* <legend className="text-lg font-semibold px-2">Final Comments</legend> */}
       {/* Additional Comments */}
       <div className="space-y-1">
         <Label htmlFor="additional_comments">Additional Comments or Requests</Label>

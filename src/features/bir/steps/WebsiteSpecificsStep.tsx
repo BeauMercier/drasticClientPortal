@@ -21,7 +21,7 @@ interface WebsiteSpecificsStepProps {
 export default function WebsiteSpecificsStep({ form, isSubmitting }: WebsiteSpecificsStepProps) {
   return (
     <fieldset className="space-y-4 border p-4 rounded-md">
-      <legend className="text-lg font-semibold px-2">Website Specifics</legend>
+      {/* <legend className="text-lg font-semibold px-2">Website Specifics</legend> */}
       {/* Specific Features */}
       <div className="space-y-1">
         <Label htmlFor="specific_features_requests">

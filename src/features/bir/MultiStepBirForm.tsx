@@ -93,7 +93,25 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     if (user?.id && !form.getValues('client_id')) {
       form.setValue('client_id', user.id);
     }
-    if (!textDataSubmittedSuccessfully) {
+
+    let shouldInitializeTextDataSubmitted = false;
+    if (fetchedBir && fetchedBir.answers && Object.keys(fetchedBir.answers).length > 0 && fetchedBir.status !== 'approved') {
+      shouldInitializeTextDataSubmitted = true;
+    }
+    
+    // Set initial submission state only once based on fetchedBir, 
+    // respecting subsequent user actions (like clicking "Edit").
+    // This check avoids resetting to summary view if user clicks edit then form re-renders before navigation.
+    if (birLoading) return; // Don't do anything until bir data is loaded or confirmed not present
+
+    // Initialize textDataSubmittedSuccessfully based on fetchedBir the first time data is available.
+    // The form.reset below depends on textDataSubmittedSuccessfully being correctly set before it runs.
+    if (fetchedBir && !form.formState.isDirty && !textDataSubmittedSuccessfully && shouldInitializeTextDataSubmitted) {
+      setTextDataSubmittedSuccessfully(true);
+    }
+    
+    // Form reset logic
+    if (!textDataSubmittedSuccessfully) { // Only reset if not in summary view OR if user clicked edit.
       if (fetchedBir && isValidAnswersObject(fetchedBir.answers)) {
         const mergedAnswers = { ...getDefaultAnswers(), ...fetchedBir.answers };
         form.reset({
@@ -101,8 +119,8 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
           client_id: user?.id || fetchedBir.client_id || '',
           project_type: 'web_design',
           answers: mergedAnswers,
-        });
-      } else if (!birLoading && !birError && !fetchedBir && user?.id) {
+        }, { keepValues: form.formState.isDirty }); // Preserve dirty fields if user was editing
+      } else if (!birError && !fetchedBir && user?.id) { // No fetchedBir, but user exists (new form)
         form.reset({
           project_id: projectId,
           project_type: 'web_design',
@@ -110,8 +128,14 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
           answers: getDefaultAnswers(),
         });
       }
+    } else {
+      // If textDataSubmittedSuccessfully is true (i.e. summary view is shown),
+      // but fetchedBir changes (e.g. due to external update or revalidation),
+      // we might want to ensure the form is still populated for when the user clicks "Edit".
+      // However, the main population happens when textDataSubmittedSuccessfully is false.
+      // For now, if summary is shown, the form values are latent until "Edit" is clicked.
     }
-  }, [fetchedBir, projectId, birLoading, birError, user, form, textDataSubmittedSuccessfully]);
+  }, [fetchedBir, projectId, birLoading, birError, user, form]); // Removed textDataSubmittedSuccessfully from deps to avoid loops with its own setter
 
   const handleNextStep = async () => {
     const currentStepFields = textualSteps[currentStepIndex].fields;
@@ -138,7 +162,8 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
 
   const handleSubmitAllAnswers: SubmitHandler<BirFormValues> = async (values) => {
     setIsSubmittingTextData(true);
-    const isUpdateMode = !!fetchedBir;
+    // Determine if it's an update or new submission based on fetchedBir's state *before* this submission attempt.
+    const isUpdateMode = !!(fetchedBir && fetchedBir.id);
     const method = isUpdateMode ? 'PATCH' : 'POST';
     let payload: any;
 
@@ -312,7 +337,11 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
                 )}
                 {isLastTextualStep && (
                   <Button type="submit" disabled={isSubmittingTextData || authLoading || birLoading}>
-                    {isSubmittingTextData ? 'Saving...' : (!!fetchedBir && !textDataSubmittedSuccessfully ? 'Update & Save All Answers' : 'Save All Answers')}
+                    {isSubmittingTextData 
+                      ? 'Saving...' 
+                      : ( (fetchedBir && fetchedBir.id && !textDataSubmittedSuccessfully) || (fetchedBir && fetchedBir.id && currentStepIndex !== 0) )
+                        ? 'Update & Save All Answers' 
+                        : 'Save All Answers'}
                   </Button>
                 )}
               </div>

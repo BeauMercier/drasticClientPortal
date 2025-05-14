@@ -21,7 +21,7 @@ interface SupportingInfoStepProps {
 export default function SupportingInfoStep({ form, isSubmitting }: SupportingInfoStepProps) {
   return (
     <fieldset className="space-y-4 border p-4 rounded-md">
-      <legend className="text-lg font-semibold px-2">Supporting Information</legend>
+      {/* <legend className="text-lg font-semibold px-2">Supporting Information</legend> */}
       {/* Certs/Testimonials/Case Studies */}
       <div className="space-y-1">
         <Label htmlFor="certs_testimonials_case_studies">

@@ -21,7 +21,7 @@ interface CompanyDetailsStepProps {
 export default function CompanyDetailsStep({ form, isSubmitting }: CompanyDetailsStepProps) {
   return (
     <fieldset className="space-y-4 border p-4 rounded-md">
-      <legend className="text-lg font-semibold px-2">Company Details</legend>
+      {/* <legend className="text-lg font-semibold px-2">Company Details</legend> */}
       {/* Services Description */}
       <div className="space-y-1">
         <Label htmlFor="services_description">Detailed Description of Services Provided *</Label>

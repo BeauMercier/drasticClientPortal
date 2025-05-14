@@ -6,7 +6,7 @@ import { useAuth } from '@/features/auth';
 import { getWebDesignProject } from '@/lib/api/client-api';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -24,6 +24,9 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import BusinessInfoGate from '@/features/bir/BusinessInfoGate';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import FileUploadStep from '@/features/bir/steps/FileUploadStep';
+import { useBir } from '@/features/bir/useBir';
 
 interface ProjectUserFile {
   id: string;
@@ -83,7 +86,6 @@ export default function WebDesignProjectDetails() {
   const [project, setProject] = useState<WebDesignProject | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [businessInfoExpanded, setBusinessInfoExpanded] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [projectUserFiles, setProjectUserFiles] = useState<ProjectUserFile[]>([]);
@@ -91,6 +93,8 @@ export default function WebDesignProjectDetails() {
   const [isDownloading, setIsDownloading] = useState<{[key: string]: boolean}>({});
   const [isDeleting, setIsDeleting] = useState<{[key: string]: boolean}>({});
   const { toast } = useToast();
+
+  const { bir: fetchedBir, mutate: mutateBir, isLoading: birLoadingBir } = useBir(project?.id);
 
   const fetchProjectUserFiles = async (projectId: string) => {
     if (!projectId) return;
@@ -434,17 +438,60 @@ export default function WebDesignProjectDetails() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Business Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <BusinessInfoGate 
-             projectId={project.id}
-             projectType={project.project_type || 'web_design'}
-           />
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="business_info" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="business_info">Business Information</TabsTrigger>
+          <TabsTrigger value="bir_project_files" disabled={!fetchedBir?.id || birLoadingBir}>
+            BIR Project Files
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="business_info">
+          <Card>
+            <CardHeader>
+              <CardTitle>Business Information Request</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {project && !isLoading ? (
+                <BusinessInfoGate
+                  projectId={project.id}
+                  projectType={project.project_type || 'web_design'}
+                  parentMutateBir={mutateBir}
+                />
+              ) : isLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : (
+                 <p>Project details are not available.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="bir_project_files">
+          <Card>
+            <CardHeader>
+              <CardTitle>BIR Supporting Files</CardTitle>
+              <CardDescription>
+                Upload files specifically requested for the Business Information Request.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {birLoadingBir ? (
+                <Skeleton className="h-40 w-full" />
+              ) : fetchedBir?.id ? (
+                <FileUploadStep
+                  birId={fetchedBir.id}
+                  mutateBir={mutateBir}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Please complete and save the 'Business Information' section first to enable BIR file uploads.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Card>
         <CardHeader>

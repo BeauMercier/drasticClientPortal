@@ -6,17 +6,19 @@ import { useBir } from './useBir';
 import MultiStepBirForm from './MultiStepBirForm'; // New multi-step form
 import BirSummary from './BirSummary';
 import { Skeleton } from '@/components/ui/skeleton'; // For loading state
+import { KeyedMutator } from 'swr'; // Added for KeyedMutator type
 
 interface BusinessInfoGateProps {
     projectId: string;
     projectType?: 'web_design' | string; // Make type optional, check defined before use
+    parentMutateBir?: KeyedMutator<any>; // Added: To accept mutate function from parent
 }
 
 /**
  * Conditionally renders the Business Information form or summary
  * based on project type, user role, and BIR status.
  */
-export default function BusinessInfoGate({ projectId, projectType }: BusinessInfoGateProps) {
+export default function BusinessInfoGate({ projectId, projectType, parentMutateBir }: BusinessInfoGateProps) {
     // Get user role from Auth context
     const { user, isLoading: authLoading } = useAuth(); 
     const userRole = user?.role;
@@ -24,7 +26,16 @@ export default function BusinessInfoGate({ projectId, projectType }: BusinessInf
     // Fetch BIR data
     // Fetch only if projectType is web_design and projectId is valid
     const shouldFetchBir = projectType === 'web_design' && !!projectId;
-    const { bir, signedBirFiles, isLoading: birLoading, error: birError, mutate: mutateBir } = useBir(shouldFetchBir ? projectId : undefined);
+    const { 
+        bir, 
+        signedBirFiles, 
+        isLoading: birLoading, 
+        error: birError, 
+        mutate: localMutateBir // Renamed internal mutate to avoid conflict
+    } = useBir(shouldFetchBir ? projectId : undefined);
+
+    // Determine which mutate function to use: prefer parent's if provided
+    const effectiveMutateBir = parentMutateBir || localMutateBir;
 
     // --- Loading States --- //
     // Wait for both auth state and BIR data (if applicable)
@@ -60,7 +71,7 @@ export default function BusinessInfoGate({ projectId, projectType }: BusinessInf
         // BIR doesn't exist yet or is pending -> Show editable form
         if (!bir || bir.status === 'pending') {
             // return <BirForm projectId={projectId} mutateBir={mutateBir} />;
-            return <MultiStepBirForm projectId={projectId} mutateBir={mutateBir} />;
+            return <MultiStepBirForm projectId={projectId} mutateBir={effectiveMutateBir} />;
         }
         
         // BIR submitted or approved -> Show summary + status message

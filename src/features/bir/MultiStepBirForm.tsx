@@ -202,19 +202,18 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
   return (
     <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
       {/* Visual Stepper */}
-      <div className="mb-8 flex items-center justify-center space-x-2 sm:space-x-4 overflow-x-auto pb-2">
+      <div className="mb-10 flex items-start justify-center space-x-6 sm:space-x-10 overflow-x-auto pb-4 pt-2">
         {textualSteps.map((step, index) => (
-          <div key={step.id} className="flex flex-col items-center min-w-max">
+          <div key={step.id} className="flex flex-col items-center w-28 sm:w-32">
             <div
-              className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium transition-all duration-300 ease-in-out 
+              className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ease-in-out border-2
                 ${index === currentStepIndex
-                  ? 'bg-primary text-primary-foreground scale-110' 
+                  ? 'bg-primary text-primary-foreground scale-110 border-primary-dark ring-2 ring-primary-focus ring-offset-2 ring-offset-card'
                   : index < currentStepIndex 
-                    ? 'bg-green-500 text-white' 
-                    : 'bg-muted text-muted-foreground'}`}
+                    ? 'bg-green-500 text-white border-green-600' 
+                    : 'bg-muted text-muted-foreground border-gray-300'}`}
             >
               {index < currentStepIndex ? (
-                // Checkmark SVG for completed steps
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
                   <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
                 </svg>
@@ -223,7 +222,7 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
               )}
             </div>
             <p 
-              className={`mt-1.5 text-xs sm:text-sm text-center max-w-[100px] truncate 
+              className={`mt-2 text-xs sm:text-sm text-center 
                 ${index === currentStepIndex ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
             >
               {step.name}

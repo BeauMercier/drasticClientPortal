@@ -14,9 +14,12 @@ if (typeof window === 'undefined') {
   reportEnvValidation();
 }
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Drastic Client Portal',
   description: 'Client portal for managing projects, files, and billing',
+  icons: {
+    icon: '/images/logos/Asset 1.svg',
+  },
 };
 
 export default function RootLayout({

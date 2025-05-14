@@ -9,7 +9,8 @@ import {
   RegisterData, 
   ResetPasswordRequest,
   User,
-  AuthResult
+  AuthResult,
+  UserRole
 } from '../types';
 
 // Import Supabase client from the lib module
@@ -312,32 +313,40 @@ export async function updateProfile(profile: Partial<User>): Promise<AuthResult>
     if (!data.user) {
       return {
         success: false,
-        error: 'User data not available'
+        error: 'User data not available after update'
       };
     }
 
-    // Update the profiles table with additional profile information
-    // This is separate from the auth.users table managed by Supabase Auth
-    if (profile.role || profile.metadata) {
-      const { error: profileError } = await supabase
+    // If a role was explicitly part of the profile update, sync it to the 'profiles' table.
+    // This is a minimal sync. Other 'profiles' fields are typically managed by client-api.ts functions.
+    if (profile.role) {
+      const { error: profileTableError } = await supabase
         .from('profiles')
-        .update({
-          updated_at: new Date().toISOString(),
-          ...profile 
-        })
+        .update({ 
+            role: profile.role,
+            updated_at: new Date().toISOString()
+         })
         .eq('id', data.user.id);
 
-      if (profileError) {
-        return {
-          success: false,
-          error: profileError.message
-        };
+      if (profileTableError) {
+        console.error("Error syncing role to 'profiles' table in auth/api/updateProfile:", profileTableError);
+        // Not necessarily a fatal error for the auth update itself, but good to log.
       }
     }
+    
+    const updatedLocalUser: User = {
+        id: data.user.id,
+        email: data.user.email || '',
+        role: (data.user.user_metadata?.role || data.user.app_metadata?.role || 'client') as UserRole,
+        full_name: data.user.user_metadata?.full_name || undefined,
+        avatar_url: data.user.user_metadata?.avatar_url || undefined,
+        metadata: { ...data.user.app_metadata, ...data.user.user_metadata },
+    };
 
     return {
       success: true,
-      message: 'Profile updated successfully'
+      message: 'Profile updated successfully',
+      user: updatedLocalUser // Return the mapped updated auth user
     };
   } catch (error) {
     console.error('Update profile error:', error);

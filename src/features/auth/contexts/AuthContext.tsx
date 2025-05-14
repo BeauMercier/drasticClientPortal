@@ -137,24 +137,99 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (!isMounted) return;
           console.log(`Auth state changed: ${event}, Session: ${newSession ? 'present' : 'null'}`);
           
-          try {
-            // Use the mapping function
-            const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
-            setSession(localSession);
-            setUser(localUser);
-          } catch (mapError) {
-            console.error("Error mapping Supabase session:", mapError);
-            setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
-            // Clear session/user on mapping error (e.g., missing email)
-            setSession(null);
-            setUser(null);
-          }
-
-          // Stop loading *after* the first event is processed
-          if (!receivedInitialAuthEvent) {
-            console.log('Auth initial state determined by onAuthStateChange.');
-            setIsLoading(false);
-            receivedInitialAuthEvent = true;
+          // If the event is USER_UPDATED, try to get the user fresh
+          if (event === 'USER_UPDATED' && newSession) {
+            supabase.auth.getUser()
+              .then(({ data: { user: freshlyFetchedUser }, error: fetchError }) => {
+                if (!isMounted) return; // Check mount status again inside promise
+                if (fetchError) {
+                  console.error("Error explicitly fetching user on USER_UPDATED event:", fetchError);
+                  // Fallback to mapping the session from the event
+                  try {
+                    const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
+                    setSession(localSession);
+                    setUser(localUser);
+                  } catch (mapError) {
+                     console.error("Error mapping Supabase session (USER_UPDATED fallback):", mapError);
+                     setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
+                     setSession(null);
+                     setUser(null);
+                  }
+                } else if (freshlyFetchedUser) {
+                  console.log("USER_UPDATED event: Using explicitly fetched user data.");
+                  // Construct a new session object with the freshly fetched user
+                  const sessionWithFreshUser: SupabaseSession = {
+                    ...newSession,
+                    user: freshlyFetchedUser // Override with the fresh user
+                  };
+                  try {
+                    const { localSession, localUser } = mapSupabaseSessionToLocal(sessionWithFreshUser);
+                    setSession(localSession);
+                    setUser(localUser);
+                  } catch (mapError) {
+                    console.error("Error mapping Supabase session (USER_UPDATED fresh fetch):", mapError);
+                    setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
+                    setSession(null);
+                    setUser(null);
+                  }
+                } else {
+                  // Fallback if freshlyFetchedUser is null for some reason
+                  console.log("USER_UPDATED event: freshlyFetchedUser was null, falling back.");
+                  try {
+                    const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
+                    setSession(localSession);
+                    setUser(localUser);
+                  } catch (mapError) {
+                    console.error("Error mapping Supabase session (USER_UPDATED null fresh user fallback):", mapError);
+                    setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
+                    setSession(null);
+                    setUser(null);
+                  }
+                }
+              })
+              .catch(err => {
+                if (!isMounted) return;
+                console.error("Exception during explicit user fetch on USER_UPDATED:", err);
+                // Fallback to mapping the session from the event on critical error
+                try {
+                  const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
+                  setSession(localSession);
+                  setUser(localUser);
+                } catch (mapError) {
+                    console.error("Error mapping Supabase session (USER_UPDATED catch fallback):", mapError);
+                    setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
+                    setSession(null);
+                    setUser(null);
+                }
+              })
+              .finally(() => {
+                 if (!isMounted) return;
+                 if (!receivedInitialAuthEvent) {
+                    console.log('Auth initial state determined by onAuthStateChange (USER_UPDATED path).');
+                    setIsLoading(false);
+                    receivedInitialAuthEvent = true;
+                  }
+              });
+          } else {
+            // For all other events, or if newSession is null for USER_UPDATED before fetch logic
+            try {
+              const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
+              setSession(localSession);
+              setUser(localUser);
+            } catch (mapError) {
+              console.error("Error mapping Supabase session:", mapError);
+              setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
+              // Clear session/user on mapping error (e.g., missing email)
+              setSession(null);
+              setUser(null);
+            }
+    
+            // Stop loading *after* the first event is processed (or if not USER_UPDATED)
+            if (!receivedInitialAuthEvent) {
+              console.log('Auth initial state determined by onAuthStateChange (other events or initial USER_UPDATED before fetch).');
+              setIsLoading(false);
+              receivedInitialAuthEvent = true;
+            }
           }
         }
       );

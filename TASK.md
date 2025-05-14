@@ -23,7 +23,17 @@
 
 - [x] Deprecated and removed the `/client/settings` page (`src/app/(client)/client/settings/page.tsx`).
 - [x] Updated `PLANNING.md` and `README.md` to remove references to the settings page.
+- [x] Updated `FileList` component UI: Non-clickable "Root" title when at root level; "New Folder" functionality commented out for future use.
 - TODO: Thoroughly test the new signed URL BIR file upload flow on Vercel (various file types, sizes, edge cases).
+
+### [Current Date] - Continued
+
+- [x] **UI Fix:** Updated "Browse Files" link on Client My Profile page (`src/app/(client)/client/my-profile/page.tsx`) to correctly point to `/client/files`.
+- [x] **Bug Fix:** Resolved profile photo display issue ("flashing avatar") by:
+    - Correcting Supabase Storage RLS policy for public read access to avatars in the `project-files` bucket (path: `<user_id>/profile/<filename>`).
+    - Ensuring `features/auth/api/index.ts -> updateProfile` returns the updated user object from `supabase.auth.updateUser()`.
+    - Ensuring `AuthContext.updateProfile` uses this returned user to update its local state immediately.
+- [x] **UI:** Set application favicon to `public/images/logos/Asset 1.svg` by updating `src/app/layout.tsx` metadata.
 
 ### Discovered During Work
 

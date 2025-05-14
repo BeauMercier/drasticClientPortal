@@ -593,7 +593,7 @@ export default function MyProfilePage() {
               </p>
               <div className="mt-4">
                  <Button asChild variant="default" size="sm" className="bg-purple-600 hover:bg-purple-700 text-white">
-                     <Link href="/files"> 
+                     <Link href="/client/files"> 
                          Browse Files
                      </Link> 
                  </Button>

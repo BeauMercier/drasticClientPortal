@@ -71,6 +71,7 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isSubmittingTextData, setIsSubmittingTextData] = useState(false);
+  const [textDataSubmittedSuccessfully, setTextDataSubmittedSuccessfully] = useState(false);
 
   // Filter out FileUploadStep initially from the textual steps
   // const textualSteps = birStepsConfig.filter(step => step.id !== 'fileUpload');
@@ -92,23 +93,25 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     if (user?.id && !form.getValues('client_id')) {
       form.setValue('client_id', user.id);
     }
-    if (fetchedBir && isValidAnswersObject(fetchedBir.answers)) {
-      const mergedAnswers = { ...getDefaultAnswers(), ...fetchedBir.answers };
-      form.reset({
-        project_id: fetchedBir.project_id,
-        client_id: user?.id || fetchedBir.client_id || '',
-        project_type: 'web_design',
-        answers: mergedAnswers,
-      });
-    } else if (!birLoading && !birError && !fetchedBir && user?.id) {
-      form.reset({
-        project_id: projectId,
-        project_type: 'web_design',
-        client_id: user.id,
-        answers: getDefaultAnswers(),
-      });
+    if (!textDataSubmittedSuccessfully) {
+      if (fetchedBir && isValidAnswersObject(fetchedBir.answers)) {
+        const mergedAnswers = { ...getDefaultAnswers(), ...fetchedBir.answers };
+        form.reset({
+          project_id: fetchedBir.project_id,
+          client_id: user?.id || fetchedBir.client_id || '',
+          project_type: 'web_design',
+          answers: mergedAnswers,
+        });
+      } else if (!birLoading && !birError && !fetchedBir && user?.id) {
+        form.reset({
+          project_id: projectId,
+          project_type: 'web_design',
+          client_id: user.id,
+          answers: getDefaultAnswers(),
+        });
+      }
     }
-  }, [fetchedBir, projectId, birLoading, birError, user, form]);
+  }, [fetchedBir, projectId, birLoading, birError, user, form, textDataSubmittedSuccessfully]);
 
   const handleNextStep = async () => {
     const currentStepFields = textualSteps[currentStepIndex].fields;
@@ -166,8 +169,9 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
       if (!res.ok) throw new Error(result.error || 'Save failed');
 
       toast({ title: "Success", description: `Business information ${isUpdateMode ? 'updated' : 'submitted'}.` });
-      await parentMutateBir(); // Mutate using the prop from BusinessInfoGate
-      await localMutateBir();  // Mutate local SWR state
+      setTextDataSubmittedSuccessfully(true);
+      await parentMutateBir();
+      await localMutateBir();
       // TODO: Potentially advance to FileUploadStep if it exists and this was successful
       // if (birStepsConfig.find(step => step.id === 'fileUpload')) {
       //   const fileUploadStepIndex = birStepsConfig.findIndex(step => step.id === 'fileUpload');
@@ -190,11 +194,42 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     });
   };
 
+  const handleEdit = () => {
+    setTextDataSubmittedSuccessfully(false);
+    setCurrentStepIndex(0);
+    // Form will repopulate via useEffect if fetchedBir exists
+  };
+
   if (authLoading || birLoading) return <p>Loading Business Information Form...</p>;
   if (birError) return <p className="text-red-600">Error loading form data: {birError.message}</p>;
   if (!user) return <p className="text-red-600">Error: User not found. Cannot display form.</p>;
   if (fetchedBir && fetchedBir.status === 'approved') {
-    return <p className="text-yellow-600">This request has been approved and cannot be edited.</p>;
+    return (
+      <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
+        {/* Visual Stepper - Still show progress */}
+        <div className="mb-10 flex items-start justify-center space-x-6 sm:space-x-10 overflow-x-auto pb-4 pt-2">
+          {textualSteps.map((step, index) => (
+            <div key={step.id} className="flex flex-col items-center w-28 sm:w-32">
+              <div
+                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ease-in-out border-2 bg-green-500 text-white border-green-600`} // All green if approved
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
+                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="mt-2 text-xs sm:text-sm text-center text-muted-foreground">{step.name}</p>
+            </div>
+          ))}
+        </div>
+        <div className="p-6 text-center bg-green-50 border border-green-200 rounded-md">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto text-green-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="text-lg font-medium text-green-700">Information Approved</h3>
+          <p className="text-sm text-green-600 mt-1">This business information request has been approved and cannot be edited.</p>
+        </div>
+      </div>
+    );
   }
 
   const CurrentStepComponent = textualSteps[currentStepIndex].component as React.ComponentType<StepProps>;
@@ -203,64 +238,89 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
       {/* Visual Stepper */}
       <div className="mb-10 flex items-start justify-center space-x-6 sm:space-x-10 overflow-x-auto pb-4 pt-2">
-        {textualSteps.map((step, index) => (
-          <div key={step.id} className="flex flex-col items-center w-28 sm:w-32">
-            <div
-              className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ease-in-out border-2
-                ${index === currentStepIndex
-                  ? 'bg-primary text-primary-foreground scale-110 border-primary-dark ring-2 ring-primary-focus ring-offset-2 ring-offset-card'
-                  : index < currentStepIndex 
-                    ? 'bg-green-500 text-white border-green-600' 
-                    : 'bg-muted text-muted-foreground border-gray-300'}`}
-            >
-              {index < currentStepIndex ? (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
-                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                index + 1
-              )}
+        {textualSteps.map((step, index) => {
+          const isCompleted = textDataSubmittedSuccessfully || index < currentStepIndex;
+          const isActive = !textDataSubmittedSuccessfully && index === currentStepIndex;
+          
+          let stepStyle = 'bg-muted text-muted-foreground border-gray-300'; // Upcoming
+          if (isCompleted) {
+            stepStyle = 'bg-green-500 text-white border-green-600';
+          }
+          if (isActive) {
+            stepStyle = 'bg-primary text-primary-foreground scale-110 border-primary-dark ring-2 ring-primary-focus ring-offset-2 ring-offset-card';
+          }
+
+          return (
+            <div key={step.id} className="flex flex-col items-center w-28 sm:w-32">
+              <div
+                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ease-in-out border-2 ${stepStyle}`}
+              >
+                {isCompleted && !isActive ? ( // Show checkmark if completed and not also the active step (unless all submitted)
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
+                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  index + 1
+                )}
+              </div>
+              <p 
+                className={`mt-2 text-xs sm:text-sm text-center ${isActive ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+              >
+                {step.name}
+              </p>
             </div>
-            <p 
-              className={`mt-2 text-xs sm:text-sm text-center 
-                ${index === currentStepIndex ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
-            >
-              {step.name}
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <h2 className="text-xl font-semibold text-center sm:text-left">{textualSteps[currentStepIndex].name}</h2>
-      
-      <form onSubmit={form.handleSubmit(handleSubmitAllAnswers, onFormError)} className="space-y-6">
-        {/* Hidden fields for required IDs, react-hook-form handles them via defaultValues & schema */}
-        
-        <CurrentStepComponent form={form} isSubmitting={isSubmittingTextData || authLoading || birLoading} />
-
-        <div className="flex justify-between items-center pt-6">
-          <div>
-            {currentStepIndex > 0 && (
-              <Button type="button" onClick={handlePreviousStep} variant="outline" disabled={isSubmittingTextData}>
-                Previous
-              </Button>
-            )}
-          </div>
-          <div>
-            {!isLastTextualStep && (
-              <Button type="button" onClick={handleNextStep} disabled={isSubmittingTextData}>
-                Next
-              </Button>
-            )}
-            {isLastTextualStep && (
-              <Button type="submit" disabled={isSubmittingTextData || authLoading || birLoading}>
-                {isSubmittingTextData ? 'Saving...' : (!!fetchedBir ? 'Update & Save All Answers' : 'Save All Answers')}
-              </Button>
-            )}
+      {textDataSubmittedSuccessfully ? (
+        <div className="p-6 text-center bg-green-50 border border-green-200 rounded-md">
+           <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto text-green-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="text-lg font-medium text-green-700">Information Submitted</h3>
+          <p className="text-sm text-green-600 mt-1">Your business information has been successfully submitted.</p>
+          <p className="text-sm text-muted-foreground mt-1">You can proceed to upload files or edit the information.</p>
+          <div className="mt-4 flex justify-center space-x-3">
+            <Button onClick={handleEdit} variant="outline">
+              Edit Information
+            </Button>
+            {/* Placeholder for "Proceed to File Upload" button */}
+            {/* <Button onClick={handleProceedToFiles}>Upload Files</Button> */}
           </div>
         </div>
-        {/* TODO: Render FileUploadStep after text data is submitted and fetchedBir.id exists */}
-      </form>
+      ) : (
+        <>
+          <h2 className="text-xl font-semibold text-center sm:text-left">{textualSteps[currentStepIndex].name}</h2>
+          
+          <form onSubmit={form.handleSubmit(handleSubmitAllAnswers, onFormError)} className="space-y-6">
+            <CurrentStepComponent form={form} isSubmitting={isSubmittingTextData || authLoading || birLoading} />
+
+            <div className="flex justify-between items-center pt-6">
+              <div>
+                {currentStepIndex > 0 && (
+                  <Button type="button" onClick={handlePreviousStep} variant="outline" disabled={isSubmittingTextData}>
+                    Previous
+                  </Button>
+                )}
+              </div>
+              <div>
+                {!isLastTextualStep && (
+                  <Button type="button" onClick={handleNextStep} disabled={isSubmittingTextData}>
+                    Next
+                  </Button>
+                )}
+                {isLastTextualStep && (
+                  <Button type="submit" disabled={isSubmittingTextData || authLoading || birLoading}>
+                    {isSubmittingTextData ? 'Saving...' : (!!fetchedBir && !textDataSubmittedSuccessfully ? 'Update & Save All Answers' : 'Save All Answers')}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </form>
+        </>
+      )}
+      {/* TODO: Render FileUploadStep after text data is submitted and fetchedBir.id exists, potentially triggered from the summary card */}
     </div>
   );
 } 

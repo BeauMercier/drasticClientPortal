@@ -107,9 +107,14 @@ export default function ProjectsPage() {
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Contact our support team to discuss your requirements or request a new design project.
           </p>
-          <Button variant="primary" onClick={() => router.push('/support')}>
+          <a
+            href="https://www.drasticdigital.com/contact"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-offset-gray-800"
+          >
             Contact Support
-          </Button>
+          </a>
         </div>
       </div>
     </div>

@@ -159,7 +159,7 @@ export default function LogoDesignProjectsPage() {
             </p>
             <div className="flex justify-center">
               <Button asChild>
-                <Link href="/support">
+                <Link href="https://www.drasticdigital.com/contact" target="_blank" rel="noopener noreferrer">
                   Contact Us to Start a Project
                 </Link>
               </Button>
@@ -176,7 +176,7 @@ export default function LogoDesignProjectsPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Logo Design Projects</h1>
         <Button asChild>
-          <Link href="/support">
+          <Link href="https://www.drasticdigital.com/contact" target="_blank" rel="noopener noreferrer">
             <PlusIcon className="mr-2 h-4 w-4" />
             Request New Project
           </Link>

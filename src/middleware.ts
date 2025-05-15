@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 // getUserRole is not used in the provided snippet for middleware, comment out or remove if not used elsewhere in the actual file after changes.
 // import { getUserRole } from './lib/utils/user'; 
+import { roleBasePaths } from '@/lib/config/auth-config'; // Added import
+import { UserRole } from '@/features/auth/types'; // Import UserRole
+
+// Helper function to check if a string is a valid UserRole
+function isValidUserRole(role: string): role is UserRole {
+  return ['admin', 'designer', 'client', 'guest', 'partner'].includes(role);
+}
 
 // Original env var logging can remain if desired, or be removed.
 console.log('[middleware.ts] Checking environment variables at middleware start:', {
@@ -90,13 +97,10 @@ export async function middleware(request: NextRequest) {
   // API routes are already handled by the early return for static assets if /api/ is like /_next/api
   // If your API routes are different, ensure they are handled appropriately (e.g. isApiRoute check if not covered by early returns)
 
-  const roleBasePaths: { [key: string]: string } = {
-    admin: '/admin',
-    designer: '/designer',
-    client: '/client',
-    partner: '/partner',
-  };
-  const authenticatedPathsPrefixes = [...Object.values(roleBasePaths)]; 
+  // const authenticatedPathsPrefixes = [...Object.values(roleBasePaths)]; 
+  const allRolePaths = Object.values(roleBasePaths); // Get all paths from roleBasePaths
+  const authenticatedPathsPrefixes = allRolePaths.filter(p => p !== '/login'); // Exclude /login from protected prefixes
+
   // Removed '/dashboard' as it's usually a role-specific path like /client/dashboard or /admin/dashboard
 
   const requiresAuth = authenticatedPathsPrefixes.some(prefix => pathname.startsWith(prefix));
@@ -112,23 +116,28 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    let userRole = 'client';
+    let userRole: UserRole = 'client'; // Default to client
     try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
-      userRole = profile?.role?.toLowerCase() || 'client';
-      if (!roleBasePaths[userRole]) {
-        console.warn(`User ${user.id} has invalid role '${profile?.role}'. Defaulting to client.`);
-        userRole = 'client';
+      
+      const rawRole = profile?.role?.toLowerCase();
+
+      if (rawRole && isValidUserRole(rawRole)) {
+        userRole = rawRole;
+      } else {
+        console.warn(`User ${user.id} has invalid or missing role '${profile?.role}'. Defaulting to client.`);
+        userRole = 'client'; // Explicitly set to client if rawRole is not valid
       }
     } catch (roleError) {
       console.error(`Failed to fetch role for user ${user.id}:`, roleError);
+      userRole = 'client'; // Default to client on error
     }
 
-    const expectedBasePath = roleBasePaths[userRole];
+    const expectedBasePath = roleBasePaths[userRole]; // Now type-safe
     const isPublicAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/reset-password');
 
     if (isPublicAuthRoute) { // Simplified: /dashboard was removed from here

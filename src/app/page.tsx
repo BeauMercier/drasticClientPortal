@@ -3,19 +3,26 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../features/auth';
+import { roleBasePaths } from '@/lib/config/auth-config';
 import { Button } from '../shared/ui';
 import Image from 'next/image';
 
 export default function Home() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
-  // Redirect to dashboard if already authenticated
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.push('/dashboard');
+    if (!isLoading && isAuthenticated && user) {
+      const userRole = user.role;
+      const redirectPath = roleBasePaths[userRole];
+
+      if (redirectPath) {
+        router.push(redirectPath);
+      } else {
+        console.warn(`No redirect path defined for role: ${userRole}. Staying on home page.`);
+      }
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, user, router]);
 
   if (isLoading) {
     return (
@@ -25,7 +32,6 @@ export default function Home() {
     );
   }
 
-  // Don't show landing page if already authenticated
   if (isAuthenticated) {
     return null;
   }
@@ -40,7 +46,7 @@ export default function Home() {
             width={240} 
             height={34} 
             className="mb-8" 
-            priority // Prioritize loading the logo as it's above the fold
+            priority
         />
         <div className="text-center">
            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Drastic Client Portal</h1>

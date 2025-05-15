@@ -132,6 +132,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         (event: string, newSession: SupabaseSession | null) => {
           if (!isMounted) return;
           
+          let localUserForLog: User | null = null;
           try {
             const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
             setSession(localSession);
@@ -334,10 +335,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const result = await updateProfileApi(profile);
 
-      if (!result.success) {
-        setError(result.error || 'Failed to update profile');
-      } else if (result.user) {
-        setUser(result.user);
+      if (result.user) {
+        setUser(result.user); // Optimistic update
       }
       return result;
     } catch (err) {

@@ -17,9 +17,16 @@ if (typeof window === 'undefined') {
 export const metadata: Metadata = {
   title: 'Drastic Client Portal',
   description: 'Client portal for managing projects, files, and billing',
+  // themeColor: [
+  //   { media: '(prefers-color-scheme: light)', color: 'white' },
+  //   { media: '(prefers-color-scheme: dark)', color: 'black' },
+  // ],
   icons: {
-    icon: '/images/logos/Asset 1.svg',
+    icon: '/images/logos/Asset 5@4x-8.png',
+    shortcut: '/images/logos/Asset 5@4x-8.png',
+    apple: '/images/logos/Asset 5@4x-8.png',
   },
+  // manifest: `${siteConfig.url}/site.webmanifest`,
 };
 
 export default function RootLayout({

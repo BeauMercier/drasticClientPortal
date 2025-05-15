@@ -17,7 +17,7 @@ export default function ClientLayout({ children }: PropsWithChildren) {
         <ClientSidebar /> {/* Use ClientSidebar */}
         <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarExpanded ? 'ml-64' : 'ml-16'}`}> 
           <Header />
-          <main className="flex-grow p-6 overflow-y-auto bg-gray-100 dark:bg-gray-900">
+          <main className="relative flex-grow p-6 overflow-y-auto bg-gray-100 dark:bg-gray-900">
             {children}
           </main>
         </div>

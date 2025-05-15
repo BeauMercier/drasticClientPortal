@@ -52,11 +52,13 @@
     - `types/`: TypeScript type definitions.
     - `utils/`: Utility functions.
     - `bir.ts`: API helper functions for BIR data operations.
+    - `config/`: Project-wide configurations.
+      auth-config.ts: Centralized mapping of UserRole to base redirect paths.
 - `src/shared/`: Code shared across features/layers.
     - `contexts/`: Shared React contexts (e.g., `UIContext`, `FileContext`).
     - `ui/`: Shared UI components (atoms, molecules).
 - `src/styles/`: Global styles.
-- `src/middleware.ts`: Handles authentication and route protection/redirection based on user role.
+- `src/middleware.ts`: Handles authentication (cookie domain pinning, Supabase client init), route protection, and role-based redirects (using `auth-config.ts`).
 
 ## UI Components
 

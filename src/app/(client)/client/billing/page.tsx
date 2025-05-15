@@ -151,6 +151,12 @@ export default function BillingPage() {
 
   return (
     <div className="p-6 bg-white dark:bg-black relative">
+      {/* Render ComingSoon overlay covering the entire page content if not active */}
+      {true && (
+        <ComingSoon className="absolute inset-0" />
+      )}
+
+      {/* Actual Billing Page Content - will be visually under the overlay if ComingSoon is active */}
       {/* Current Plan */}
       <Card className="bg-white dark:bg-black shadow-lg mb-6">
         <div className="p-6">
@@ -277,12 +283,6 @@ export default function BillingPage() {
           </table>
         </div>
       </Card>
-
-      {/* Coming Soon Overlay */}
-      <ComingSoon 
-        title="Billing Features Coming Soon!"
-        message="Our billing system is currently under development and will be available soon. Thank you for your patience!"
-      />
     </div>
   );
 }

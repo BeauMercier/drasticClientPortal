@@ -12,7 +12,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { FileObject, Bucket } from '@supabase/storage-js'; 
 
 // Default bucket for file storage
-export const FILES_BUCKET = 'project-files';
+export const FILES_BUCKET = 'client-files';
 
 /**
  * Options for Supabase Storage image transformations.

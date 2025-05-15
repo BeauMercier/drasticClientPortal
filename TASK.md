@@ -62,6 +62,35 @@
 - TODO: Re-evaluate approach for project file fetching/display/download/delete functionality for Logo Design and Social Graphics project detail pages given changes to web-design page.
 - TODO: Implement the general file upload on `/client/files` page (via `FileContext`) to also insert metadata into the `user_files` table (with `project_id=NULL`).
 
+### [Date of Current Session] - Auth & Redirect Fixes
+
+- [x] **Resolved Page Loading/Hangs & "Auth session missing!":**
+    - `src/middleware.ts`: Pinned Supabase auth cookies to `.drasticdigital.com` to fix cross-domain issues between Vercel previews and production.
+    - `src/middleware.ts`: Implemented early returns for static assets/public paths to prevent unnecessary Supabase client initialization.
+    - `src/features/auth/contexts/AuthContext.tsx`: Reverted `onAuthStateChange` to simpler, direct session updates from Supabase events (removed extra `getUser()` calls).
+- [x] **Corrected Root Path Redirect Logic:**
+    - Created `src/lib/config/auth-config.ts` to centralize `roleBasePaths` (mapping `UserRole` to redirect URLs).
+    - `src/middleware.ts`: Updated to use `roleBasePaths` from the new config file and ensured `userRole` type safety.
+    - `src/app/page.tsx`: Modified to use `user.role` from `useAuth()` and `roleBasePaths` to redirect authenticated users from `/` to their correct role-specific dashboards, fixing the previous redirect to a generic `/dashboard`.
+- [x] **Fixed Login Redirect Loop (`/login?redirectedFrom=%2Flogin`):**
+    - `src/middleware.ts`: Corrected the logic for `authenticatedPathsPrefixes` to explicitly filter out `/login` from the list of paths requiring authentication, preventing it from being treated as a path that requires prior authentication for unauthenticated users.
+
+### [New Date - e.g., April 4, 2024] - Avatar Investigation
+
+- [ ] **Investigate and Resolve Profile Avatar Display/Save Issue**
+    - **Current Understanding of Issue:**
+        - Avatars are stored in Supabase Storage, `project-files` bucket, path: `<user_id>/profile/<filename>`.
+        - `avatar_url` is present in the `profiles` table and `auth.users.user_metadata`.
+        - URLs in database records appear correct (full public URLs) after an attempted update.
+        - `AuthContext` manages user state including `avatar_url`.
+        - **Problem:** Avatar initially loads on the profile page but then disappears, or doesn't persist visually after an update attempt, despite database records showing the correct URL.
+    - **Next Steps:**
+        - Verify client-side state updates in `AuthContext` upon profile update.
+        - Inspect network requests related to avatar loading and any potential 403/404 errors after initial load.
+        - Review RLS policies on `project-files` bucket for avatar paths specifically (ensure public read access is correctly configured if intended, or signed URLs are used consistently).
+        - Check for any race conditions or timing issues in how the avatar URL is set and then used by image components.
+        - Ensure the Supabase client (especially `storage.from(...).getPublicUrl()`) behaves as expected and the URL doesn't change unexpectedly.
+
 ### Feature: Business Information Request (BIR)
 
 *This feature replaces the external Zoho form with an integrated, project-specific form.*

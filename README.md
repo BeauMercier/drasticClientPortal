@@ -31,6 +31,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ```
 
+**Important Configuration Notes:**
+*   **Cookie Domain:** The application is configured to set authentication cookies on the `.drasticdigital.com` parent domain to ensure seamless authentication across subdomains (e.g., Vercel preview URLs and the production portal). This is handled in `src/middleware.ts`.
+*   **Role-Based Redirects:** The `src/middleware.ts` and the root page (`src/app/page.tsx`) handle redirecting authenticated users to their appropriate role-specific dashboards (e.g., `/client`, `/admin`). A centralized configuration for these paths is in `src/lib/config/auth-config.ts`.
+
 ### Installation
 
 ```bash
@@ -117,7 +121,8 @@ The project follows a standard Next.js App Router structure with key directories
 
   /styles/       # Global CSS styles
 
-  middleware.ts  # Next.js edge middleware (auth checks, role-based redirects)
+  middleware.ts  # Next.js edge middleware (auth checks, role-based redirects, cookie domain management)
+  src/lib/config/auth-config.ts # Centralized configuration for role base paths
 
 /public/         # Static assets (images, fonts)
 /supabase/       # Supabase CLI related files (e.g., migrations, config)

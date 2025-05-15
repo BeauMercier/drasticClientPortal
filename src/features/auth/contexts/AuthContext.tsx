@@ -118,127 +118,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // *** MODIFIED UseEffect Hook ***
   useEffect(() => {
-    // Skip auth initialization if environment variables are missing
     if (envError) {
       console.error('Skipping auth initialization due to environment error');
-      setIsLoading(false); // Stop loading if env fails
+      setIsLoading(false);
       return;
     }
 
-    let isMounted = true; // Track mount status for cleanup
-    let receivedInitialAuthEvent = false; // Track if the first event was received
+    let isMounted = true;
+    let receivedInitialAuthEvent = false;
 
-    console.log('Setting up Supabase auth listener...');
-
-    // Subscribe to auth changes
     try {
       const { data: authListener } = supabase.auth.onAuthStateChange(
         (event: string, newSession: SupabaseSession | null) => {
           if (!isMounted) return;
-          console.log(`Auth state changed: ${event}, Session: ${newSession ? 'present' : 'null'}`);
           
-          // If the event is USER_UPDATED, try to get the user fresh
-          if (event === 'USER_UPDATED' && newSession) {
-            supabase.auth.getUser()
-              .then(({ data: { user: freshlyFetchedUser }, error: fetchError }) => {
-                if (!isMounted) return; // Check mount status again inside promise
-                if (fetchError) {
-                  console.error("Error explicitly fetching user on USER_UPDATED event:", fetchError);
-                  // Fallback to mapping the session from the event
-                  try {
-                    const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
-                    setSession(localSession);
-                    setUser(localUser);
-                  } catch (mapError) {
-                     console.error("Error mapping Supabase session (USER_UPDATED fallback):", mapError);
-                     setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
-                     setSession(null);
-                     setUser(null);
-                  }
-                } else if (freshlyFetchedUser) {
-                  console.log("USER_UPDATED event: Using explicitly fetched user data.");
-                  // Construct a new session object with the freshly fetched user
-                  const sessionWithFreshUser: SupabaseSession = {
-                    ...newSession,
-                    user: freshlyFetchedUser // Override with the fresh user
-                  };
-                  try {
-                    const { localSession, localUser } = mapSupabaseSessionToLocal(sessionWithFreshUser);
-                    setSession(localSession);
-                    setUser(localUser);
-                  } catch (mapError) {
-                    console.error("Error mapping Supabase session (USER_UPDATED fresh fetch):", mapError);
-                    setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
-                    setSession(null);
-                    setUser(null);
-                  }
-                } else {
-                  // Fallback if freshlyFetchedUser is null for some reason
-                  console.log("USER_UPDATED event: freshlyFetchedUser was null, falling back.");
-                  try {
-                    const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
-                    setSession(localSession);
-                    setUser(localUser);
-                  } catch (mapError) {
-                    console.error("Error mapping Supabase session (USER_UPDATED null fresh user fallback):", mapError);
-                    setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
-                    setSession(null);
-                    setUser(null);
-                  }
-                }
-              })
-              .catch(err => {
-                if (!isMounted) return;
-                console.error("Exception during explicit user fetch on USER_UPDATED:", err);
-                // Fallback to mapping the session from the event on critical error
-                try {
-                  const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
-                  setSession(localSession);
-                  setUser(localUser);
-                } catch (mapError) {
-                    console.error("Error mapping Supabase session (USER_UPDATED catch fallback):", mapError);
-                    setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
-                    setSession(null);
-                    setUser(null);
-                }
-              })
-              .finally(() => {
-                 if (!isMounted) return;
-                 if (!receivedInitialAuthEvent) {
-                    console.log('Auth initial state determined by onAuthStateChange (USER_UPDATED path).');
-                    setIsLoading(false);
-                    receivedInitialAuthEvent = true;
-                  }
-              });
-          } else {
-            // For all other events, or if newSession is null for USER_UPDATED before fetch logic
-            try {
-              const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
-              setSession(localSession);
-              setUser(localUser);
-            } catch (mapError) {
-              console.error("Error mapping Supabase session:", mapError);
-              setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
-              // Clear session/user on mapping error (e.g., missing email)
-              setSession(null);
-              setUser(null);
-            }
-    
-            // Stop loading *after* the first event is processed (or if not USER_UPDATED)
-            if (!receivedInitialAuthEvent) {
-              console.log('Auth initial state determined by onAuthStateChange (other events or initial USER_UPDATED before fetch).');
-              setIsLoading(false);
-              receivedInitialAuthEvent = true;
-            }
+          try {
+            const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
+            setSession(localSession);
+            setUser(localUser);
+          } catch (mapError) {
+            console.error("AuthContext: Error mapping Supabase session:", mapError);
+            setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
+            setSession(null);
+            setUser(null);
+          }
+
+          if (!receivedInitialAuthEvent) {
+            setIsLoading(false);
+            receivedInitialAuthEvent = true;
           }
         }
       );
 
-      // Cleanup subscription
       return () => {
         isMounted = false;
         if (authListener?.subscription) {
-          console.log('Unsubscribing from auth state changes.');
           authListener.subscription.unsubscribe();
         }
       };
@@ -246,65 +160,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error("Failed to initialize Supabase auth listener:", error);
       if (isMounted) {
         setError('Failed to initialize auth listener');
-        setIsLoading(false); // Stop loading on error
+        setIsLoading(false);
       }
-      return () => {}; // Return empty cleanup function if initialization fails
+      return () => {};
     }
-  }, [envError, supabase, mapSupabaseSessionToLocal, setSession, setUser, setError, setIsLoading]);
+  }, [envError]);
 
 
   // Login function
   const login = async (credentials: LoginCredentials): Promise<AuthResult> => {
     setIsLoading(true);
     setError(null);
-
     try {
-      // Call login API which now returns SupabaseSession
-      const result = await loginApi(credentials /* Removed onSuccess callback for now */ );
-
-      // Check result from loginApi before mapping
+      const result = await loginApi(credentials);
       if (!result.success || !result.session) {
          setError(result.error || 'Failed to login');
          setIsLoading(false);
          return result;
       }
-      
-      // Map the session returned by loginApi
       try {
-          // Note: loginApi's AuthResult uses session: any. We need to cast it before mapping.
           const supabaseSession = result.session as SupabaseSession; 
           const { localSession, localUser } = mapSupabaseSessionToLocal(supabaseSession);
-          console.log('Immediately updating auth state after successful login map');
           setSession(localSession);
           setUser(localUser);
           setIsLoading(false);
-          // Modify AuthResult to return mapped User if needed, or stick to Supabase types?
-          // For now, let's return the original AuthResult structure
-          // If AuthResult needs the local User type, update its definition in types/index.ts
-          // Ensure we return User | undefined to match AuthResult type
-          return { ...result, user: localUser || undefined }; // Optionally include mapped user in return
+          return { ...result, user: localUser || undefined }; 
       } catch (mapError) {
-          console.error("Error mapping Supabase session after login:", mapError);
+          console.error("AuthContext: Error mapping Supabase session after login:", mapError);
           setError(mapError instanceof Error ? mapError.message : 'Failed to process user session after login.');
-          setSession(null); // Clear session on mapping error
+          setSession(null); 
           setUser(null);
           setIsLoading(false);
-          // Return failure - Use mapError here
           return { success: false, error: mapError instanceof Error ? mapError.message : 'Mapping failed' };
       }
-
     } catch (err) {
-      console.error("Login error:", err);
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      console.error("AuthContext Login error:", err);
       setError(errorMessage);
-      setIsLoading(false); // Set loading false on catch
-
-      return {
-        success: false,
-        error: errorMessage
-      };
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
     }
-    // No finally block needed as loading is handled in all paths
   };
 
   // Register function
@@ -434,31 +329,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Update profile function
   const updateProfile = async (profile: Partial<User>): Promise<AuthResult> => {
-    setIsLoading(true); // Set loading true
+    setIsLoading(true);
     setError(null);
-
     try {
       const result = await updateProfileApi(profile);
 
       if (!result.success) {
         setError(result.error || 'Failed to update profile');
       } else if (result.user) {
-        // Update local user state immediately for better UX
         setUser(result.user);
       }
-
       return result;
     } catch (err) {
-      console.error("Update profile error:", err);
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      console.error("AuthContext Update profile error:", err);
       setError(errorMessage);
-
-      return {
-        success: false,
-        error: errorMessage
-      };
+      return { success: false, error: errorMessage };
     } finally {
-      setIsLoading(false); // Ensure loading is false after attempt
+      setIsLoading(false);
     }
   };
 

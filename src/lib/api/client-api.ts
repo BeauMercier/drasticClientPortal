@@ -87,17 +87,34 @@ export const updateUserProfile = async (updates: Partial<{
  */
 export const uploadProfilePicture = async (file: File) => {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  console.log('client-api.ts: uploadProfilePicture called.');
   
-  if (!user) throw new Error('Not authenticated');
+  let userForPath;
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('client-api.ts: Error getting user in uploadProfilePicture:', userError);
+      throw new Error('Error fetching user for upload: ' + userError.message);
+    }
+    if (!user) {
+      console.error('client-api.ts: No user found in uploadProfilePicture.');
+      throw new Error('Not authenticated for upload.');
+    }
+    userForPath = user;
+    console.log('client-api.ts: User fetched for upload:', userForPath.id);
+  } catch (e: any) {
+    console.error('client-api.ts: Critical error fetching user for upload:', e.message);
+    throw e; // Re-throw to be caught by handleSubmit
+  }
   
-  // Create a unique file name
   const fileExt = file.name.split('.').pop();
   const fileName = `avatar-${Date.now()}.${fileExt}`;
-  const filePath = `${user.id}/profile/${fileName}`;
+  const filePath = `${userForPath.id}/profile/${fileName}`;
+  console.log(`client-api.ts: Determined filePath: ${filePath}`);
   
   // Upload the file
-  const { error: uploadError } = await supabase
+  console.log('client-api.ts: Attempting to upload file to storage...');
+  const { data: uploadData, error: uploadError } = await supabase
     .storage
     .from(FILES_BUCKET)
     .upload(filePath, file, {
@@ -105,23 +122,46 @@ export const uploadProfilePicture = async (file: File) => {
       upsert: true
     });
   
-  if (uploadError) throw uploadError;
+  if (uploadError) {
+    console.error('client-api.ts: Supabase storage upload error:', uploadError);
+    throw new Error('Supabase storage upload failed: ' + uploadError.message); 
+  }
+  console.log('client-api.ts: File uploaded to storage successfully:', uploadData);
   
   // Get the public URL
-  const { data: urlData } = await supabase
-    .storage
-    .from(FILES_BUCKET)
-    .getPublicUrl(filePath);
+  console.log('client-api.ts: Attempting to get public URL...');
+  let publicUrl;
+  try {
+    const { data: urlResponseData } = supabase
+      .storage
+      .from(FILES_BUCKET)
+      .getPublicUrl(filePath);
+    
+    if (!urlResponseData || !urlResponseData.publicUrl) {
+      console.error('client-api.ts: getPublicUrl did not return a valid publicUrl in its data object.', urlResponseData);
+      throw new Error('Failed to retrieve a valid public URL string for the uploaded file.');
+    }
+    publicUrl = urlResponseData.publicUrl;
+    console.log('client-api.ts: Public URL constructed successfully:', publicUrl);
+  } catch (e: any) {
+    console.error('client-api.ts: Critical error during getPublicUrl call:', e.message);
+    throw new Error('Supabase getPublicUrl call failed: ' + e.message);
+  }
   
   // Update profile with new avatar URL
+  console.log('client-api.ts: Attempting to update profiles table...');
   const { data: profileData, error: profileError } = await supabase
     .from('profiles')
-    .update({ avatar_url: urlData.publicUrl })
-    .eq('id', user.id)
+    .update({ avatar_url: publicUrl })
+    .eq('id', userForPath.id)
     .select()
     .single();
   
-  if (profileError) throw profileError;
+  if (profileError) {
+    console.error('client-api.ts: Supabase profiles table update error:', profileError);
+    throw new Error('Supabase profiles table update failed: ' + profileError.message);
+  }
+  console.log('client-api.ts: Profiles table updated successfully:', profileData);
   
   return profileData;
 };

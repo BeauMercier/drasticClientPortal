@@ -170,14 +170,11 @@ export default function MyProfilePage() {
     setError(null);
     
     try {
-      console.log("Starting profile update process");
       let finalAvatarUrl = formData.avatar_url;
 
       if (profilePhoto) {
         try {
-          console.log("Uploading new profile photo");
           const photoResult = await uploadProfilePicture(profilePhoto);
-          console.log("Photo uploaded successfully:", photoResult);
           if (photoResult && photoResult.avatar_url) {
             finalAvatarUrl = photoResult.avatar_url;
           } else {
@@ -210,10 +207,7 @@ export default function MyProfilePage() {
         avatar_url: finalAvatarUrl
       };
       
-      console.log("Profile updates to send:", profileUpdates);
-      
       const updatedProfile = await updateUserProfile(profileUpdates);
-      console.log("Profile updated successfully via API:", updatedProfile);
 
       setUserData(prev => ({
           ...prev,

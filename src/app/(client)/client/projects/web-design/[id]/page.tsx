@@ -120,21 +120,9 @@ export default function WebDesignProjectDetails() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <header className="flex flex-col md:flex-row md:items-center justify-between space-y-2 md:space-y-0">
-        <div>
-          <h1 className="text-3xl font-bold">{project.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            Client: {project.client_name || 'N/A'} | Due Date: {project.due_date ? format(new Date(project.due_date), 'PPP') : 'N/A'}
-          </p>
-        </div>
-        <Badge variant={project.status === 'completed' ? 'default' : 'outline'} className={project.status === 'completed' ? 'bg-green-500 text-white' : ''}>
-          {project.status}
-        </Badge>
-      </header>
-      
       <Card>
         <CardHeader>
-          <CardTitle>Project Timeline</CardTitle>
+          <CardTitle className="text-2xl">{project.title}</CardTitle>
           <CardDescription>
             Current Stage: {project.current_stage ? PROJECT_STAGES.find(s => s.key === project.current_stage)?.label : 'Uninitialized'}
           </CardDescription>

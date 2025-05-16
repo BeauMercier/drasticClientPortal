@@ -20,9 +20,7 @@ const STAGES: ProjectStage[] = [
 export function StageSelect({ value, onChange, disabled }: StageSelectProps) {
   return (
     <Select value={value} onValueChange={val => onChange(val as ProjectStage)} disabled={disabled}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select stage" />
-      </SelectTrigger>
+      <SelectTrigger className="w-full" />
       <SelectContent>
         {STAGES.map(s => (
           <SelectItem key={s} value={s}>

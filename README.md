@@ -33,7 +33,8 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 **Important Configuration Notes:**
 *   **Cookie Domain:** The application is configured to set authentication cookies on the `.drasticdigital.com` parent domain to ensure seamless authentication across subdomains (e.g., Vercel preview URLs and the production portal). This is handled in `src/middleware.ts`.
-*   **Role-Based Redirects:** The `src/middleware.ts` and the root page (`src/app/page.tsx`) handle redirecting authenticated users to their appropriate role-specific dashboards (e.g., `/client`, `/admin`). A centralized configuration for these paths is in `src/lib/config/auth-config.ts`.
+*   **Role-Based Redirects:** The `src/middleware.ts` and the root page (`src/app/page.tsx`) handle redirecting authenticated users to their appropriate role-specific dashboards (e.g., `/client`, `/admin`). A centralized configuration for these paths is in `src/lib/config/auth-config.ts`, which defines `roleBasePaths`.
+*   **Middleware Optimizations:** `src/middleware.ts` includes logic for early returns on static asset paths and public routes (like `/login`) to prevent unnecessary Supabase client initialization, improving performance and stability.
 
 ### Installation
 
@@ -161,3 +162,12 @@ The application uses Supabase with the following main tables:
 - `user_files` - Metadata for general user files and non-BIR project files.
 - `business_information_requests` - Stores the main data for BIR.
 - `bir_file` - Stores metadata for files uploaded as part of a BIR.
+
+## Recent Stability Improvements
+
+Recent updates have resolved several critical issues related to authentication and navigation:
+*   **Page loading hangs and "Auth session missing!" errors** caused by cross-domain cookie problems on Vercel preview deployments have been fixed by pinning cookies to the parent domain (`.drasticdigital.com`) and optimizing Supabase client initialization in the middleware.
+*   **Incorrect redirects from the root path (`/`)** for authenticated users have been corrected. Users are now directed to their role-specific dashboards as defined in `src/lib/config/auth-config.ts`.
+*   **A redirect loop to `/login`** for unauthenticated users has been fixed by ensuring `/login` is not treated as a protected route by the middleware.
+
+These changes contribute to a more stable and reliable user experience.

@@ -41,8 +41,10 @@ export default function RootLayout({
           <UIProvider>
             <AuthProvider>
               <ErrorBoundary>
-                <EnvFallback />
-                {children}
+                <>
+                  <EnvFallback />
+                  {children}
+                </>
               </ErrorBoundary>
             </AuthProvider>
           </UIProvider>

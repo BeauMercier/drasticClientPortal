@@ -29,93 +29,98 @@ export default function BirFileUploader({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (inputRef.current) {
-      inputRef.current.value = ''; // Reset input for re-uploading same file
-    }
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
+    let allUploadsSuccessful = true;
 
-    try {
-      // Step 1: Get the signed URL from our backend
-      const createUrlResponse = await fetch('/api/bir/create-upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          birId: birId, 
-          filename: file.name, 
-          mime: file.type || 'application/octet-stream' // Provide a default MIME if browser doesn't set one
-        }),
-      });
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        // Step 1: Get the signed URL from our backend
+        const createUrlResponse = await fetch('/api/bir/create-upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            birId: birId,
+            filename: file.name,
+            mime: file.type || 'application/octet-stream'
+          }),
+        });
 
-      if (!createUrlResponse.ok) {
-        const errorResult = await createUrlResponse.json().catch(() => ({ error: "Failed to get signed URL", details: createUrlResponse.statusText }));
-        throw new Error(errorResult.error || `Failed to get signed URL: ${errorResult.details}`);
+        if (!createUrlResponse.ok) {
+          const errorResult = await createUrlResponse.json().catch(() => ({ error: "Failed to get signed URL", details: createUrlResponse.statusText }));
+          throw new Error(errorResult.error || `Failed to get signed URL for ${file.name}: ${errorResult.details}`);
+        }
+
+        const { uploadUrl, objectKey } = await createUrlResponse.json();
+
+        // Step 2: Upload the file directly to Supabase Storage
+        const uploadToStorageResponse = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        });
+
+        if (!uploadToStorageResponse.ok) {
+          throw new Error(`Storage upload failed for ${file.name}: ${uploadToStorageResponse.statusText} (status: ${uploadToStorageResponse.status})`);
+        }
+
+        // Step 3: Record the file metadata in our database
+        const recordFileResponse = await fetch('/api/bir/record-file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            birId: birId,
+            objectKey: objectKey,
+            size: file.size,
+            mime: file.type || 'application/octet-stream',
+            originalName: file.name,
+            fileType: fileType,
+          }),
+        });
+
+        if (!recordFileResponse.ok) {
+          const errorResult = await recordFileResponse.json().catch(() => ({ error: "Failed to record file metadata", details: recordFileResponse.statusText }));
+          throw new Error(errorResult.error || `Failed to record file metadata for ${file.name}: ${errorResult.details}`);
+        }
+
+        const recordedFileResult = await recordFileResponse.json();
+
+        toast({
+          title: 'File Uploaded Successfully',
+          description: `${file.name}`,
+        });
+
+        if (recordedFileResult.file) {
+          onUploadSuccess?.(recordedFileResult.file as BirFileRow);
+        } else {
+          console.warn(`record-file API did not return the file object for ${file.name}. onUploadSuccess might not have detailed data.`);
+        }
+
+      } catch (error: any) {
+        allUploadsSuccessful = false;
+        console.error(`Upload process error for ${file.name}:`, error);
+        toast({
+          title: `Upload Failed for ${file.name}`,
+          description: error.message || 'An unknown error occurred during upload.',
+          variant: 'destructive',
+        });
+        // Optionally, break the loop if one file fails, or continue trying others
+        // For now, it continues.
       }
+    }
 
-      const { uploadUrl, objectKey } = await createUrlResponse.json();
+    if (inputRef.current) {
+      inputRef.current.value = ''; // Reset input after all files are processed
+    }
+    setUploading(false);
 
-      // Step 2: Upload the file directly to Supabase Storage
-      const uploadToStorageResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-        body: file,
-      });
-
-      if (!uploadToStorageResponse.ok) {
-        // Consider parsing XML error response from S3 if needed, though Supabase might shield this
-        throw new Error(`Storage upload failed: ${uploadToStorageResponse.statusText} (status: ${uploadToStorageResponse.status})`);
-      }
-
-      // Step 3: Record the file metadata in our database
-      const recordFileResponse = await fetch('/api/bir/record-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          birId: birId,
-          objectKey: objectKey,
-          size: file.size,
-          mime: file.type || 'application/octet-stream',
-          originalName: file.name,
-          fileType: fileType, // Pass BirFileType as it's required by the table
-        }),
-      });
-
-      if (!recordFileResponse.ok) {
-        const errorResult = await recordFileResponse.json().catch(() => ({ error: "Failed to record file metadata", details: recordFileResponse.statusText }));
-        throw new Error(errorResult.error || `Failed to record file metadata: ${errorResult.details}`);
-      }
-      
-      const recordedFileResult = await recordFileResponse.json();
-
-      toast({
-        title: 'File Uploaded Successfully',
-        description: `${file.name}`,
-      });
-      
-      // Pass the newly created bir_file record (returned from record-file) to the callback
-      if (recordedFileResult.file) {
-        onUploadSuccess?.(recordedFileResult.file as BirFileRow);
-      } else {
-        // If record-file doesn't return the full file, we might need to trigger a general refetch
-        // or accept that onUploadSuccess won't have the full new BirFileRow immediately.
-        // For now, assuming recordFileResult.file will contain the necessary data.
-        console.warn('record-file API did not return the file object. onUploadSuccess might not have detailed data.');
-        // Fallback: if you have a general mutate function that refetches all BIR data, call it here.
-        // Example: generalMutationOfBirData(); 
-      }
-
-    } catch (error: any) {
-      console.error('Upload process error:', error);
-      toast({
-        title: 'Upload Failed',
-        description: error.message || 'An unknown error occurred during upload.',
-        variant: 'destructive',
-      });
-    } finally {
-      setUploading(false);
+    if (allUploadsSuccessful && files.length > 0) {
+      // This callback might need adjustment if it's intended for overall success.
+      // For now, onUploadSuccess is called for each successful file.
+      // If a general "all done" notification is needed, that's a separate consideration.
     }
   };
 
@@ -144,6 +149,7 @@ export default function BirFileUploader({
         ref={inputRef}
         accept={accept} // Use the accept prop
         disabled={uploading || disabled}
+        multiple // Allow multiple file selection
       />
       <Button
         type="button"

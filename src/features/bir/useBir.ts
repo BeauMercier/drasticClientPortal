@@ -57,10 +57,16 @@ const fetcher = async (projectId: string): Promise<UseBirData> => {
           .createSignedUrl(file.storage_path, 60 * 60); // 1 hour expiry
 
         if (signError) {
-          console.error(`Error creating signed URL for ${file.storage_path}:`, signError);
-          return { ...file, publicUrl: undefined };
+          // Gracefully handle "Object not found" errors specifically
+          if (signError.message && (signError.message.includes('No object exists') || signError.message.includes('Object not found'))) {
+            console.warn(`Signed URL generation for ${file.storage_path}: Object not found in storage. Marking as unavailable.`);
+            return { ...file, publicUrl: undefined, error: 'not_found' }; // Add error indicator
+          } else {
+            console.error(`Error creating signed URL for ${file.storage_path}:`, signError);
+            return { ...file, publicUrl: undefined, error: 'generic' }; // Add error indicator
+          }
         }
-        return { ...file, publicUrl: signedUrlData?.signedUrl };
+        return { ...file, publicUrl: signedUrlData?.signedUrl, error: undefined }; // Clear error indicator
       });
       generatedSignedFiles = await Promise.all(signedUrlPromises);
     } catch (error) {

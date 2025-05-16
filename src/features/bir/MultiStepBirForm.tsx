@@ -105,24 +105,17 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
       form.setValue('client_id', user.id);
     }
 
-    let shouldInitializeTextDataSubmitted = false;
-    if (fetchedBir && fetchedBir.answers && Object.keys(fetchedBir.answers).length > 0 && fetchedBir.status !== 'approved') {
-      shouldInitializeTextDataSubmitted = true;
-    }
-    
-    // Set initial submission state only once based on fetchedBir, 
-    // respecting subsequent user actions (like clicking "Edit").
-    // This check avoids resetting to summary view if user clicks edit then form re-renders before navigation.
     if (birLoading) return; // Don't do anything until bir data is loaded or confirmed not present
 
-    // Initialize textDataSubmittedSuccessfully based on fetchedBir the first time data is available.
-    // The form.reset below depends on textDataSubmittedSuccessfully being correctly set before it runs.
-    if (fetchedBir && !form.formState.isDirty && !textDataSubmittedSuccessfully && shouldInitializeTextDataSubmitted) {
-      setTextDataSubmittedSuccessfully(true);
-    }
+    // DO NOT set textDataSubmittedSuccessfully here when just loading a draft or existing data.
+    // This state should only be true after a successful SUBMIT operation via handleSubmitAllAnswers.
+    // if (fetchedBir && !form.formState.isDirty && !textDataSubmittedSuccessfully && shouldInitializeTextDataSubmitted) {
+    //   setTextDataSubmittedSuccessfully(true);
+    // }
     
     // Form reset logic
-    if (!textDataSubmittedSuccessfully) { // Only reset if not in summary view OR if user clicked edit.
+    // Only reset/populate if not in summary view OR if user clicked edit (which sets textDataSubmittedSuccessfully to false).
+    if (!textDataSubmittedSuccessfully) { 
       if (fetchedBir && isValidAnswersObject(fetchedBir.answers)) {
         const mergedAnswers = { ...getDefaultAnswers(), ...fetchedBir.answers };
         form.reset({
@@ -139,14 +132,8 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
           answers: getDefaultAnswers(),
         });
       }
-    } else {
-      // If textDataSubmittedSuccessfully is true (i.e. summary view is shown),
-      // but fetchedBir changes (e.g. due to external update or revalidation),
-      // we might want to ensure the form is still populated for when the user clicks "Edit".
-      // However, the main population happens when textDataSubmittedSuccessfully is false.
-      // For now, if summary is shown, the form values are latent until "Edit" is clicked.
     }
-  }, [fetchedBir, projectId, birLoading, birError, user, form]); // Removed textDataSubmittedSuccessfully from deps to avoid loops with its own setter
+  }, [fetchedBir, projectId, birLoading, birError, user, form, textDataSubmittedSuccessfully]); // Added textDataSubmittedSuccessfully back to deps
 
   const handleNextStep = async () => {
     const currentStepFields = textualSteps[currentStepIndex].fields;
@@ -181,7 +168,7 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
         // Update existing BIR as a draft
         const updatePayload: BirUpdateDTO = {
           id: fetchedBir.id,
-          answers: currentValues.answers,
+          answers: pruneEmptyStrings(currentValues.answers ?? {}), // Prune empty strings here too
           status: 'pending',
         };
         const validationResult = birUpdateSchema.safeParse(updatePayload);
@@ -266,19 +253,32 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     try {
       const processedAnswers = values.answers;
       if (isUpdateMode && fetchedBir) {
-        const updatePayload: BirUpdateDTO = { id: fetchedBir.id, answers: processedAnswers };
+        const updatePayload: BirUpdateDTO = { 
+          id: fetchedBir.id, 
+          answers: processedAnswers,
+          status: 'submitted' // Explicitly set status to 'submitted'
+        };
         const validationResult = birUpdateSchema.safeParse(updatePayload);
         if (!validationResult.success) {
+          console.error("Validation error during update submission:", validationResult.error.flatten());
           throw new Error('Validation failed for update.'); // Simplified error
         }
         payload = validationResult.data;
       } else {
-        const validationResult = birInsertSchema.safeParse(values);
+        // For POST (insert), also ensure status is 'submitted'
+        const insertPayload: BirInsertDTO = {
+          project_id: projectId, // Ensure project_id is from props
+          client_id: user?.id || '', // Ensure client_id is from auth or form
+          project_type: 'web_design', // Ensure project_type
+          answers: processedAnswers, // Use processedAnswers
+          status: 'submitted' // Explicitly set status to 'submitted'
+        };
+        const validationResult = birInsertSchema.safeParse(insertPayload);
         if (!validationResult.success) {
+          console.error("Validation error during insert submission:", validationResult.error.flatten());
           throw new Error('Validation failed for insert.'); // Simplified error
         }
-        const { client_id, ...finalPayload } = validationResult.data;
-        payload = finalPayload;
+        payload = validationResult.data;
       }
 
       const res = await fetch('/api/bir', {

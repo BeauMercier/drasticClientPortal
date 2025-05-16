@@ -28,8 +28,11 @@ const clientMenuItems = [
   // { name: 'Business Profile', href: '/client/my-profile/business-info', icon: <BuildingOfficeIcon className="h-5 w-5" /> },
   { name: 'Files', href: '/client/files', icon: <DocumentTextIcon className="h-5 w-5" /> },
   { name: 'Billing', href: '/client/billing', icon: <CreditCardIcon className="h-5 w-5" /> },
-  { name: 'Settings', href: '/client/settings', icon: <CogIcon className="h-5 w-5" /> },
   // { name: 'Business Info', href: '/client/my-profile/business-info', icon: <BuildingOffice2Icon className="h-5 w-5" /> },
+];
+
+const secondaryNavigation = [
+  // { name: 'Settings', href: '/client/settings', icon: <CogIcon className="h-5 w-5" /> }, // Removed deprecated settings link
 ];
 
 export default function ClientSidebar() { // Renamed component

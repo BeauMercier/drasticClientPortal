@@ -98,7 +98,6 @@ export default function ClientDashboardPage() {
            <CardHeader><CardTitle>Quick Links</CardTitle></CardHeader>
            <CardContent className="flex flex-col space-y-2">
              <Button size="sm" variant="link" className="justify-start p-0 h-auto" onClick={() => router.push('/client/my-profile')}>My Profile</Button>
-             <Button size="sm" variant="link" className="justify-start p-0 h-auto" onClick={() => router.push('/client/settings')}>Settings</Button>
              {/* Add more relevant links */}
            </CardContent>
          </Card>

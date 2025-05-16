@@ -41,7 +41,7 @@ export default function BusinessInfoGate({ projectId, projectType, parentMutateB
     const effectiveMutateBir: KeyedMutator<any> = parentMutateBir || localMutateBir;
 
     const [isEditing, setIsEditing] = useState(false); // Default to false
-    const [showSummaryInsteadOfForm, setShowSummaryInsteadOfForm] = useState(false);
+    const [showSummaryInsteadOfForm, setShowSummaryInsteadOfForm] = useState(false); // Default to false
 
     // Handler for when MultiStepBirForm saves and exits
     const handleFormSaveAndExit = (birId: string | null) => {
@@ -52,21 +52,23 @@ export default function BusinessInfoGate({ projectId, projectType, parentMutateB
     };
 
     useEffect(() => {
-        if (!bir) { // No BIR exists yet
-            setIsEditing(true);
-            setShowSummaryInsteadOfForm(false); // Ensure summary isn't shown for a new form
-        } else if (bir.status === 'pending') { // BIR is a draft
-            // If not explicitly trying to show summary, default to editing for drafts
-            if (!showSummaryInsteadOfForm) {
-                setIsEditing(true);
-            }
-        } else if (bir.status === 'submitted' || bir.status === 'approved') {
-            // If submitted or approved, default to not editing.
-            // Summary display is controlled by its own state and button clicks.
-            setIsEditing(false);
-            // DO NOT set setShowSummaryInsteadOfForm(false) here, as it would override the button click.
+        // This effect determines the initial editing state when BIR data or loading state changes.
+        if (birLoading) {
+            // Still loading BIR data, do nothing yet.
+            return;
         }
-    }, [bir, showSummaryInsteadOfForm]); // showSummaryInsteadOfForm is kept in deps to re-evaluate if user toggles summary for pending drafts.
+
+        if (!bir) {
+            // No BIR exists for this project. Default to showing the form.
+            setIsEditing(true);
+        } else {
+            // A BIR (pending, submitted, or approved) exists.
+            // Default to showing the relevant status panel (i.e., not editing).
+            setIsEditing(false);
+        }
+        // `showSummaryInsteadOfForm` is intentionally not managed here.
+        // It's initialized to false and controlled by explicit user actions (e.g., clicking "Review Information").
+    }, [bir, birLoading]); // Dependencies are only bir and birLoading
 
     // --- Loading States --- //
     // Wait for both auth state and BIR data (if applicable)

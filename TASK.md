@@ -231,3 +231,21 @@
     - [ ] Add `DEPRECATED` comments to the legacy boolean `*_completed` columns in SQL schema.
 - [ ] **Documentation:**
     - [ ] Update `PLANNING.md` to reflect the new `
+
+### [Current Date - May 17, 2024] - Client Timeline UI Enhancement
+
+- [ ] **Enhance Client-Facing Project Timeline Visuals**
+    - **Goal:** Improve the visual distinction of current and completed stages on the client timeline.
+    - **Requirements:**
+        - Current stage icon: Blue.
+        - Completed stage icons: Green.
+        - Connecting bar:
+            - Filled green for segments between completed stages.
+            - Filled blue for the segment leading up to the current stage.
+            - Unfilled/gray for segments after the current stage.
+    - **Affected Component(s):** Identify and refactor the client-facing project timeline component (likely within `src/app/(client)/client/projects/...` or a shared component it uses).
+    - **Tasks:**
+        - [ ] Locate the relevant client-side timeline component.
+        - [ ] Update JSX and styling (Tailwind CSS/`clsx`) to implement the new color scheme for icons and the connecting bar based on stage status (completed, current, pending).
+        - [ ] Ensure responsiveness and dark mode compatibility.
+        - [ ] Test with various project types and stage progressions.

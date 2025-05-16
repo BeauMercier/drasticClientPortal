@@ -39,31 +39,50 @@ export default function ProjectTimeline({
   currentStage,
   stageDates,
 }: ProjectTimelineProps) {
+  console.log('[Timeline debug]', { currentStage, stageDates });
+
   const activeColor = "blue-500";
   const completedColor = "green-500";
   const pendingColor = "border"; // For bar background
   const pendingDotBorderColor = "border";
   const pendingDotTextColor = "muted-foreground";
 
+  // New status calculation logic
+  const stageKeys = stages.map(s => s.key) as ProjectStage[];
+  type StageKey = typeof stageKeys[number];
+  type StageStatus = 'completed' | 'active' | 'pending';
+
+  const currentIdx = stageKeys.indexOf(currentStage as StageKey);
+  const statuses: Record<StageKey, StageStatus> = {} as any;
+
+  stageKeys.forEach((key, idx) => {
+    const done = !!stageDates[key];
+    if (idx === currentIdx) {
+      statuses[key] = 'active'; // Current stage dot/icon is always active (blue)
+    } else if (idx < currentIdx) {
+      statuses[key] = 'completed';
+    } else { // Future stages (idx > currentIdx)
+      statuses[key] = 'pending'; // Future stages are always visually pending
+    }
+  });
+
   return (
     <div className="relative w-full">
       {/* ─────────────── Continuous track (behind dots) ─────────────── */}
       <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 select-none">
         <div className="flex justify-between">
-          {stages.slice(0, -1).map((_, idx) => {
-            const nextStage = stages[idx + 1];
+          {stages.slice(0, -1).map((stage, idx) => {
+            const currentStageKey = stageKeys[idx];
+            const nextStageKey = stageKeys[idx+1];
             let barBgClass = `bg-${pendingColor}`;
 
-            if (nextStage) {
-              const nextStageHasCompletedDate = !!stageDates[nextStage.key];
-              const nextStageIsCurrentLogicalStage = nextStage.key === currentStage;
-
-              if (nextStageHasCompletedDate) {
-                barBgClass = `bg-${completedColor}`;
-              } else if (nextStageIsCurrentLogicalStage) {
-                barBgClass = `bg-${activeColor}`;
-              }
+            // Updated bar color logic
+            if (statuses[currentStageKey] === 'completed' && statuses[nextStageKey] === 'completed') {
+              barBgClass = `bg-${completedColor}`;
+            } else if (statuses[currentStageKey] === 'completed' && statuses[nextStageKey] === 'active') {
+              barBgClass = `bg-${activeColor}`;
             }
+
             return (
               <div
                 key={`bar-${idx}`}
@@ -78,21 +97,23 @@ export default function ProjectTimeline({
       <div className="relative z-10 flex justify-between items-start">
         {stages.map((stage) => {
           const DotIcon = stage.icon;
-          const hasCompletedDate = !!stageDates[stage.key];
-          const isCurrentLogicalStage = stage.key === currentStage;
-
+          const stageKey = stage.key as StageKey;
+          
+          // Updated dot, icon, and label color logic
           let dotClasses = `bg-background border-${pendingDotBorderColor} text-${pendingDotTextColor}`;
           let iconClasses = `text-${pendingDotTextColor}`;
           let labelClasses = `text-${pendingDotTextColor}`;
 
-          if (hasCompletedDate) {
-            dotClasses = `bg-${completedColor} border-${completedColor} text-white`;
-            iconClasses = `text-white`;
-            labelClasses = `text-${completedColor}`;
-          } else if (isCurrentLogicalStage) {
+          const status = statuses[stageKey];
+
+          if (status === 'active') {
             dotClasses = `shadow-lg bg-${activeColor} border-${activeColor} text-white scale-110`;
             iconClasses = `text-white`;
             labelClasses = `text-${activeColor}`;
+          } else if (status === 'completed') {
+            dotClasses = `bg-${completedColor} border-${completedColor} text-white`;
+            iconClasses = `text-white`;
+            labelClasses = `text-${completedColor}`;
           }
 
           return (

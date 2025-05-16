@@ -55,15 +55,30 @@ export default function ProjectTimeline({
   const currentIdx = stageKeys.indexOf(currentStage as StageKey);
   const statuses: Record<StageKey, StageStatus> = {} as any;
 
+  // ─── status calculation ─────────────────────────────────────────────
   stageKeys.forEach((key, idx) => {
-    const done = !!stageDates[key];
-    if (idx === currentIdx) {
-      statuses[key] = 'active'; // Current stage dot/icon is always active (blue)
-    } else if (idx < currentIdx) {
+    if (idx < currentIdx) {
+      // Anything before the current stage is finished
       statuses[key] = 'completed';
-    } else { // Future stages (idx > currentIdx)
-      statuses[key] = 'pending'; // Future stages are always visually pending
+      return;
     }
+
+    if (idx === currentIdx) {
+      // Normally the current stage is "active / blue" …
+      let status: StageStatus = 'active';
+
+      // … except for the FINAL stage: once Delivery gets its date,
+      // we show it as completed (green) even while it's current.
+      if (key === 'delivery' && stageDates.delivery) {
+        status = 'completed';
+      }
+
+      statuses[key] = status;
+      return;
+    }
+
+    // Everything after the current stage is still ahead of us
+    statuses[key] = 'pending';
   });
 
   return (

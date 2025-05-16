@@ -265,3 +265,11 @@
     *   **Solution:**
         *   Modified `/api/admin/projects/route.ts` (admin project list) to include `designer_id` in the project list data by joining with `designer_projects`.
         *   Updated `src/app/(admin)/admin/projects/page.tsx` to use the `designer_id` to pre-select the assigned designer in the modal.
+
+### [Insert Current Date Here - e.g., April 5, 2024] - Client Projects Page Enhancement
+
+- [x] **Enhanced Client Projects Page Navigation:** Updated the client projects category page (`src/app/(client)/client/projects/page.tsx`) to improve user experience.
+    - Implemented `getClientProjectsForCategories` function in `src/lib/api/client-api.ts` to fetch project counts for the authenticated client across all categories (web design, logo design, social graphics).
+    - The page now dynamically adjusts navigation: if a client has only one project within a specific category, clicking that category card will navigate directly to that project's detail page.
+    - If a client has zero or multiple projects in a category, clicking the card links to the standard list page for that project category.
+    - Ensured `projectCategories` in `page.tsx` uses distinct `id` (for data lookup, e.g., `web_design`) and `slug` (for URL routing, e.g., `web-design`) properties to correctly interact with fetched data and Next.js file-based routing.

@@ -1,17 +1,20 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/features/auth'; // Use the main hook export
-import { useBir } from './useBir';
+import { useBir, UseBirData } from './useBir'; // Import UseBirData
 // import BirForm from './BirForm'; // Old form
 import MultiStepBirForm from './MultiStepBirForm'; // New multi-step form
-import BirSummary from './BirSummary';
+import BirSummary, { BirSummaryProps } from './BirSummary'; // Corrected import path if needed, type is now exported
 import { Skeleton } from '@/components/ui/skeleton'; // For loading state
 import { KeyedMutator } from 'swr'; // Added for KeyedMutator type
+import { Button } from '@/components/ui/button'; // Added Button import
+import { CheckCircle, Edit3, FileText } from 'lucide-react'; // Added icons
 
 interface BusinessInfoGateProps {
     projectId: string;
     projectType?: 'web_design' | string; // Make type optional, check defined before use
-    parentMutateBir?: KeyedMutator<any>; // Added: To accept mutate function from parent
+    parentMutateBir?: KeyedMutator<UseBirData>; // More specific type if possible, or any 
 }
 
 /**
@@ -28,14 +31,42 @@ export default function BusinessInfoGate({ projectId, projectType, parentMutateB
     const shouldFetchBir = projectType === 'web_design' && !!projectId;
     const { 
         bir, 
-        signedBirFiles, 
+        signedBirFiles, // Destructure signedBirFiles
         isLoading: birLoading, 
         error: birError, 
         mutate: localMutateBir // Renamed internal mutate to avoid conflict
     } = useBir(shouldFetchBir ? projectId : undefined);
 
     // Determine which mutate function to use: prefer parent's if provided
-    const effectiveMutateBir = parentMutateBir || localMutateBir;
+    const effectiveMutateBir: KeyedMutator<any> = parentMutateBir || localMutateBir;
+
+    const [isEditing, setIsEditing] = useState(false); // Default to false
+    const [showSummaryInsteadOfForm, setShowSummaryInsteadOfForm] = useState(false);
+
+    // Handler for when MultiStepBirForm saves and exits
+    const handleFormSaveAndExit = (birId: string | null) => {
+        console.log('[BusinessInfoGate] Save and Exit from form. BIR ID:', birId);
+        setIsEditing(false); // Hide the form, allow re-evaluation of display
+        setShowSummaryInsteadOfForm(false); // show the pending-draft panel instead
+        // No redirect here, allow natural re-render based on fetched BIR status
+    };
+
+    useEffect(() => {
+        if (!bir) { // No BIR exists yet
+            setIsEditing(true);
+            setShowSummaryInsteadOfForm(false); // Ensure summary isn't shown for a new form
+        } else if (bir.status === 'pending') { // BIR is a draft
+            // If not explicitly trying to show summary, default to editing for drafts
+            if (!showSummaryInsteadOfForm) {
+                setIsEditing(true);
+            }
+        } else if (bir.status === 'submitted' || bir.status === 'approved') {
+            // If submitted or approved, default to not editing.
+            // Summary display is controlled by its own state and button clicks.
+            setIsEditing(false);
+            // DO NOT set setShowSummaryInsteadOfForm(false) here, as it would override the button click.
+        }
+    }, [bir, showSummaryInsteadOfForm]); // showSummaryInsteadOfForm is kept in deps to re-evaluate if user toggles summary for pending drafts.
 
     // --- Loading States --- //
     // Wait for both auth state and BIR data (if applicable)
@@ -68,25 +99,73 @@ export default function BusinessInfoGate({ projectId, projectType, parentMutateB
 
     /* ---------- CLIENT VIEW ---------- */
     if (userRole === 'client') {
-        // BIR doesn't exist yet or is pending -> Show editable form
-        if (!bir || bir.status === 'pending') {
-            // return <BirForm projectId={projectId} mutateBir={mutateBir} />;
-            return <MultiStepBirForm projectId={projectId} mutateBir={effectiveMutateBir} />;
+        // Case 1: No BIR exists yet, or user wants to start editing.
+        if (isEditing || !bir) {
+            return <MultiStepBirForm 
+                        projectId={projectId} 
+                        mutateBir={effectiveMutateBir} 
+                        onSaveAndExit={handleFormSaveAndExit} // Pass the callback
+                    />;
         }
-        
-        // BIR submitted or approved -> Show summary + status message
-        return (
-            <div className="space-y-4">
-                <BirSummary bir={bir} signedFiles={signedBirFiles} />
-                {bir.status === 'submitted' && (
-                    <p className="text-sm italic text-yellow-600 bg-yellow-50 border border-yellow-200 p-3 rounded-md">
-                        Your answers have been submitted and are awaiting review.
-                    </p>
-                )}
-                 {/* Optionally add a message for approved status if needed */}
-                 {/* {bir.status === 'approved' && (...)} */}
-            </div>
-        );
+
+        // Case 2: BIR exists and is not currently being edited by the user.
+        if (bir) { // bir is guaranteed to exist here if !isEditing
+            if (bir.status === 'pending') {
+                 // User has a saved draft
+                return (
+                    <div className="p-4 border rounded-lg shadow-sm bg-card space-y-3">
+                        <div className="flex items-center">
+                            <FileText className="h-5 w-5 mr-2 text-blue-500" />
+                            <p className="text-sm font-medium">You have a saved draft.</p>
+                        </div>
+                        <Button onClick={() => { setIsEditing(true); setShowSummaryInsteadOfForm(false);}}>Edit/Continue Draft</Button>
+                    </div>
+                );
+            }
+
+            if (bir.status === 'submitted') {
+                const summaryProps: BirSummaryProps = { bir, signedFiles: signedBirFiles };
+                return (
+                    <div className="p-4 border rounded-lg shadow-sm bg-green-50 border-green-200 space-y-3">
+                        <div className="flex items-center">
+                            <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
+                            <p className="text-sm font-medium text-green-700">Business Information Submitted!</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Your answers have been submitted and are awaiting review. You can still make changes if needed.
+                        </p>
+                        <div className="flex space-x-2">
+                            <Button onClick={() => { setIsEditing(true); setShowSummaryInsteadOfForm(false); }}>Edit Information</Button>
+                            <Button variant="outline" onClick={() => { setIsEditing(false); setShowSummaryInsteadOfForm(true); }}>Review Submitted Info</Button>
+                        </div>
+                         {showSummaryInsteadOfForm && <BirSummary {...summaryProps} />}
+                    </div>
+                );
+            }
+            
+            if (bir.status === 'approved') {
+                 const summaryProps: BirSummaryProps = { bir, signedFiles: signedBirFiles };
+                 return (
+                    <div className="p-4 border rounded-lg shadow-sm bg-blue-50 border-blue-200 space-y-3">
+                        <div className="flex items-center">
+                            <CheckCircle className="h-5 w-5 mr-2 text-blue-600" />
+                            <p className="text-sm font-medium text-blue-700">Business Information Approved!</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Your business information has been reviewed and approved.
+                        </p>
+                        <Button variant="outline" onClick={() => { setIsEditing(false); setShowSummaryInsteadOfForm(true); }}>Review Approved Info</Button>
+                        {showSummaryInsteadOfForm && <BirSummary {...summaryProps} />}
+                    </div>
+                );
+            }
+        }
+        // Fallback for client if no conditions met (should ideally be covered by !bir || isEditing)
+        return <MultiStepBirForm 
+                   projectId={projectId} 
+                   mutateBir={effectiveMutateBir} 
+                   onSaveAndExit={handleFormSaveAndExit} // Pass the callback here too
+               />;
     }
 
     /* ---------- DESIGNER / ADMIN VIEW ---------- */

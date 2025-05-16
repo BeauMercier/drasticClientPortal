@@ -13,8 +13,10 @@ import { useAuth } from '@/features/auth';
 import {
   birInsertSchema,
   birUpdateSchema,
+  birStatusSchema,
   BirAnswersData,
   BirUpdateDTO,
+  BirInsertDTO,
   FormValues as BirFormValues, // Renaming to avoid conflict if MultiStepBirForm has its own FormValues
 } from '@/lib/validation/bir';
 import { birStepsConfig, BirStep, StepProps } from './birStepConfig';
@@ -47,9 +49,18 @@ function isValidAnswersObject(answers: any): answers is Partial<BirAnswersData> 
   return typeof answers === 'object' && answers !== null && !Array.isArray(answers);
 }
 
+// New utility function to remove empty string properties from an object
+function pruneEmptyStrings(obj: Record<string, any>): Record<string, any> {
+  if (typeof obj !== 'object' || obj === null) return obj;
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== '')
+  );
+}
+
 interface MultiStepBirFormProps {
   projectId: string;
   mutateBir: KeyedMutator<any>; // This is the mutate function from the parent useBir hook
+  onSaveAndExit?: (birId: string | null) => void; // Added new prop
 }
 
 /**
@@ -64,7 +75,7 @@ interface MultiStepBirFormProps {
  *   component (likely BusinessInfoGate) to revalidate BIR data globally after submission.
  * @returns {JSX.Element} The multi-step BIR form component.
  */
-export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir }: MultiStepBirFormProps) {
+export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir, onSaveAndExit }: MultiStepBirFormProps) {
   const { bir: fetchedBir, isLoading: birLoading, error: birError, mutate: localMutateBir } = useBir(projectId);
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -158,6 +169,91 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
 
   const handlePreviousStep = () => {
     setCurrentStepIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleSaveDraft = async () => {
+    setIsSubmittingTextData(true);
+    const currentValues = form.getValues();
+    let savedBirId: string | null = null;
+
+    try {
+      if (fetchedBir && fetchedBir.id) {
+        // Update existing BIR as a draft
+        const updatePayload: BirUpdateDTO = {
+          id: fetchedBir.id,
+          answers: currentValues.answers,
+          status: 'pending',
+        };
+        const validationResult = birUpdateSchema.safeParse(updatePayload);
+        if (!validationResult.success) {
+          console.error("Draft update validation error:", validationResult.error.flatten());
+          throw new Error('Validation failed when saving draft.');
+        }
+
+        const res = await fetch('/api/bir', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(validationResult.data),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to save draft.');
+        savedBirId = result.id;
+        toast({ title: "Draft Saved", description: "Your progress has been saved as a draft." });
+      } else {
+        // Create new BIR as a draft
+        const insertPayload: BirInsertDTO = {
+          project_id: projectId,
+          client_id: user?.id || '', // Ensure client_id is set
+          project_type: 'web_design',
+          answers: pruneEmptyStrings(currentValues.answers ?? {}), // Prune empty strings from answers
+          status: 'pending', // Add status for new drafts
+        };
+
+        // Validate specifically for insert, potentially with a more lenient schema if needed for drafts
+        const basicInsertSchema = z.object({
+          project_id: z.string().uuid(),
+          client_id: z.string().uuid(),
+          project_type: z.literal('web_design'),
+          // answers is intentionally z.any() here for the draft to avoid frontend deep validation issues.
+          // Backend will validate answers more strictly.
+          answers: z.any(), 
+          status: birStatusSchema.optional(), // Use imported birStatusSchema for draft validation
+        });
+
+        const validationResult = basicInsertSchema.safeParse(insertPayload);
+        if (!validationResult.success) {
+          console.error("Draft insert basic validation error (frontend):", validationResult.error.flatten());
+          const errorMessages = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+          throw new Error(`Basic validation failed: ${errorMessages}`);
+        }
+
+        // Send the validated basic payload (which includes potentially incomplete/invalid answers for a draft)
+        const res = await fetch('/api/bir', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(validationResult.data), // Send validated data (answers still as is)
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to save draft.'); // Changed error message
+        savedBirId = result.id;
+        toast({ title: "Draft Saved", description: "Your progress has been saved as a draft." }); // Changed toast message
+      }
+
+      await parentMutateBir(); // Revalidate BIR data globally
+      await localMutateBir();  // Revalidate local BIR data state
+      if (onSaveAndExit) {
+        onSaveAndExit(savedBirId);
+      }
+    } catch (error: any) {
+      console.error("Error in handleSaveDraft:", error);
+      toast({
+        title: "Error Saving",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmittingTextData(false);
+    }
   };
 
   const handleSubmitAllAnswers: SubmitHandler<BirFormValues> = async (values) => {
@@ -329,6 +425,19 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
                   </Button>
                 )}
               </div>
+              
+              {/* Centered Save and Exit Button, and Next/Submit on the right */}
+              <div className="flex-grow flex justify-center">
+                <Button 
+                  type="button" 
+                  onClick={handleSaveDraft} 
+                  disabled={isSubmittingTextData} 
+                  variant="secondary" 
+                >
+                  Save and Exit
+                </Button>
+              </div>
+
               <div>
                 {!isLastTextualStep && (
                   <Button type="button" onClick={handleNextStep} disabled={isSubmittingTextData}>
@@ -339,7 +448,7 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
                   <Button type="submit" disabled={isSubmittingTextData || authLoading || birLoading}>
                     {isSubmittingTextData 
                       ? 'Saving...' 
-                      : ( (fetchedBir && fetchedBir.id && !textDataSubmittedSuccessfully) || (fetchedBir && fetchedBir.id && currentStepIndex !== 0) )
+                      : ( (fetchedBir && fetchedBir.id && !textDataSubmittedSuccessfully) || (fetchedBir && fetchedBir.id && currentStepIndex !== 0) ) // Check if updating existing draft or submitted info
                         ? 'Update & Save All Answers' 
                         : 'Save All Answers'}
                   </Button>

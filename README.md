@@ -13,6 +13,12 @@ A comprehensive client portal built with Next.js, TypeScript, Tailwind CSS, and 
     - General user files and project-specific files (non-BIR) via Supabase Storage (`project-files` bucket), with metadata in `user_files` table and RLS.
 - **Business Information Request (BIR)**: (Web Design Projects Only) An integrated form for clients to submit required business details directly within their web design project workspace, replacing external tools.
    - Includes file uploads for BIR-specific documents (e.g., logos, style guides) stored in a separate private Supabase Storage bucket (`bir-files`) with metadata in `bir_file` table, all controlled by RLS.
+- **Enhanced Project Timeline**:
+    - **Clear status colours:** current (blue), completed (green), pending (gray).
+    - **Accurate progression:** driven by `current_stage`.
+    - **Delivery special-case:** final stage turns green once `delivery_date` is set, even while it's current.
+    - **Title standardisation:** all project types now use `title` (no more `name` bugs in admin).
+    - **Optional DB trigger:** see `fill_missing_stage_dates` (SQL) to auto-fill earlier stage dates and guarantee integrity.
 
 ## Getting Started
 

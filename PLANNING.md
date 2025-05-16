@@ -32,7 +32,7 @@
             - `my-profile/`: Handles `/client/my-profile`.
                 - `page.tsx`: Main profile page (consolidated My Info).
                 - `business-info/page.tsx`: Handles `/client/my-profile/business-info`.
-            - `projects/`: Handles `/client/projects` and sub-routes.
+            - `projects/`: Handles `/client/projects` and sub-routes. The main category listing page (`page.tsx` within this directory) now dynamically links directly to a project's detail page if the client has only one project in that category; otherwise, it links to the category's project list page.
                 - `web-design/[id]/page.tsx`: Web design project detail page. Features a tabbed interface for Business Information Request (textual) and BIR-specific "Project Files".
             - `files/page.tsx`: Handles `/client/files` (General user files via `FileContext`).
             - `billing/page.tsx`: Handles `/client/billing`.
@@ -58,6 +58,8 @@
     - `bir/`: Module for Business Information Request feature (hooks, multi-step form, summary, gate, file upload step components).
 - `src/lib/`: Core utilities, API clients, type definitions.
     - `api/`: Supabase client setup and data fetching functions.
+        - Includes client-side helpers like `getUserProfile`, `updateUserProfile`, `uploadProfilePicture`, specific project getters (e.g., `getUserWebDesignProjects`, `getWebDesignProject`), and `getDesignerAssignedProjects`.
+        - Added `getClientProjectsForCategories`: Fetches all project types (web, logo, social) for the currently authenticated client. Returns an object mapping project types to their counts and the ID of a single project if only one exists in that category. This is used by the client projects page to determine direct navigation.
     - `types/`: TypeScript type definitions.
     - `utils/`: Utility functions.
     - `bir.ts`: API helper functions for BIR data operations.
@@ -134,7 +136,7 @@ Key API routes for core functionality:
     *   `GET`: Fetches detailed information for a *single* project, including client details and assigned designer (if any). Requires Admin role.
     *   `PUT`: Updates a *single* project. Requires Admin role. Validates input, including `status` against allowed values. Maps frontend 'name' field to `title` for logo/social projects.
 *   **/api/admin/projects/assign-designer**
-    *   `POST`: Assigns a designer to a specific project. Requires Admin role.
+    *   `POST`: Assigns a designer to a specific project. Requires Admin role. (Note: This route writes to the `designer_projects` table, which is the canonical source for designer-project assignments.)
 *   **/api/admin/projects/update-stage/**
     *   `POST`: Updates the stage of a specific project (`web_design_projects`, `logo_design_projects`, or `social_graphics_projects`). Requires Admin role. This is the **sole designated route** for administrators to change a project's stage, ensuring `current_stage` and `[stage_name]_date` columns are updated consistently.
 *   **/api/admin/projects/force-create**

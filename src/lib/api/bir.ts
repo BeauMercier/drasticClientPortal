@@ -3,7 +3,7 @@ import { Database } from '@/lib/database.types';
 // Import the DTO types derived from Zod schemas
 import { BirInsertDTO, BirUpdateDTO } from '@/lib/validation/bir'; 
 // Import the base Row type
-import { BirRow } from '@/lib/types/bir'; 
+import { BirRow, BirStatusArray } from '@/lib/types/bir';
 import { birInsertSchema, birUpdateSchema } from '@/lib/validation/bir';
 
 // Base Supabase table type, useful for constructing insert/update payloads
@@ -71,19 +71,20 @@ export async function upsertBir(
         throw new Error(`Invalid BIR data: ${validationResult.error.message}`);
     }
 
-    // Use the validated data
     const validatedData = validationResult.data;
 
-    // Map validated DTO to the database insert type
-    // Note: `submitted_by` in the DB should ideally be set by a trigger 
-    // using auth.uid(), NOT passed explicitly here unless absolutely necessary
-    // and done securely.
+    // Determine the status
+    let finalStatus: typeof BirStatusArray[number] = 'submitted'; // Default status
+    if (validatedData.status && BirStatusArray.includes(validatedData.status)) {
+        finalStatus = validatedData.status;
+    }
+
     const dataToUpsert: BirTable['Insert'] = {
         project_id: validatedData.project_id,
-        client_id: validatedData.client_id, // Use client_id from validated DTO
-        project_type: validatedData.project_type, // Use project_type from validated DTO ('web_design')
-        answers: validatedData.answers ?? {}, // Ensure answers is at least an empty object
-        status: 'submitted' // Explicitly set status to 'submitted' on upsert
+        client_id: validatedData.client_id, 
+        project_type: validatedData.project_type, 
+        answers: validatedData.answers ?? {}, 
+        status: finalStatus 
     };
 
     const { data, error } = await supabase

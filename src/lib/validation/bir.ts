@@ -36,13 +36,14 @@ export const birInsertSchema = z.object({
   project_id: z.string().uuid(),
   client_id: z.string().uuid(),
   project_type: z.literal('web_design'), // enforced also by RLS
-  answers: birAnswersSchema, // Use the updated, structured answers schema
+  answers: birAnswersSchema.partial(), // Use the updated, structured answers schema, now partial
+  status: birStatusSchema.optional(), // Add optional status for insert
 });
 
 export const birUpdateSchema = z
   .object({
     id: z.string().uuid(), // Required to identify the record to update
-    answers: birAnswersSchema.optional(), // Allow updating answers
+    answers: birAnswersSchema.partial().optional(), // Allow updating with partial answers, and answers itself is optional
     status: birStatusSchema.optional(), // Allow updating status
   })
   // Ensure at least one field (answers or status) is provided for update

@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { FileIcon, ImageIcon, DownloadIcon } from 'lucide-react'; // Import icons
 import { cn } from '@/lib/utils'; // Assuming cn utility is available
 
-interface BirSummaryProps {
+export interface BirSummaryProps {
   bir: BirRow;
   signedFiles: SignedBirFile[] | null; // Expect signed files
 }
@@ -101,9 +101,12 @@ export default function BirSummary({ bir, signedFiles }: BirSummaryProps) {
         <div className="flex justify-between items-start">
           <div>
             <CardTitle>Business Information Summary</CardTitle>
-            <CardDescription>Submitted details for Project ID: {bir.project_id}</CardDescription>
+            {/* <CardDescription>Submitted details for Project ID: {bir.project_id}</CardDescription> // Removed as per request */}
+            <p className="text-sm text-muted-foreground mt-1">
+              Last Updated: {renderValue(bir.updated_at)}
+            </p>
           </div>
-          <Badge variant={badgeVariant} className={cn(badgeVariant === 'default' && 'bg-green-100 text-green-800')}> {/* Example custom styling for 'success' */}
+          <Badge variant={badgeVariant} className={cn(badgeVariant === 'default' && 'bg-green-100 text-green-800')}> 
             Status: {formatFieldName(bir.status ?? 'Unknown')}
           </Badge>
         </div>
@@ -183,10 +186,10 @@ export default function BirSummary({ bir, signedFiles }: BirSummaryProps) {
           )}
         </section>
 
-        {/* Timestamps */}
+        {/* Timestamps - Created at will remain, Last Updated moved to header */}
         <section className="text-xs text-muted-foreground border-t pt-4 mt-6">
           <p>Created: {renderValue(bir.created_at)}</p>
-          <p>Last Updated: {renderValue(bir.updated_at)}</p>
+          {/* <p>Last Updated: {renderValue(bir.updated_at)}</p> // Moved to header */}
         </section>
       </CardContent>
     </Card>

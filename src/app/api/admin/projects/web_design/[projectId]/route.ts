@@ -94,7 +94,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     // Step 2: Fetch assignment details separately
     const { data: assignmentData, error: assignmentError } = await adminClient
-      .from('project_assignments')
+      .from('designer_projects')
       .select('*, designer:designer_id (id, full_name, email)')
       .eq('project_id', projectId)
       .eq('project_type', 'web_design') // Explicitly match type

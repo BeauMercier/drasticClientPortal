@@ -249,3 +249,17 @@
         - [ ] Update JSX and styling (Tailwind CSS/`clsx`) to implement the new color scheme for icons and the connecting bar based on stage status (completed, current, pending).
         - [ ] Ensure responsiveness and dark mode compatibility.
         - [ ] Test with various project types and stage progressions.
+
+### [Current Date] - Admin Project Management Enhancements (Designer Assignment & Visibility)
+
+*   **Fixed Designer Project Visibility:**
+    *   **Issue:** An assigned designer logged in but did not see the newly assigned project on their projects page.
+    *   **Solution:**
+        *   Corrected `getDesignerAssignedProjects` in `src/lib/api/client-api.ts` to fetch from `designer_projects` table instead of `project_assignments`.
+        *   Created SQL migration to update `auth_helpers.is_designer_assigned_to_project` function to use `designer_projects` for RLS checks.
+        *   Updated admin project detail API routes (e.g., for `web_design`) to fetch assignments from `designer_projects`.
+*   **Improved "Assign Designer" Modal in Admin:**
+    *   **Issue:** When an admin clicks "Assign Designer" on a project that already has a designer, the modal did not pre-select or indicate the currently assigned designer.
+    *   **Solution:**
+        *   Modified `/api/admin/projects/route.ts` to include `designer_id` in the project list data.
+        *   Updated `src/app/(admin)/admin/projects/page.tsx` to use the `designer_id` to pre-select the assigned designer in the modal.

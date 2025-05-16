@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
 
     const adminClient = createAdminClient();
-    const selectQuery = 'id, user_id, title, description, status, deadline, created_at, updated_at, client:user_id (id, full_name, email, company)';
+    const selectQuery = 'id, user_id, title, description, status, deadline, created_at, updated_at, type, client:user_id (id, full_name, email, company)';
 
     let allProjects: (AdminProjectListItem & { type: ProjectType })[] = [];
 
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
     ): Promise<(AdminProjectListItem & { type: ProjectType })[]> => {
       let query = client
         .from(tableName)
-        .select(selectQuery);
+        .select(selectQuery.replace(", type", ""));
         
       if (status && status !== 'all') query = query.eq('status', status);
       if (userId) query = query.eq('user_id', userId);
@@ -91,34 +91,76 @@ export async function GET(request: NextRequest) {
         throw new Error(`Failed to fetch ${tableName}`);
       }
       
-      // The 'client' field should already be populated correctly by the selectQuery.
       return (data || []).map(dbRow => {
-        const { name, ...restOfDbRow } = dbRow; // Destructure to remove 'name' if it exists on dbRow
+        const { name, ...restOfDbRow } = dbRow; 
         return {
           ...restOfDbRow,
-          title: dbRow.title, // Ensure title from dbRow is used (it's selected and NOT NULL)
+          title: dbRow.title, 
           type: projectType
         };
       });
     };
 
     if (type) {
-      // Fetch only the specified type
       allProjects = await fetchAndMap(type === 'web_design' ? 'web_design_projects' :
                                      type === 'logo_design' ? 'logo_design_projects' :
                                      'social_graphics_projects', type, adminClient);
     } else {
-      // Fetch all types if no specific type is requested
       const webPromise = fetchAndMap('web_design_projects', 'web_design', adminClient);
       const logoPromise = fetchAndMap('logo_design_projects', 'logo_design', adminClient);
       const socialPromise = fetchAndMap('social_graphics_projects', 'social_graphics', adminClient);
       
       const results = await Promise.all([webPromise, logoPromise, socialPromise]);
-      allProjects = results.flat(); // Combine results from all types
+      allProjects = results.flat();
     }
     
-    // Sort projects by creation date, newest first
-    // Handle potential null created_at dates by defaulting to epoch 0
+    // --- Start: Fetch and map designer assignments ---
+    if (allProjects.length > 0) {
+      const projectIdentifiers = allProjects.map(p => ({ id: p.id, type: p.type }));
+      
+      // Construct .or() query string for Supabase
+      // Example: "and(project_id.eq.UUID1,project_type.eq.web_design),and(project_id.eq.UUID2,project_type.eq.logo_design)"
+      const assignmentQueryConditions = projectIdentifiers
+        .map(pi => `and(project_id.eq.${pi.id},project_type.eq.${pi.type})`)
+        .join(',');
+
+      if (assignmentQueryConditions) {
+        const { data: assignments, error: assignmentsError } = await adminClient
+          .from('designer_projects')
+          .select('project_id, project_type, designer_id')
+          .or(assignmentQueryConditions);
+
+        if (assignmentsError) {
+          console.warn('Failed to fetch designer assignments, projects will be returned without them:', assignmentsError);
+        } else if (assignments && assignments.length > 0) {
+          const assignmentsMap = new Map<string, string>(); // Key: "projectId_projectType", Value: designer_id
+          assignments.forEach(assign => {
+            assignmentsMap.set(`${assign.project_id}_${assign.project_type}`, assign.designer_id);
+          });
+
+          allProjects = allProjects.map(project => ({
+            ...project,
+            designer_id: assignmentsMap.get(`${project.id}_${project.type}`) || null,
+          }));
+        } else {
+           // No assignments found, ensure designer_id is null
+          allProjects = allProjects.map(project => ({
+            ...project,
+            designer_id: null,
+          }));
+        }
+      } else {
+        // No valid project identifiers to query assignments, ensure designer_id is null
+        allProjects = allProjects.map(project => ({
+          ...project,
+          designer_id: null,
+        }));
+      }
+    } else {
+       // No projects, nothing to do for assignments
+    }
+    // --- End: Fetch and map designer assignments ---
+    
     allProjects.sort((a, b) => 
       new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     );

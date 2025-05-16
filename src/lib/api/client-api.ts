@@ -280,7 +280,7 @@ export const getDesignerAssignedProjects = async () => {
 
   // 1. Fetch all assignments for the current designer
   const { data: assignments, error: assignmentsError } = await supabase
-    .from('project_assignments')
+    .from('designer_projects')
     .select('project_id, project_type') // Only fetch needed fields
     .eq('designer_id', user.id);
 

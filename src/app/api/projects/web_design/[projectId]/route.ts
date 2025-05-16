@@ -31,7 +31,7 @@ async function canUserAccessProject(userId: string, projectId: string, projectTy
 
     // 2. Check if user is assigned designer
     const { data: assignment, error: assignmentError } = await supabase
-      .from('project_assignments')
+      .from('designer_projects')
       .select('id')
       .eq('project_id', projectId)
       .eq('project_type', projectType)
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     // Fetch assignment details separately
     const { data: assignmentData, error: assignmentError } = await adminClient
-      .from('project_assignments')
+      .from('designer_projects')
       .select('*, designer:designer_id (id, full_name, email)')
       .eq('project_id', projectId)
       .eq('project_type', projectType)

@@ -482,7 +482,38 @@ export default function AdminProjects() {
   };
   
   const handleDeleteProject = async () => {
-    // ... (existing code)
+    if (!projectToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/admin/projects/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: projectToDelete.id,
+          projectType: projectToDelete.type,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to delete project' }));
+        throw new Error(errorData.message || `Server responded ${response.status}`);
+      }
+
+      toast({ title: "Success", description: `Project "${projectToDelete.title}" deleted successfully.` });
+      setProjects(prevProjects => prevProjects.filter(p => p.id !== projectToDelete.id));
+      setIsDeleteConfirmOpen(false);
+      setProjectToDelete(null);
+    } catch (err: any) {
+      console.error("Error deleting project:", err);
+      toast({ 
+        title: "Error Deleting Project", 
+        description: err.message || "Could not delete project. Please try again.",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filteredProjects = useMemo(() => {
@@ -634,9 +665,18 @@ export default function AdminProjects() {
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Project
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setProjectToAssign(project); setIsAssignDesignerOpen(true); fetchDesigners(); }}>
+                      <DropdownMenuItem onClick={() => {
+                        setProjectToAssign(project);
+                        setSelectedDesignerId(project.designer_id || ''); // Pre-select assigned designer
+                        setIsAssignDesignerOpen(true);
+                        fetchDesigners();
+                      }}>
                         <UserPlus className="mr-2 h-4 w-4" />
                         Assign Designer
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setProjectToDelete(project); setIsDeleteConfirmOpen(true); }} className="text-red-600 hover:!text-red-700 focus:!text-red-700">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Project
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -823,13 +863,65 @@ export default function AdminProjects() {
       </Dialog>
       
       {/* Assign Designer Dialog */}
-      <Dialog open={isAssignDesignerOpen} onOpenChange={setIsAssignDesignerOpen}>
-        <DialogContent>
+      <Dialog open={isAssignDesignerOpen} onOpenChange={(isOpen) => {
+        if (!isAssigning) {
+            setIsAssignDesignerOpen(isOpen);
+            if (!isOpen) {
+                setProjectToAssign(null);
+                setSelectedDesignerId(''); // Clear selection on close
+            }
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Assign Designer to: {projectToAssign?.title}</DialogTitle> {/* Use title */}
-            {/* ... DialogDescription ... */}
+            <DialogTitle>Assign Designer to: {projectToAssign?.title}</DialogTitle>
+            <DialogDescription>
+              Select a designer from the list below to assign them to this project.
+            </DialogDescription>
           </DialogHeader>
-          {/* ... Assign designer form ... */}
+          <div className="grid gap-4 py-4">
+            <Select 
+                value={selectedDesignerId} 
+                onValueChange={setSelectedDesignerId} 
+                disabled={isAssigning || designers.length === 0}
+            >
+              <SelectTrigger id="designer-select">
+                <SelectValue placeholder={designers.length === 0 && !isAssigning ? "No designers available" : "Select a designer..."} />
+              </SelectTrigger>
+              <SelectContent>
+                {designers.length > 0 ? (
+                  designers.map(designer => (
+                    <SelectItem key={designer.id} value={designer.id}>
+                      {designer.full_name || designer.email || designer.id}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="no-designers" disabled>
+                    {isAssigning ? "Loading designers..." : "No designers found"}
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button 
+                variant="outline" 
+                onClick={() => {
+                    setIsAssignDesignerOpen(false);
+                    setProjectToAssign(null);
+                    setSelectedDesignerId('');
+                }}
+                disabled={isAssigning}
+            >
+              Cancel
+            </Button>
+            <Button 
+                onClick={handleAssignDesignerAction} 
+                disabled={isAssigning || !selectedDesignerId}
+            >
+              {isAssigning ? 'Assigning...' : 'Assign Designer'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -945,13 +1037,40 @@ export default function AdminProjects() {
       </Dialog>
       
       {/* Delete Project Confirmation Dialog */}
-      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={(isOpen) => {
+        if (!isDeleting) { // Prevent closing while delete is in progress
+            setIsDeleteConfirmOpen(isOpen);
+            if (!isOpen) {
+                setProjectToDelete(null); // Clear project to delete if dialog is closed
+            }
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Project: {projectToDelete?.title}?</DialogTitle> {/* Use title */}
-            {/* ... DialogDescription ... */}
+            <DialogTitle>Delete Project: {projectToDelete?.title}?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the project "{projectToDelete?.title}"? This action cannot be undone.
+            </DialogDescription>
           </DialogHeader>
-          {/* ... Confirmation buttons ... */}
+          <DialogFooter className="mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteConfirmOpen(false);
+                setProjectToDelete(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteProject} 
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

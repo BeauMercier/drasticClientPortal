@@ -347,6 +347,16 @@ export default function WebDesignProjectDetails() {
     return <div className="p-6">Project not found.</div>;
   }
 
+  // TEMPORARY DEBUG LOG
+  console.log('[Project debug]', {
+    current_stage: project.current_stage,
+    discovery_date: project.discovery_date,
+    concept_development_date: project.concept_development_date,
+    refinement_date: project.refinement_date,
+    finalization_date: project.finalization_date,
+    delivery_date: project.delivery_date,
+  });
+
   // Create stageDates mapping for the new ProjectTimeline component
   const stageDates: Record<ProjectStage, string | null> = {
     discovery: project.discovery_date,

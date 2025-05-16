@@ -29,10 +29,18 @@ export interface ProjectTimelineProps {
 }
 
 /**
- * Pixel-perfect recreation of the original inline timeline used on the
- * web-design project page.  Responsive sizing (mobile ≤ md & desktop ≥ md)
- * and the two-layer layout (continuous track behind the dots) have been
- * preserved so the visual output is identical.
+ * Renders a visual timeline for a project, indicating current, completed,
+ * and pending stages with distinct colors and icons.
+ *
+ * Key visual logic:
+ * - Stages before the current stage are marked 'completed' (green).
+ * - The current stage is marked 'active' (blue), UNLESS it's the final
+ *   'delivery' stage AND has a completion date, in which case it's 'completed' (green).
+ * - Stages after the current stage are marked 'pending' (gray).
+ * - Connecting bars between stages are colored based on the status of the
+ *   adjacent stages (green for completed-to-completed, blue for
+ *   completed-to-active, gray otherwise).
+ * - Completion dates are displayed below each stage if available.
  */
 export default function ProjectTimeline({
   stages,
@@ -56,19 +64,22 @@ export default function ProjectTimeline({
   const statuses: Record<StageKey, StageStatus> = {} as any;
 
   // ─── status calculation ─────────────────────────────────────────────
+  // Determine the visual status of each stage based on its position
+  // relative to the current stage and its completion date.
   stageKeys.forEach((key, idx) => {
     if (idx < currentIdx) {
-      // Anything before the current stage is finished
+      // Stages before the current active stage are considered completed.
       statuses[key] = 'completed';
       return;
     }
 
     if (idx === currentIdx) {
-      // Normally the current stage is "active / blue" …
+      // The current stage is generally 'active' (blue).
       let status: StageStatus = 'active';
 
-      // … except for the FINAL stage: once Delivery gets its date,
-      // we show it as completed (green) even while it's current.
+      // Exception: If the current stage is 'delivery' (the final stage)
+      // AND it has a recorded completion date, it's shown as 'completed' (green).
+      // This allows the timeline to look fully completed once delivery is done.
       if (key === 'delivery' && stageDates.delivery) {
         status = 'completed';
       }
@@ -77,7 +88,7 @@ export default function ProjectTimeline({
       return;
     }
 
-    // Everything after the current stage is still ahead of us
+    // Stages after the current active stage are considered pending.
     statuses[key] = 'pending';
   });
 

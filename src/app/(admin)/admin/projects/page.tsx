@@ -130,6 +130,16 @@ export default function AdminProjects() {
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   
+  // State for the Add New Project form
+  const initialNewProjectData = {
+    clientId: '',
+    projectType: 'web_design' as LibProjectType, // Default to web_design or make it empty
+    title: '',
+    description: '',
+    deadline: '',
+  };
+  const [newProjectData, setNewProjectData] = useState(initialNewProjectData);
+  
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -402,17 +412,73 @@ export default function AdminProjects() {
     }
   };
 
-  const handleAddProject = async (formData: {
-    clientId: string;
-    projectType: LibProjectType; // Use LibProjectType
-    title: string; // Changed from name to title
-    description?: string;
-    deadline?: string;
-  }) => {
-    // ... (existing code, ensure API call sends title)
-    // API /api/admin/projects/force-create will need to expect 'title'
-    // For now, this changes the formData shape.
-    // ...
+  const handleNewProjectInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNewProjectData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleNewProjectSelectChange = (name: string, value: string) => {
+    setNewProjectData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddProjectSubmit = async () => {
+    // Basic front-end validation
+    if (!newProjectData.clientId || !newProjectData.projectType || !newProjectData.title) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a client, project type, and enter a title.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsAddingProject(true);
+
+      const payload = {
+        userId: newProjectData.clientId, // Map clientId to userId
+        projectType: newProjectData.projectType,
+        projectData: {
+          title: newProjectData.title,
+          description: newProjectData.description,
+          deadline: newProjectData.deadline || null, // Ensure null if empty
+          // status and current_stage will be set by the backend by default
+        },
+        confirmationCode: "FORCE_CREATE_CONFIRMED", // Add required confirmation code
+        skipValidation: false, // Explicitly set, can be true if needed for specific cases
+      };
+
+      const response = await fetch("/api/admin/projects/force-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload), // Send the new payload structure
+      });
+
+      if (!response.ok) {
+        // You could read response.json() for details if your API returns them
+        const errorData = await response.json().catch(() => ({ message: `Server responded ${response.status}` }));
+        throw new Error(errorData.message || `Server responded ${response.status}`);
+      }
+
+      // Optional: get the newly-created project to prepend to your list
+      const createdProjectResponse = (await response.json()) as { project: Project }; // Backend wraps project in a 'project' key
+      setProjects((oldProjects) => [createdProjectResponse.project, ...oldProjects]);
+
+      toast({ title: "Success", description: "Project added!" });
+
+      // Reset + close
+      setNewProjectData(initialNewProjectData);
+      setIsAddProjectOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast({ 
+        title: "Error", 
+        description: err.message || "Could not add project. Please try again.",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsAddingProject(false);
+    }
   };
   
   const handleDeleteProject = async () => {
@@ -768,17 +834,113 @@ export default function AdminProjects() {
       </Dialog>
 
       {/* Add New Project Dialog */}
-      <Dialog open={isAddProjectOpen} onOpenChange={setIsAddProjectOpen}>
-        <DialogContent>
+      <Dialog open={isAddProjectOpen} onOpenChange={(isOpen) => {
+        setIsAddProjectOpen(isOpen);
+        if (!isOpen) {
+          setNewProjectData(initialNewProjectData); // Reset form on close
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Add New Project</DialogTitle>
-            {/* ... DialogDescription ... */}
+            <DialogDescription>
+              Fill in the details below to create a new project.
+            </DialogDescription>
           </DialogHeader>
-          {/* Form will need to use 'title' for the project name input */}
-          {/* Example:
-            <Label htmlFor="new-project-title">Project Title</Label>
-            <Input id="new-project-title" name="title" ... />
-          */}
+          <div className="grid gap-4 py-4">
+            {/* Client Selector */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="new-project-client" className="text-right">Client</Label>
+              <Select
+                value={newProjectData.clientId}
+                onValueChange={(value) => handleNewProjectSelectChange('clientId', value)}
+                name="clientId"
+              >
+                <SelectTrigger id="new-project-client" className="col-span-3" disabled={isLoadingClients}>
+                  <SelectValue placeholder={isLoadingClients ? "Loading clients..." : "Select a client"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.length > 0 ? (
+                    clients.map(client => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.full_name || client.company || client.email || client.id}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-clients" disabled>No clients available</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Project Type Selector */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="new-project-type" className="text-right">Project Type</Label>
+              <Select
+                value={newProjectData.projectType}
+                onValueChange={(value) => handleNewProjectSelectChange('projectType', value as LibProjectType)}
+                name="projectType"
+              >
+                <SelectTrigger id="new-project-type" className="col-span-3">
+                  <SelectValue placeholder="Select project type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="web_design">Web Design</SelectItem>
+                  <SelectItem value="logo_design">Logo Design</SelectItem>
+                  <SelectItem value="social_graphics">Social Graphics</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Project Title */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="new-project-title" className="text-right">Title</Label>
+              <Input
+                id="new-project-title"
+                name="title"
+                value={newProjectData.title}
+                onChange={handleNewProjectInputChange}
+                className="col-span-3"
+                placeholder="Enter project title"
+                required
+              />
+            </div>
+
+            {/* Description */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="new-project-description" className="text-right">Description</Label>
+              <Textarea
+                id="new-project-description"
+                name="description"
+                value={newProjectData.description}
+                onChange={handleNewProjectInputChange}
+                className="col-span-3"
+                placeholder="Enter project description (optional)"
+              />
+            </div>
+
+            {/* Deadline */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="new-project-deadline" className="text-right">Deadline</Label>
+              <Input
+                id="new-project-deadline"
+                name="deadline"
+                type="date"
+                value={newProjectData.deadline}
+                onChange={handleNewProjectInputChange}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => {
+              setIsAddProjectOpen(false);
+              setNewProjectData(initialNewProjectData); // Reset form on cancel
+            }}>Cancel</Button>
+            <Button type="button" onClick={handleAddProjectSubmit} disabled={isAddingProject || isLoadingClients}>
+              {isAddingProject ? 'Adding...' : 'Add Project'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       

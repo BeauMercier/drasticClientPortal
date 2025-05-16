@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: `Successfully created ${projectType} project for user`,
-        project: newProject
+        project: { ...newProject, type: projectType }
       });
     } catch (err) {
       console.error('Admin Force Create Project API: Error creating project:', err);

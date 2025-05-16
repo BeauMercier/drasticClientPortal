@@ -1,20 +1,28 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../../features/auth';
 import { Card } from '../../../../shared/ui/molecules';
-import { Button } from '../../../../shared/ui/atoms';
+import { 
+  getClientProjectsForCategories, 
+  ProjectCategoryCounts 
+} from '../../../../lib/api/client-api';
+import { ProjectType } from '@/lib/types/project';
 
 export default function ProjectsPage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading: authIsLoading, user } = useAuth();
   const router = useRouter();
   
+  const [projectInfo, setProjectInfo] = useState<ProjectCategoryCounts>({});
+  const [projectsLoading, setProjectsLoading] = useState<boolean>(true);
+  
   // Project categories with descriptions and links
-  const projectCategories = [
+  const projectCategories: { id: ProjectType; slug: string; name: string; description: string; icon: JSX.Element; }[] = [
     {
-      id: 'web-design',
+      id: 'web_design',
+      slug: 'web-design',
       name: 'Web Design',
       description: 'Responsive websites tailored to your brand and audience',
       icon: (
@@ -24,7 +32,8 @@ export default function ProjectsPage() {
       )
     },
     {
-      id: 'logo-design',
+      id: 'logo_design',
+      slug: 'logo-design',
       name: 'Logo Design',
       description: 'Professional logo designs to represent your brand identity',
       icon: (
@@ -34,7 +43,8 @@ export default function ProjectsPage() {
       )
     },
     {
-      id: 'social-graphics',
+      id: 'social_graphics',
+      slug: 'social-graphics',
       name: 'Social Graphics',
       description: 'Eye-catching graphics for your social media platforms',
       icon: (
@@ -45,15 +55,31 @@ export default function ProjectsPage() {
     }
   ];
   
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!authIsLoading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [authIsLoading, isAuthenticated, router]);
 
-  // Show loading state while checking authentication
-  if (isLoading) {
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const fetchProjectData = async () => {
+        setProjectsLoading(true);
+        try {
+          const data = await getClientProjectsForCategories();
+          setProjectInfo(data);
+        } catch (error) {
+          console.error("Failed to fetch project counts:", error);
+        } finally {
+          setProjectsLoading(false);
+        }
+      };
+      fetchProjectData();
+    }
+  }, [isAuthenticated, user]);
+
+  // Show loading state while checking authentication or fetching projects
+  if (authIsLoading || (isAuthenticated && projectsLoading)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
@@ -78,27 +104,45 @@ export default function ProjectsPage() {
 
         {/* Project categories */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {projectCategories.map((category) => (
-            <Link href={`/client/projects/${category.id}`} key={category.id}>
-              <Card className="h-full bg-white dark:bg-black shadow-lg hover:shadow-xl transition-shadow border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-blue-500 dark:hover:border-blue-500 cursor-pointer">
-                <div className="p-6 flex flex-col h-full">
-                  <div className="mb-4">
-                    {category.icon}
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{category.name}</h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm flex-grow">{category.description}</p>
-                  <div className="mt-6">
-                    <span className="text-blue-600 dark:text-blue-400 flex items-center text-sm font-medium">
-                      View Projects
-                      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          ))}
+          {projectCategories.map((category) => {
+            const categoryProjectInfo = projectInfo[category.id];
+            const count = categoryProjectInfo?.count || 0;
+            const singleProjectId = categoryProjectInfo?.singleProjectId;
+
+            let href = `/client/projects/${category.slug}`;
+            let linkText = "View Projects";
+
+            if (count === 1 && singleProjectId) {
+              href = `/client/projects/${category.slug}/${singleProjectId}`;
+              linkText = "View Project";
+            }
+
+            return (
+              <Link href={projectsLoading ? '#' : href} key={category.id} passHref legacyBehavior={projectsLoading ? true : undefined}>
+                <a className={`${projectsLoading ? 'pointer-events-none opacity-50' : ''}`}>
+                  <Card className="h-full bg-white dark:bg-black shadow-lg hover:shadow-xl transition-shadow border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-blue-500 dark:hover:border-blue-500 cursor-pointer">
+                    <div className="p-6 flex flex-col h-full">
+                      <div className="mb-4">
+                        {category.icon}
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">{category.name}</h3>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm flex-grow">{category.description}</p>
+                      <div className="mt-6">
+                        <span className="text-blue-600 dark:text-blue-400 flex items-center text-sm font-medium">
+                          {projectsLoading ? 'Loading...' : linkText}
+                          {!projectsLoading && (
+                            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </Card>
+                </a>
+              </Link>
+            );
+          })}
         </div>
 
         {/* Support section */}

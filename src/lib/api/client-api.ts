@@ -795,5 +795,63 @@ export const updateBusinessProfile = async (updates: Partial<BusinessProfile>) =
   return data;
 };
 
+// New function starts here
+export type ProjectCategoryCounts = {
+  [key in ProjectType]?: {
+    count: number;
+    singleProjectId: string | null;
+  };
+};
+
+/**
+ * Fetches all projects for the current client, categorized by type,
+ * and provides counts and the ID of a single project if only one exists in a category.
+ * @returns {Promise<ProjectCategoryCounts>} An object mapping project types to their counts and single project ID.
+ * @throws {Error} If the user is not authenticated or if there's a fetch error.
+ */
+export const getClientProjectsForCategories = async (): Promise<ProjectCategoryCounts> => {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    // Or return an empty object / specific error structure depending on desired handling
+    throw new Error('Not authenticated'); 
+  }
+
+  try {
+    const [webDesignProjects, logoDesignProjects, socialGraphicsProjects] = await Promise.all([
+      supabase.from('web_design_projects').select('id').eq('user_id', user.id),
+      supabase.from('logo_design_projects').select('id').eq('user_id', user.id),
+      supabase.from('social_graphics_projects').select('id').eq('user_id', user.id),
+    ]);
+
+    if (webDesignProjects.error) throw webDesignProjects.error;
+    if (logoDesignProjects.error) throw logoDesignProjects.error;
+    if (socialGraphicsProjects.error) throw socialGraphicsProjects.error;
+
+    const results: ProjectCategoryCounts = {};
+
+    results['web_design'] = {
+      count: webDesignProjects.data?.length || 0,
+      singleProjectId: webDesignProjects.data?.length === 1 ? webDesignProjects.data[0].id : null,
+    };
+    results['logo_design'] = {
+      count: logoDesignProjects.data?.length || 0,
+      singleProjectId: logoDesignProjects.data?.length === 1 ? logoDesignProjects.data[0].id : null,
+    };
+    results['social_graphics'] = {
+      count: socialGraphicsProjects.data?.length || 0,
+      singleProjectId: socialGraphicsProjects.data?.length === 1 ? socialGraphicsProjects.data[0].id : null,
+    };
+
+    return results;
+  } catch (error) {
+    console.error('Error fetching client projects for categories:', error);
+    // Re-throw or handle as appropriate for your error strategy
+    throw error; 
+  }
+};
+// New function ends here
+
 // Export default client for convenience
 export default createClient(); 

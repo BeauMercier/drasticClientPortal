@@ -141,7 +141,7 @@ export async function GET(request: NextRequest, { params }: Params) {
  *           schema:
  *             type: object
  *             properties:
- *               name: { type: string }
+ *               title: { type: string }
  *               description: { type: string }
  *               status: { type: string, enum: [pending, in_progress, completed, on_hold, cancelled] }
  *               deadline: { type: string, format: date-time, nullable: true }

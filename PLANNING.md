@@ -11,6 +11,15 @@
 - **UI Components:** shadcn/ui (some custom, see notes below)
 - **Authentication:** Supabase
 - **State Management:** React Context API (e.g., `UIContext`, `AuthContext`)
+- **Database:** Supabase (Database, Auth, Storage)
+
+### Project Stage Management
+
+- **Authoritative Source of Truth:** The `projects.current_stage` column (TEXT type, constrained to values from the `ProjectStage` type defined in `src/lib/types/project.ts`, e.g., 'discovery', 'concept-development') and the individual `projects.[stage_name]_date` columns (e.g., `projects.discovery_date`, `projects.concept_development_date`) are the definitive source for a project's current stage and progression.
+- **Deprecation of Boolean Flags:** The set of boolean flags on the `projects` table (e.g., `discovery_completed`, `initial_design_completed`, `revisions_completed`, `approval_completed`, `delivery_completed`, and `business_info_submitted` as it pertains to stage completion) are to be deprecated for the purpose of calculating the current stage in the UI. 
+    - During a transitional period, these boolean flags might be kept in sync with `current_stage` via database triggers or generated columns to prevent breaking other parts of the application that might still read them.
+    - The long-term goal is to phase out reliance on these boolean flags for stage determination in favor of the `current_stage` text field and its corresponding date.
+    - Frontend components, particularly the project timeline/stage tracker, will be refactored to derive stage information directly from `project.current_stage`.
 
 ### Directory Structure
 
@@ -53,7 +62,7 @@
     - `utils/`: Utility functions.
     - `bir.ts`: API helper functions for BIR data operations.
     - `config/`: Project-wide configurations.
-      auth-config.ts: Centralized mapping of UserRole to base redirect paths.
+      - `auth-config.ts`: Centralized mapping of `UserRole` to base redirect paths. Used by middleware and root page for role-based navigation.
 - `src/shared/`: Code shared across features/layers.
     - `contexts/`: Shared React contexts (e.g., `UIContext`, `FileContext`).
     - `ui/`: Shared UI components (atoms, molecules).
@@ -64,6 +73,7 @@
 
 - **Sidebar:** Separate sidebars are implemented for Admin (`AdminSidebar`) and Client (`ClientSidebar`). Designers use a shared `RoleSidebar`.
 - **Layout:** Standard layouts include a header and a sidebar, adjusting content margins based on sidebar state (`UIContext`).
+  - **Header Stacking:** The main application header (`src/shared/ui/layout/Header.tsx`) is set to `z-50`. Components within the header that need to overlay other header content (e.g., `NotificationsMenu.tsx` dropdown, `z-60`) should use a higher z-index. This ensures header elements can correctly stack above page content and viewport-fixed overlays (like "Coming Soon" messages, typically `z-40` or lower).
 - **Tabs (`src/components/ui/tabs.tsx`):** This is a **custom implementation**, not the standard Radix-based `shadcn/ui` version. It has been refactored to support the `defaultValue` prop for setting the initial active tab in an uncontrolled manner by managing its own internal state. This was crucial for fixing an issue where tab content wouldn't render.
 
 ## Style Guide
@@ -84,6 +94,9 @@ Files are stored in a single Supabase storage bucket (`project-files`). Metadata
 
 ### Storage Path Conventions:
 
+*   **Profile Avatars:**
+    *   Storage Path: `{user_id}/profile/{filename}` (within `project-files` bucket)
+    *   Database Reference: `avatar_url` field in `public.profiles` table and also mirrored in `auth.users.user_metadata`. This URL is the full public URL to the avatar in Supabase Storage.
 *   **General User Files:** These are files uploaded by users directly (e.g., via the `/client/files` page) and are not tied to a specific project.
     *   Storage Path: `{user_id}/general/{optional_subfolders}/{filename}`
     *   Database Record: A row is created in `user_files` with `user_id` set, but `project_id` is `NULL` and `project_type` is `'general'`.
@@ -122,6 +135,8 @@ Key API routes for core functionality:
     *   `PUT`: Updates a *single* project. Requires Admin role. Validates input, including `status` against allowed values. Maps frontend 'name' field to `title` for logo/social projects.
 *   **/api/admin/projects/assign-designer**
     *   `POST`: Assigns a designer to a specific project. Requires Admin role.
+*   **/api/admin/projects/update-stage/**
+    *   `POST`: Updates the stage of a specific project (`web_design_projects`, `logo_design_projects`, or `social_graphics_projects`). Requires Admin role. This is the **sole designated route** for administrators to change a project's stage, ensuring `current_stage` and `[stage_name]_date` columns are updated consistently.
 *   **/api/admin/projects/force-create**
     *   `POST`: Creates a new project, bypassing some standard checks (use with caution). Requires Admin role.
 *   **/api/admin/users?role=[role]**
@@ -260,3 +275,35 @@ Key API routes for core functionality:
     *   "Project Files" tab for `FileUploadStep` (BIR-specific files).
     *   Custom Tabs component (`src/components/ui/tabs.tsx`) fixed to handle `defaultValue` correctly.
 7.  **Cleanup**: Old `BirForm.tsx` needs to be removed. Unused file handling code in `web-design/[id]/page.tsx` needs cleanup. 
+
+## Recent Architectural Adjustments & Bug Fixes
+
+This section outlines significant recent changes and resolutions:
+
+### Authentication & Session Management
+*   **Cross-Domain Cookie Issues (Vercel Previews & Production):**
+    *   **Cause:** Supabase client calls (e.g., `getUser()` in middleware) were stalling due to cookie inconsistencies between different domains.
+    *   **Fix:**
+        *   In `src/middleware.ts`, Supabase authentication cookies are now pinned to the root domain (`.drasticdigital.com`) to ensure they are shared across subdomains.
+*   **Page Loading Hangs & "Auth session missing!":**
+    *   **Cause:** Related to the cookie issues and potentially excessive Supabase client initializations.
+    *   **Fixes:**
+        *   `src/middleware.ts`: Implemented early returns for static assets and public paths (e.g., `/img`, `/css`, `/login`, `/register`) to avoid unnecessary Supabase client initialization and session checks on these routes.
+        *   `src/features/auth/contexts/AuthContext.tsx`: The `onAuthStateChange` listener was simplified to directly use the session information provided by the Supabase event. Extra `getUser()` calls, which were part of an earlier hypothesis for fixing avatar issues, were removed as they contributed to complexity and were not the root cause of the session hangs.
+
+### Navigation & Redirect Logic
+*   **Incorrect Redirect from Root Path (`/`):**
+    *   **Problem:** Authenticated users visiting `/` were incorrectly redirected to a generic `/dashboard` instead of their role-specific path (e.g., `/client` for clients).
+    *   **Cause:** `src/app/page.tsx` had a `useEffect` hook unconditionally redirecting authenticated users to `/dashboard`.
+    *   **Fixes:**
+        *   Introduced `src/lib/config/auth-config.ts`: This file centralizes `roleBasePaths`, which maps `UserRole` (e.g., `admin`, `client`, `guest`) to their respective base URLs (e.g., `/admin`, `/client`, `/login`).
+        *   `src/middleware.ts`: Updated to import and use `roleBasePaths` from the new config file. User role (fetched from the `profiles` table) is type-checked before use.
+        *   `src/app/page.tsx`: The `useEffect` hook now uses `user.role` from `useAuth()` and the centralized `roleBasePaths` to redirect users from `/` to their correct role-specific page.
+*   **Redirect Loop to `/login?redirectedFrom=%2Flogin`:**
+    *   **Problem:** Unauthenticated users clicking "Login" on the homepage were redirected to `/login?redirectedFrom=%2Flogin`, causing a redirect loop.
+    *   **Cause:**
+        *   `src/lib/config/auth-config.ts` defined `guest: '/login'`.
+        *   `src/middleware.ts` derived `authenticatedPathsPrefixes` (paths requiring authentication) directly from `Object.values(roleBasePaths)`, which inadvertently included `/login` itself as a protected path.
+        *   The middleware logic for unauthenticated users would then attempt to redirect access to `/login` back to `/login`.
+    *   **Fix:**
+        *   `src/middleware.ts`: Modified the derivation of `authenticatedPathsPrefixes` to explicitly filter out `/login` (and any other designated public paths) from the list of paths requiring authentication. 

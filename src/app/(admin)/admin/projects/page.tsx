@@ -25,6 +25,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StageSelect } from "@/components/projects/StageSelect";
+import { ProjectStage } from "@/lib/types/project";
 
 // Helper function for safe date formatting
 const safeFormatDate = (dateInput: string | null | undefined, formatString: string = 'MMM d, yyyy'): string => {
@@ -47,7 +49,7 @@ const safeFormatDate = (dateInput: string | null | undefined, formatString: stri
 
 interface Project {
   id: string;
-  type: string;
+  type: "web_design" | "logo_design" | "social_graphics";
   name: string;
   description?: string;
   status: string;
@@ -56,6 +58,7 @@ interface Project {
   designer_id?: string;
   created_at: string;
   updated_at: string;
+  current_stage?: ProjectStage | null;
 }
 
 /**
@@ -114,6 +117,7 @@ export default function AdminProjects() {
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editStatus, setEditStatus] = useState<string>('');
+  const [stage, setStage] = useState<ProjectStage>("discovery");
   
   // Assign designer state
   const [isAssignDesignerOpen, setIsAssignDesignerOpen] = useState(false);
@@ -134,9 +138,11 @@ export default function AdminProjects() {
     if (editProject) {
       console.log('Setting editStatus based on editProject:', editProject.status);
       setEditStatus(editProject.status);
+      setStage(editProject.current_stage || "discovery");
     } else {
       // Optionally clear status when dialog closes or no project is selected
       setEditStatus(''); 
+      setStage("discovery");
     }
   }, [editProject]); // Re-run when the project to edit changes
 
@@ -206,7 +212,12 @@ export default function AdminProjects() {
       setError(null);
       
       console.log(`Fetching details for project ${project.id} of type ${project.type}`);
-      const response = await fetch(`/api/admin/projects/${project.type}/${project.id}/`);
+      // Ensure the type is one of the allowed values for the API call
+      const validProjectType = ['web_design', 'logo_design', 'social_graphics'].includes(project.type) 
+        ? project.type 
+        : 'web_design'; // Fallback or error handling might be needed if type is unexpected
+
+      const response = await fetch(`/api/admin/projects/${validProjectType}/${project.id}/`);
       console.log('Project details response status:', response.status);
       
       if (!response.ok) {
@@ -337,11 +348,8 @@ export default function AdminProjects() {
         deadline: formData.deadline
       };
 
-      if (editProject.type === 'logo_design' || editProject.type === 'social_graphics') {
-        dataToSend.title = formData.title || formData.name; // Use title if present, fallback to name from form
-      } else {
-        dataToSend.name = formData.name; // Use name for web_design
-      }
+      // ALWAYS use title now
+      dataToSend.title = formData.title || formData.name; 
 
       // Remove undefined/null deadline if necessary (already handled before calling)
       if (dataToSend.deadline === undefined || dataToSend.deadline === null) {
@@ -503,74 +511,53 @@ export default function AdminProjects() {
     description?: string;
     deadline?: string;
   }) => {
+    if (isLoadingClients) return; // Prevent submission while loading
+
+    setIsAddingProject(true);
+    setError(null);
     try {
-      setIsAddingProject(true);
-      
-      const projectData = {
-        title: formData.name,
-        description: formData.description || '',
-        ...(formData.deadline ? { deadline: formData.deadline } : {})
-      };
-      
-      console.log('Creating project with data:', {
-        projectType: formData.projectType,
-        userId: formData.clientId,
-        projectData
-      });
-      
-      const response = await fetch('/api/admin/projects/force-create', {
+      const response = await fetch('/api/admin/projects/force-create/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          projectType: formData.projectType,
-          userId: formData.clientId,
-          projectData,
-          confirmationCode: 'FORCE_CREATE_CONFIRMED'
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
       });
-      
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create project');
+        throw new Error(errorData.error || 'Failed to add project');
       }
-      
-      const { project } = await response.json();
-      
-      // Add the new project to the state
-      setProjects(prevProjects => [
-        ...prevProjects,
-        {
-          id: project.id,
-          type: formData.projectType,
-          name: formData.name,
-          description: formData.description,
-          status: 'pending',
-          deadline: formData.deadline,
-          client_id: formData.clientId,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ]);
-      
-      toast({
-        title: "Project created",
-        description: "The project has been successfully created.",
-      });
-      
+      toast({ title: 'Success', description: 'Project added successfully!' });
       setIsAddProjectOpen(false);
+      // Re-fetch projects list
+      const refreshResponse = await fetch('/api/admin/projects/');
+      const refreshedData = await refreshResponse.json();
+      setProjects(Array.isArray(refreshedData) ? refreshedData : refreshedData.projects);
     } catch (err) {
-      console.error('Error creating project:', err);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: err instanceof Error ? err.message : 'Failed to create project',
-      });
+      console.error('Error in handleAddProject:', err);
+      setError(err instanceof Error ? err.message : 'Failed to add project');
+      toast({ title: 'Error', description: err instanceof Error ? err.message : 'Failed to add project', variant: 'destructive' });
     } finally {
       setIsAddingProject(false);
     }
   };
+
+  async function updateProjectStage(projectId: string, newStage: ProjectStage, type: "web_design" | "logo_design" | "social_graphics") {
+    const res = await fetch("/api/admin/projects/update-stage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        project_id: projectId,
+        project_type: type,
+        new_stage: newStage,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error("Stage update failed:", errorData);
+      throw new Error(errorData.error || "Stage update failed");
+    }
+    return res.json();
+  }
 
   // Filter and search functions
   const filteredProjects = projects?.filter(project => {
@@ -886,6 +873,14 @@ export default function AdminProjects() {
                     type="date"
                     defaultValue={editProject.deadline?.split('T')[0]}
                     className="bg-background"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="stage">Current Stage</Label>
+                  <StageSelect 
+                    value={stage} 
+                    onChange={setStage} 
+                    disabled={isEditing} 
                   />
                 </div>
               </div>

@@ -26,8 +26,10 @@ import BusinessInfoGate from '@/features/bir/BusinessInfoGate';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileUploadStep from '@/features/bir/steps/FileUploadStep';
 import { useBir } from '@/features/bir/useBir';
-import { WebDesignProject } from '@/lib/types/project';
+import { WebDesignProject, ProjectStage } from '@/lib/types/project';
 import { useProject } from '@/features/projects/hooks/useProject';
+import ProjectTimeline, { StageConfig } from '@/components/projects/ProjectTimeline';
+import { useProjectRealtime } from '@/features/projects/hooks/useProjectRealtime';
 
 interface ProjectUserFile {
   id: string;
@@ -48,7 +50,7 @@ interface ProjectFile {
 }
 
 // Define the stages in order, aligning keys with ProjectStage type
-const PROJECT_STAGES = [
+const PROJECT_STAGES: StageConfig[] = [
   { key: 'discovery', label: 'Discovery', icon: LightbulbIcon },
   { key: 'concept-development', label: 'Initial Design', icon: PencilIcon },
   { key: 'refinement', label: 'Revisions', icon: RotateCcwIcon },
@@ -68,6 +70,8 @@ export default function WebDesignProjectDetails() {
     mutate: mutateProject
   } = useProject<WebDesignProject>(projectId as string, 'web_design');
   
+  useProjectRealtime(projectId as string, 'web_design', 'web_design_projects');
+
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [projectUserFiles, setProjectUserFiles] = useState<ProjectUserFile[]>([]);
@@ -234,13 +238,6 @@ export default function WebDesignProjectDetails() {
       return <FileTextIcon className="h-5 w-5 text-gray-500 mr-2 flex-shrink-0" />;
   };
 
-  const getCurrentStageIndex = (currentProject: WebDesignProject | null | undefined) => {
-    if (!currentProject?.current_stage) {
-      return -1;
-    }
-    return PROJECT_STAGES.findIndex(stage => stage.key === currentProject.current_stage);
-  };
-
   const handleDownloadFile = async (file: ProjectUserFile) => {
     if (!file || !file.file_path) return;
 
@@ -350,7 +347,14 @@ export default function WebDesignProjectDetails() {
     return <div className="p-6">Project not found.</div>;
   }
 
-  const currentStageIndex = getCurrentStageIndex(project);
+  // Create stageDates mapping for the new ProjectTimeline component
+  const stageDates: Record<ProjectStage, string | null> = {
+    discovery: project.discovery_date,
+    'concept-development': project.concept_development_date,
+    refinement: project.refinement_date,
+    finalization: project.finalization_date,
+    delivery: project.delivery_date,
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -374,57 +378,11 @@ export default function WebDesignProjectDetails() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="relative w-full">
-            {/* Connecting lines container */}
-            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 px-5 md:px-10 z-0">
-              <div className="flex justify-between">
-                {PROJECT_STAGES.slice(0, -1).map((_, index) => (
-                  <div 
-                    key={`line-${index}`}
-                    className="h-1 flex-1"
-                    style={{
-                      backgroundColor: index < currentStageIndex ? 'hsl(var(--primary))' : 'hsl(var(--border))',
-                    }}
-                  ></div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Stages container */}
-            <div className="relative flex justify-between items-start z-10">
-              {PROJECT_STAGES.map((stage, index) => {
-                const isActive = index === currentStageIndex;
-                const isDone = index < currentStageIndex;
-                const IconComponent = stage.icon;
-
-                return (
-                  <div key={stage.key} className="flex flex-col items-center text-center w-[calc(100%/5)] md:w-auto px-1">
-                    <div
-                      className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ease-in-out 
-                        ${isDone ? 'bg-primary border-primary text-primary-foreground' : 'bg-background'}
-                        ${isActive ? 'border-primary scale-110 shadow-lg' : 'border-border'}
-                        ${!isDone && !isActive ? 'text-muted-foreground' : ''}
-                      `}
-                    >
-                      <IconComponent className={`w-5 h-5 md:w-6 md:h-6 ${isActive ? 'text-primary' : isDone ? 'text-primary-foreground' : 'text-inherit'}`} />
-                    </div>
-                    <p 
-                      className={`mt-2 text-xs md:text-sm font-medium transition-colors duration-300 
-                        ${isActive ? 'text-primary' : isDone ? 'text-primary' : 'text-muted-foreground'}
-                      `}
-                    >
-                      {stage.label}
-                    </p>
-                    {(project as WebDesignProject)[`${stage.key}_date` as keyof WebDesignProject] && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {format(new Date((project as WebDesignProject)[`${stage.key}_date` as keyof WebDesignProject] as string), 'MMM d')}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <ProjectTimeline
+            stages={PROJECT_STAGES}
+            currentStage={project.current_stage}
+            stageDates={stageDates}
+          />
         </CardContent>
       </Card>
 

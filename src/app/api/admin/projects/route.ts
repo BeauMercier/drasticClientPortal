@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       if (status && status !== 'all') query = query.eq('status', status);
       if (userId) query = query.eq('user_id', userId);
       
-      const { data, error } = await query as PostgrestResponse<any>; // Use 'any' for now, rely on downstream shaping and WebDesignProject types
+      const { data, error } = await query as PostgrestResponse<any>; 
       
       if (error) {
         console.error(`Error fetching ${tableName}:`, error);
@@ -92,11 +92,14 @@ export async function GET(request: NextRequest) {
       }
       
       // The 'client' field should already be populated correctly by the selectQuery.
-      // No need to map p.profiles to client.
-      return (data || []).map(p => ({
-        ...p,
-        type: projectType
-      }));
+      return (data || []).map(dbRow => {
+        const { name, ...restOfDbRow } = dbRow; // Destructure to remove 'name' if it exists on dbRow
+        return {
+          ...restOfDbRow,
+          title: dbRow.title, // Ensure title from dbRow is used (it's selected and NOT NULL)
+          type: projectType
+        };
+      });
     };
 
     if (type) {

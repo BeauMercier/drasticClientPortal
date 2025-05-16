@@ -33,7 +33,8 @@ export type ClientProfileData = {
 // Main Project interface
 export interface Project {
   id: string;
-  name: string;
+  title: string;
+  name?: string;
   description?: string | null;
   user_id: string;
   client: ClientProfileData;
@@ -60,7 +61,7 @@ export interface ProjectFile {
 export interface ProjectDetails {
   id: string;
   title: string;
-  name?: string;
+  name?: string; // TODO: name will be removed after migration
   description: string;
   status: string;
   client_name: string;
@@ -207,7 +208,8 @@ export interface ProjectListParams {
 
 // Project creation parameters
 export interface ProjectCreateParams {
-  name: string;
+  title: string;
+  name?: string;
   description?: string;
   type: ProjectType;
   client_id: string;
@@ -217,6 +219,7 @@ export interface ProjectCreateParams {
 
 // Project update parameters
 export interface UpdateProjectData {
+  title?: string;
   name?: string;
   description?: string;
   status?: ProjectStatus;

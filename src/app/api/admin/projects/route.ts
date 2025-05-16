@@ -84,17 +84,17 @@ export async function GET(request: NextRequest) {
       if (status && status !== 'all') query = query.eq('status', status);
       if (userId) query = query.eq('user_id', userId);
       
-      const { data, error } = await query as PostgrestResponse<AdminProjectListItem>;
+      const { data, error } = await query as PostgrestResponse<any>; // Use 'any' for now, rely on downstream shaping and WebDesignProject types
       
       if (error) {
         console.error(`Error fetching ${tableName}:`, error);
         throw new Error(`Failed to fetch ${tableName}`);
       }
       
-      // Add the type to each project and ensure client is an object
+      // The 'client' field should already be populated correctly by the selectQuery.
+      // No need to map p.profiles to client.
       return (data || []).map(p => ({
         ...p,
-        client: p.profiles, // Rename profiles to client for consistency
         type: projectType
       }));
     };

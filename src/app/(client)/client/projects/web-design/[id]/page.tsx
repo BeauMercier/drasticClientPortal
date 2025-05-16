@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/features/auth';
-import { getWebDesignProject } from '@/lib/api/client-api';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,6 +26,8 @@ import BusinessInfoGate from '@/features/bir/BusinessInfoGate';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FileUploadStep from '@/features/bir/steps/FileUploadStep';
 import { useBir } from '@/features/bir/useBir';
+import { WebDesignProject } from '@/lib/types/project';
+import { useProject } from '@/features/projects/hooks/useProject';
 
 interface ProjectUserFile {
   id: string;
@@ -46,46 +47,27 @@ interface ProjectFile {
   created_at: string;
 }
 
-type WebDesignProject = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  project_type: 'web_design';
-  website_type?: string;
-  current_stage?: string;
-  is_placeholder?: boolean;
-  created_at: string;
-  updated_at: string;
-  discovery_completed?: boolean;
-  discovery_date?: string | null;
-  initial_design_completed?: boolean;
-  initial_design_date?: string | null;
-  revisions_completed?: boolean;
-  revisions_date?: string | null;
-  approval_completed?: boolean;
-  approval_date?: string | null;
-  delivery_completed?: boolean;
-  delivery_date?: string | null;
-  files?: ProjectFile[];
-  business_info_submitted?: boolean;
-};
-
-// Define the stages in order
+// Define the stages in order, aligning keys with ProjectStage type
 const PROJECT_STAGES = [
   { key: 'discovery', label: 'Discovery', icon: LightbulbIcon },
-  { key: 'initial_design', label: 'Initial Design', icon: PencilIcon },
-  { key: 'revisions', label: 'Revisions', icon: RotateCcwIcon },
-  { key: 'approval', label: 'Approval', icon: CheckCircleIcon },
+  { key: 'concept-development', label: 'Initial Design', icon: PencilIcon },
+  { key: 'refinement', label: 'Revisions', icon: RotateCcwIcon },
+  { key: 'finalization', label: 'Approval', icon: CheckCircleIcon },
   { key: 'delivery', label: 'Delivery', icon: PackageIcon },
 ];
 
 export default function WebDesignProjectDetails() {
-  const { id } = useParams();
+  const { id: routeId } = useParams();
+  const projectId = Array.isArray(routeId) ? routeId[0] : routeId;
+
   const { user, isLoading: authLoading } = useAuth();
-  const [project, setProject] = useState<WebDesignProject | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { 
+    project, 
+    isLoading: projectLoading,
+    error: projectError,
+    mutate: mutateProject
+  } = useProject<WebDesignProject>(projectId as string, 'web_design');
+  
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [projectUserFiles, setProjectUserFiles] = useState<ProjectUserFile[]>([]);
@@ -96,11 +78,11 @@ export default function WebDesignProjectDetails() {
 
   const { bir: fetchedBir, signedBirFiles, mutate: mutateBir, isLoading: birLoadingBir } = useBir(project?.id);
 
-  const fetchProjectUserFiles = async (projectId: string) => {
-    if (!projectId) return;
+  const fetchProjectUserFiles = async (currentProjectId: string) => {
+    if (!currentProjectId) return;
     setIsFetchingFiles(true);
     try {
-      const response = await fetch(`/api/projects/${projectId}/user-files`);
+      const response = await fetch(`/api/projects/${currentProjectId}/user-files`);
       if (!response.ok) {
         throw new Error('Failed to fetch project files');
       }
@@ -116,57 +98,23 @@ export default function WebDesignProjectDetails() {
   };
 
   const reloadProjectData = async () => {
-    const projectId = Array.isArray(id) ? id[0] : id;
     if (!projectId) return;
 
     console.log("Reloading project data and files...");
-    setIsLoading(true);
     try {
-      const projectData = await getWebDesignProject(projectId as string);
-      if (projectData) {
-        setProject(projectData);
-      }
+      await mutateProject();
       await fetchProjectUserFiles(projectId as string);
     } catch (err) {
       console.error('Error reloading project data:', err);
-      setError('Failed to reload project details.');
-    } finally {
-        setIsLoading(false);
+      toast({ title: "Error", description: "Failed to reload project details.", variant: "destructive" });
     }
   };
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      const projectId = Array.isArray(id) ? id[0] : id;
-      if (!projectId) return;
-      
-      setIsLoading(true);
-      setError(null);
-      try {
-        const projectData = await getWebDesignProject(projectId as string);
-        console.log('Web Design Project Details:', projectData);
-        if (!projectData) {
-          throw new Error('Project not found');
-        }
-        setProject(projectData);
-
-        await fetchProjectUserFiles(projectId as string);
-
-      } catch (err) {
-        console.error('Error loading initial project data:', err);
-        const errorMsg = err instanceof Error ? err.message : 'Failed to load project details. Please try again later.';
-        setError(errorMsg);
-        setProject(null);
-        setProjectUserFiles([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (!authLoading && user && id) {
-      loadInitialData();
+    if (project?.id) {
+      fetchProjectUserFiles(project.id);
     }
-  }, [authLoading, user, id]);
+  }, [project?.id]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -176,7 +124,7 @@ export default function WebDesignProjectDetails() {
   };
 
   const handleFileUpload = async () => {
-    if (selectedFiles.length === 0 || !id) {
+    if (selectedFiles.length === 0 || !projectId) {
         toast({
             title: "No files selected",
             description: "Please select files to upload.",
@@ -184,13 +132,12 @@ export default function WebDesignProjectDetails() {
         return;
     }
 
-    const projectId = Array.isArray(id) ? id[0] : id;
-    const projectType = 'web_design';
+    const currentProjectType = 'web_design';
     const filesToUpload = [...selectedFiles];
 
     console.log('[handleFileUpload] Attempting upload...');
     console.log('[handleFileUpload] Project ID:', projectId);
-    console.log('[handleFileUpload] Project Type:', projectType);
+    console.log('[handleFileUpload] Project Type:', currentProjectType);
     console.log('[handleFileUpload] Files to upload:', filesToUpload.map(f => f.name));
     if (!projectId) {
       console.error('[handleFileUpload] ERROR: Project ID is missing!');
@@ -208,7 +155,7 @@ export default function WebDesignProjectDetails() {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('projectId', projectId);
-        formData.append('projectType', projectType);
+        formData.append('projectType', currentProjectType);
 
         console.log(`[handleFileUpload] FormData for ${file.name}:`);
         for (const pair of formData.entries()) {
@@ -287,13 +234,11 @@ export default function WebDesignProjectDetails() {
       return <FileTextIcon className="h-5 w-5 text-gray-500 mr-2 flex-shrink-0" />;
   };
 
-  const getCurrentStageIndex = (project: WebDesignProject) => {
-    if (project.delivery_completed) return 4;
-    if (project.approval_completed) return 3;
-    if (project.revisions_completed) return 2;
-    if (project.initial_design_completed) return 1;
-    if (project.discovery_completed) return 0;
-    return 0;
+  const getCurrentStageIndex = (currentProject: WebDesignProject | null | undefined) => {
+    if (!currentProject?.current_stage) {
+      return -1;
+    }
+    return PROJECT_STAGES.findIndex(stage => stage.key === currentProject.current_stage);
   };
 
   const handleDownloadFile = async (file: ProjectUserFile) => {
@@ -339,11 +284,9 @@ export default function WebDesignProjectDetails() {
     }
   };
 
-  // Handle file deletion
   const handleDeleteFile = async (file: ProjectUserFile) => {
     if (!file || !file.id) return;
 
-    // Confirmation dialog
     if (!confirm(`Are you sure you want to delete "${file.file_name}"? This action cannot be undone.`)) {
       return;
     }
@@ -363,7 +306,6 @@ export default function WebDesignProjectDetails() {
         throw new Error(errorMsg);
       }
 
-      // Remove file from local state immediately for better UX
       setProjectUserFiles(prevFiles => prevFiles.filter(f => f.id !== file.id));
 
       toast({ title: "File Deleted", description: `"${file.file_name}" was deleted successfully.` });
@@ -375,118 +317,163 @@ export default function WebDesignProjectDetails() {
         description: error instanceof Error ? error.message : "Could not delete file.",
         variant: "destructive"
       });
-      // Optionally refetch files if delete failed to ensure UI consistency
-      // reloadProjectData(); 
     } finally {
       setIsDeleting(prev => ({ ...prev, [file.id]: false }));
     }
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || projectLoading || birLoadingBir) {
     return (
-      <div className="container mx-auto p-4">
-        <Skeleton className="h-8 w-3/4 mb-4" />
-        <Skeleton className="h-4 w-1/2 mb-6" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Skeleton className="h-40 rounded-lg" />
-          <Skeleton className="h-60 rounded-lg md:col-span-2" />
-          <Skeleton className="h-40 rounded-lg md:col-span-3" />
+      <div className="p-6 space-y-6">
+        <Skeleton className="h-12 w-1/2" />
+        <Skeleton className="h-8 w-1/4" />
+        <div className="grid md:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-1/3" /></CardHeader>
+            <CardContent><Skeleton className="h-20 w-full" /></CardContent>
+          </Card>
+          <Card>
+            <CardHeader><Skeleton className="h-6 w-1/3" /></CardHeader>
+            <CardContent><Skeleton className="h-20 w-full" /></CardContent>
+          </Card>
         </div>
+        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
 
-  if (error) {
-    return <p className="text-red-600 text-center p-4">Error: {error}</p>;
+  if (projectError) {
+    return <div className="p-6 text-red-500">Error loading project: {projectError.message}</div>;
   }
 
   if (!project) {
-    return <p className="text-center p-4">Project not found.</p>;
+    return <div className="p-6">Project not found.</div>;
   }
 
   const currentStageIndex = getCurrentStageIndex(project);
 
   return (
-    <div className="container mx-auto p-4 space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">{project.title}</h1>
-        <Badge variant={project.status === 'active' ? 'default' : 'secondary'} className="mt-2 md:mt-0 capitalize">
+    <div className="p-4 md:p-6 space-y-6">
+      <header className="flex flex-col md:flex-row md:items-center justify-between space-y-2 md:space-y-0">
+        <div>
+          <h1 className="text-3xl font-bold">{project.name}</h1>
+          <p className="text-sm text-muted-foreground">
+            Client: {project.client_name || 'N/A'} | Due Date: {project.due_date ? format(new Date(project.due_date), 'PPP') : 'N/A'}
+          </p>
+        </div>
+        <Badge variant={project.status === 'completed' ? 'default' : 'outline'} className={project.status === 'completed' ? 'bg-green-500 text-white' : ''}>
           {project.status}
         </Badge>
-      </div>
-
+      </header>
+      
       <Card>
         <CardHeader>
-          <CardTitle>Project Progress</CardTitle>
+          <CardTitle>Project Timeline</CardTitle>
+          <CardDescription>
+            Current Stage: {project.current_stage ? PROJECT_STAGES.find(s => s.key === project.current_stage)?.label : 'Uninitialized'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-4 overflow-x-auto pb-2">
-            {PROJECT_STAGES.map((stage, index) => (
-              <div key={stage.key} className="flex flex-col items-center flex-shrink-0 w-28">
-                <div className={`p-3 rounded-full ${index <= currentStageIndex ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                  <stage.icon className="h-6 w-6" />
-                </div>
-                <span className={`mt-2 text-xs font-medium ${index <= currentStageIndex ? 'text-blue-600' : 'text-gray-500'}`}>
-                  {stage.label}
-                </span>
-                {index < PROJECT_STAGES.length - 1 && (
-                  <div className={`absolute top-1/2 left-full w-full h-0.5 ${index < currentStageIndex ? 'bg-blue-500' : 'bg-gray-300'}`} style={{ transform: 'translateY(-50%)' }}></div>
-                )}
+          <div className="relative w-full">
+            {/* Connecting lines container */}
+            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 px-5 md:px-10 z-0">
+              <div className="flex justify-between">
+                {PROJECT_STAGES.slice(0, -1).map((_, index) => (
+                  <div 
+                    key={`line-${index}`}
+                    className="h-1 flex-1"
+                    style={{
+                      backgroundColor: index < currentStageIndex ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                    }}
+                  ></div>
+                ))}
               </div>
-            ))}
+            </div>
+            
+            {/* Stages container */}
+            <div className="relative flex justify-between items-start z-10">
+              {PROJECT_STAGES.map((stage, index) => {
+                const isActive = index === currentStageIndex;
+                const isDone = index < currentStageIndex;
+                const IconComponent = stage.icon;
+
+                return (
+                  <div key={stage.key} className="flex flex-col items-center text-center w-[calc(100%/5)] md:w-auto px-1">
+                    <div
+                      className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300 ease-in-out 
+                        ${isDone ? 'bg-primary border-primary text-primary-foreground' : 'bg-background'}
+                        ${isActive ? 'border-primary scale-110 shadow-lg' : 'border-border'}
+                        ${!isDone && !isActive ? 'text-muted-foreground' : ''}
+                      `}
+                    >
+                      <IconComponent className={`w-5 h-5 md:w-6 md:h-6 ${isActive ? 'text-primary' : isDone ? 'text-primary-foreground' : 'text-inherit'}`} />
+                    </div>
+                    <p 
+                      className={`mt-2 text-xs md:text-sm font-medium transition-colors duration-300 
+                        ${isActive ? 'text-primary' : isDone ? 'text-primary' : 'text-muted-foreground'}
+                      `}
+                    >
+                      {stage.label}
+                    </p>
+                    {(project as WebDesignProject)[`${stage.key}_date` as keyof WebDesignProject] && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {format(new Date((project as WebDesignProject)[`${stage.key}_date` as keyof WebDesignProject] as string), 'MMM d')}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="pt-6">
-          <Tabs defaultValue="business_info" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="business_info">Business Information</TabsTrigger>
-              <TabsTrigger value="bir_project_files" disabled={!fetchedBir?.id || birLoadingBir}>
-                Project Files
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="business_info" className="mt-4">
-              {project && !isLoading ? (
-                <BusinessInfoGate
-                  projectId={project.id}
-                  projectType={project.project_type || 'web_design'}
-                  parentMutateBir={mutateBir}
-                />
-              ) : isLoading ? (
-                <Skeleton className="h-40 w-full" />
-              ) : (
-                 <p>Project details are not available.</p>
-              )}
-            </TabsContent>
-
-            <TabsContent value="bir_project_files" className="mt-4">
-              {birLoadingBir ? (
-                <Skeleton className="h-40 w-full" />
-              ) : fetchedBir?.id ? (
-                <FileUploadStep
-                  birId={fetchedBir.id}
-                  mutateBir={mutateBir}
-                  uploadedFiles={signedBirFiles}
-                />
-              ) : (
+      <Tabs defaultValue="business_info" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="business_info">Business Information</TabsTrigger>
+          <TabsTrigger value="project_files_bir">Project Files (BIR)</TabsTrigger>
+        </TabsList>
+        <TabsContent value="business_info">
+          <BusinessInfoGate 
+            projectId={project.id}
+            projectType="web_design" // Hardcoded for this page
+          />
+        </TabsContent>
+        <TabsContent value="project_files_bir">
+          {fetchedBir?.id ? (
+            <FileUploadStep 
+              birId={fetchedBir.id} // Now definitely a string
+              mutateBir={mutateBir}
+              uploadedFiles={signedBirFiles || []}
+              onUploadComplete={async () => {
+                  await mutateBir();
+                  toast({ title: "File Operation Complete", description: "BIR related files updated." });
+              }}
+            />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">
-                  Please complete and save the 'Business Information' section first to enable BIR file uploads.
+                  The Business Information Request (BIR) must be submitted before files can be uploaded here. Please complete the BIR in the "Business Information" tab.
                 </p>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
-      <Card>
+      {/* Legacy File Upload Section - To be reviewed for removal or repurposing */}
+      {/* This section's functionality might be fully replaced by BIR FileUploadStep */}
+      {/* If removed, also remove related state and handlers: */}
+      {/* selectedFiles, isUploading, projectUserFiles, isFetchingFiles, isDownloading, isDeleting */}
+      {/* handleFileChange, handleFileUpload, formatFileSize, getFileIcon, fetchProjectUserFiles, handleDownloadFile, handleDeleteFile */}
+      <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Project Details</CardTitle>
+          <CardTitle>General Project Files (Legacy)</CardTitle>
+          <CardDescription>This section is under review. Files related to the Business Information Request should be managed in the "Project Files (BIR)" tab.</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-600">{project.description || "No description provided."}</p>
+          {/* Legacy file upload section content */}
         </CardContent>
       </Card>
     </div>

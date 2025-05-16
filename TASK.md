@@ -159,3 +159,75 @@
 - [ ] **Documentation:** Update onboarding guides for clients explaining the new process.
 - [ ] **Deployment:** Consider releasing behind a feature flag (`NEXT_PUBLIC_ENABLE_BIR=true`).
 - [ ] **Notifications (Optional):** Implement Edge Function/Realtime listener to notify relevant users on BIR submission.
+
+- [x] **Fix Billing Page "Coming Soon" Overlay Stacking Order**
+    - **Problem:** The "Coming Soon" overlay on `/client/billing` was rendering above the header's notification dropdown.
+    - **Cause:** Overlay (`z-40`, effectively `position:fixed`), Header (`z-auto`), Notification dropdown (`z-10`).
+    - **Solution (Option B - Lift dropdown):**
+        - `src/shared/ui/layout/Header/NotificationsMenu.tsx`: Changed notification dropdown `div` z-index from `z-10` to `z-60`.
+        - `src/shared/ui/layout/Header.tsx`: Set main `<header>` element z-index to `z-50`.
+    - **Outcome:** Ensured stacking order `Dropdown (z-60) > Header (z-50) > ComingSoon Overlay (z-40)`. Header notifications now correctly appear above the overlay.
+
+### Project Timeline/Stage Tracker Redesign - Upgrade Plan
+
+**Phase 1: Unify Source of Truth & Backend Updates**
+- [ ] **Database:**
+    - [x] Define `current_stage` (enum based on `ProjectStage` type) + per-stage date columns as authoritative for stage state.
+    - [x] Investigate and confirm how `current_stage` is currently populated and if it needs backfilling (e.g., from `stage varchar(50)` or `*_date` columns).
+    - [ ] Plan deprecation of boolean `*_completed` flags for UI purposes. (Note: Schema review indicates these specific booleans like `discovery_completed` do not exist on project-specific tables, this task may be N/A or refer to other booleans if any are used for stage tracking).
+- [ ] **Migrations:**
+    - [x] Create/Update migration script to back-fill `current_stage` for existing rows on relevant project tables (`web_design_projects`, `logo_design_projects`, `social_graphics_projects`) using clarified logic. (User-provided logic applied)
+    - [x] Add NOT NULL + CHECK constraints to `current_stage` on project tables (`web_design_projects`, `logo_design_projects`, `social_graphics_projects`).
+- [x] **Admin API (`/api/admin/projects/update-stage`):**
+    - [x] Review and ensure this is the primary write path for stage progression.
+    - [x] Document that any other project update routes (if still used) should not modify stage-related boolean flags directly (Achieved by noting in PLANNING.md that update-stage is the sole route for stage changes).
+- [ ] **BIR Submission API (`/api/bir/...`):**
+    - [x] Modify `src/lib/api/bir.ts` (`upsertBir`) to set BIR status to 'submitted' upon creation/upsert.
+    - [x] Modify `src/app/api/bir/route.ts` (POST handler) to update `web_design_projects.current_stage` to 'discovery' and set `web_design_projects.discovery_date` when a BIR is successfully submitted.
+    - [x] Confirm no direct writes to legacy boolean `*_completed` stage flags from this API (Verified: API does not write to non-existent flags).
+
+**Phase 2: Frontend Refactoring**
+- [ ] **Data Hook:**
+    - [x] Create `useProject(projectId)` hook (using SWR or React Query) to fetch project data, returning `{ project, error, isLoading, mutate }`.
+- [ ] **Stage Logic (`WebDesignProjectDetails` page):**
+    - [ ] Replace `getCurrentStageIndex` logic to use `project.current_stage` and `PROJECT_STAGES.findIndex()`.
+    - [ ] Align `PROJECT_STAGES` constant (keys and potentially labels) with the `ProjectStage` enum values used in `current_stage`.
+- [ ] **Cleanup (`WebDesignProjectDetails` page):**
+    - [ ] Remove unused state related to boolean-file logic (e.g., `projectUserFiles` if fully superseded by BIR files for this page).
+    - [ ] Remove unused handler functions for general file uploads if they are confirmed obsolete for this page (e.g., `handleFileUpload`, `fetchProjectUserFiles`, `handleDownloadFile`, `handleDeleteFile` if they only pertained to the removed general files section).
+
+**Phase 3: Build Connected Progress Bar UI**
+- [ ] **Implement JSX for Timeline:**
+    - [ ] Integrate the proposed JSX structure for the connected progress bar into `WebDesignProjectDetails` (or a new `ProjectTimeline` component).
+    - [ ] Ensure dynamic styling (Tailwind CSS `clsx`) works correctly for active, done, and pending states.
+    - [ ] Verify dark mode compatibility.
+
+**Phase 4: Implement Real-time Refresh**
+- [ ] **Choose Strategy:** Decide between SWR revalidation enhancements or Supabase Realtime.
+- [ ] **Implement SWR Revalidation (if chosen):**
+    - [ ] Call `mutate()` (from `useProject`) on relevant client actions (e.g., after BIR submission if that page uses the hook).
+    - [ ] Configure `revalidateOnFocus: true` and `refreshInterval` for the `useProject` hook.
+- [ ] **Implement Supabase Realtime (if chosen):**
+    - [ ] Create a Supabase channel subscription for project changes (`projects:id=eq.${projectId}`).
+    - [ ] On `postgres_changes` events, call `mutate()` (from `useProject`) to refresh data.
+
+**Phase 5: Accessibility & Testing**
+- [ ] **Accessibility (ARIA):**
+    - [ ] Add `role="progressbar"` to the timeline wrapper.
+    - [ ] Implement `aria-valuenow`, `aria-valuemin`, `aria-valuemax` on the progressbar role.
+    - [ ] Ensure `aria-current="step"` is applied to the active stage dot/label.
+- [ ] **Unit/Integration Tests (Jest/RTL):**
+    - [ ] Create tests for the new timeline rendering at different stages.
+    - [ ] Assert correct ARIA attributes for each stage.
+- [ ] **Storybook (Optional but Recommended):**
+    - [ ] Create a Storybook story for the timeline component.
+    - [ ] Add controls to manipulate the current stage and toggle dark/light mode.
+
+**Phase 6: Clean-up, Deprecation & Documentation**
+- [ ] **Code Cleanup:**
+    - [ ] Remove reads of legacy boolean `*_completed` flags from `WebDesignProjectDetails` (after frontend logic uses `current_stage`).
+    - [ ] Confirm deletion of unused file handling functions/state from `WebDesignProjectDetails` (as per Phase 2 cleanup).
+- [ ] **Database:**
+    - [ ] Add `DEPRECATED` comments to the legacy boolean `*_completed` columns in SQL schema.
+- [ ] **Documentation:**
+    - [ ] Update `PLANNING.md` to reflect the new `

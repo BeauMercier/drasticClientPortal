@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
         active: true,
         // Set default status and stage if not provided
         status: projectData.status || 'pending',
+        current_stage: projectData.current_stage || 'uninitialized',
         stage: projectData.stage || 'intake'
       };
       

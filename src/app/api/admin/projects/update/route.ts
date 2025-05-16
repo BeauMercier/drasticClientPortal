@@ -59,6 +59,15 @@ export async function POST(request: NextRequest) {
     
     const { projectId, projectType, updates, title, description, status, active, designer_email } = body;
     
+    // Explicitly check if current_stage is being set to null in the updates object
+    if (updates && typeof updates === 'object' && updates.current_stage === null) {
+      console.error('Admin Update Project API: Attempt to set current_stage to null is forbidden.');
+      return NextResponse.json(
+        { error: 'Setting current_stage to null is not allowed. Use the dedicated stage update API for changes.' }, 
+        { status: 400 }
+      );
+    }
+    
     if (!projectId || !projectType) {
       console.error('Admin Update Project API: Missing required fields');
       return NextResponse.json(

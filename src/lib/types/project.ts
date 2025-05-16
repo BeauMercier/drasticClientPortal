@@ -22,13 +22,21 @@ export type SSLStatus = 'active' | 'expired' | 'none';
 export type CampaignStatus = 'active' | 'paused' | 'removed';
 export type AnalyticsService = 'google_analytics' | 'matomo' | 'plausible' | 'other';
 
+// Type for the client profile data fetched in API routes
+export type ClientProfileData = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  company: string | null;
+} | null;
+
 // Main Project interface
 export interface Project {
   id: string;
   name: string;
   description?: string | null;
   user_id: string;
-  client: string;
+  client: ClientProfileData;
   status: string;
   current_stage?: string | null;
   thumbnail_url?: string | null;
@@ -74,17 +82,30 @@ export interface ProjectNote {
 
 // Project interfaces by type
 export interface WebDesignProject extends Tables<'web_design_projects'> {
+  name: string;
+  client: ClientProfileData;
+  client_name: string | null;
+  due_date: string | null;
+
   user_id: string;
   title: string;
   description: string | null;
   status: ProjectStatus;
+  project_type: 'web_design';
+  current_stage: ProjectStage | null;
   site_type: string | null;
   domain_name: string | null;
   hosting_provider: string | null;
   expected_launch_date: string | null;
+  discovery_date: string | null;
+  concept_development_date: string | null;
+  refinement_date: string | null;
+  finalization_date: string | null;
+  delivery_date: string | null;
 }
 
 export interface SocialGraphicsProject extends Tables<'social_graphics_projects'> {
+  client?: ClientProfileData;
   user_id: string;
   title: string;
   description: string | null;
@@ -95,6 +116,7 @@ export interface SocialGraphicsProject extends Tables<'social_graphics_projects'
 }
 
 export interface LogoDesignProject extends Tables<'logo_design_projects'> {
+  client?: ClientProfileData;
   user_id: string;
   title: string;
   description: string | null;

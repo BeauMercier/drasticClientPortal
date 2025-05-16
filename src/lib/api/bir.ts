@@ -83,7 +83,7 @@ export async function upsertBir(
         client_id: validatedData.client_id, // Use client_id from validated DTO
         project_type: validatedData.project_type, // Use project_type from validated DTO ('web_design')
         answers: validatedData.answers ?? {}, // Ensure answers is at least an empty object
-        // status: 'submitted' // Explicitly set status on upsert if needed, or let DB handle default/trigger
+        status: 'submitted' // Explicitly set status to 'submitted' on upsert
     };
 
     const { data, error } = await supabase

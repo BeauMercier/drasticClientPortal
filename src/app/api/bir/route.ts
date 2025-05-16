@@ -80,6 +80,32 @@ export async function POST(req: Request) {
         });
 
         const bir = await upsertBir(supabase, dto); // Pass client and validated DTO
+
+        // If BIR upsert was successful and status is 'submitted', update the corresponding web_design_project stage
+        if (bir && bir.project_id && bir.status === 'submitted') {
+            try {
+                const projectUpdateData = {
+                    current_stage: 'discovery',
+                    discovery_date: new Date().toISOString(),
+                    updated_at: new Date().toISOString(), // Also update the project's updated_at
+                };
+
+                const { error: projectUpdateError } = await supabase
+                    .from('web_design_projects')
+                    .update(projectUpdateData)
+                    .eq('id', bir.project_id);
+
+                if (projectUpdateError) {
+                    console.error('[POST /api/bir] Error updating web_design_project stage to discovery:', projectUpdateError);
+                    // Decide if this should be a critical error. For now, log and continue.
+                } else {
+                    console.log(`[POST /api/bir] Project ${bir.project_id} stage updated to discovery.`);
+                }
+            } catch (projectUpdateCatchError) {
+                console.error('[POST /api/bir] Exception updating project stage to discovery:', projectUpdateCatchError);
+            }
+        }
+
         return jsonOK(bir, 201); // 201 Created or updated
     } catch (err: any) {
         console.error('[POST /api/bir] ', err);

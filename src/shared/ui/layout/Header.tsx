@@ -182,7 +182,7 @@ export default function Header() {
   const adminBreadcrumbs = getAdminBreadcrumbs();
 
   return (
-    <header className="bg-black shadow-lg py-4 px-6 border-b border-gray-900">
+    <header className="bg-black shadow-lg py-4 px-6 border-b border-gray-900 z-50">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <div className="flex items-center gap-2">

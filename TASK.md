@@ -252,14 +252,16 @@
 
 ### [Current Date] - Admin Project Management Enhancements (Designer Assignment & Visibility)
 
-*   **Fixed Designer Project Visibility:**
-    *   **Issue:** An assigned designer logged in but did not see the newly assigned project on their projects page.
+*   **[DONE] Fixed Designer Project Visibility:**
+    *   **Issue:** An assigned designer logged in but did not see the newly assigned project on their projects page, or could not view project details.
     *   **Solution:**
-        *   Corrected `getDesignerAssignedProjects` in `src/lib/api/client-api.ts` to fetch from `designer_projects` table instead of `project_assignments`.
-        *   Created SQL migration to update `auth_helpers.is_designer_assigned_to_project` function to use `designer_projects` for RLS checks.
-        *   Updated admin project detail API routes (e.g., for `web_design`) to fetch assignments from `designer_projects`.
-*   **Improved "Assign Designer" Modal in Admin:**
+        *   Corrected `getDesignerAssignedProjects` in `src/lib/api/client-api.ts` to fetch from `designer_projects` table instead of `project_assignments` (for project list).
+        *   Created SQL migration (`YYYYMMDDHHMMSS_fix_designer_assignment_check.sql`) to update `auth_helpers.is_designer_assigned_to_project` function to use `designer_projects` for RLS checks.
+        *   Updated admin project detail API routes (e.g., `/api/admin/projects/web_design/[projectId]/route.ts`) to fetch assignments from `designer_projects`.
+        *   Updated non-admin project detail API routes (e.g., `/api/projects/web_design/[projectId]/route.ts`) in `canUserAccessProject` helper and main data fetch to use `designer_projects`.
+    *   **Remaining:** Apply similar fixes to `/api/projects/logo_design/[projectId]/route.ts` and `/api/projects/social_graphics/[projectId]/route.ts` if they exist and follow the same pattern for fetching project details for designers/clients.
+*   **[DONE] Improved "Assign Designer" Modal in Admin:**
     *   **Issue:** When an admin clicks "Assign Designer" on a project that already has a designer, the modal did not pre-select or indicate the currently assigned designer.
     *   **Solution:**
-        *   Modified `/api/admin/projects/route.ts` to include `designer_id` in the project list data.
+        *   Modified `/api/admin/projects/route.ts` (admin project list) to include `designer_id` in the project list data by joining with `designer_projects`.
         *   Updated `src/app/(admin)/admin/projects/page.tsx` to use the `designer_id` to pre-select the assigned designer in the modal.

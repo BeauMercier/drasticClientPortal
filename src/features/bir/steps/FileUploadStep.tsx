@@ -16,6 +16,7 @@ interface FileUploadStepProps {
   mutateBir: KeyedMutator<UseBirData>; // Updated type
   uploadedFiles: SignedBirFile[] | null; // New prop for existing files
   onUploadComplete?: () => void; // Optional: callback for when all uploads are done or step is "finished"
+  readOnly?: boolean; // New prop for read-only mode
   // Add any other props needed, e.g., for styling or controlling behavior
 }
 
@@ -32,7 +33,8 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
   birId, 
   mutateBir,
   uploadedFiles, // Destructure new prop
-  onUploadComplete 
+  onUploadComplete, 
+  readOnly = false, // Default to false
 }) => {
   // TODO: Potentially manage loading states for individual uploaders or overall step
 
@@ -67,20 +69,23 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Upload Supporting Files</CardTitle>
+        <CardTitle>{readOnly ? "View Uploaded Files" : "Upload Supporting Files"}</CardTitle>
         <CardDescription>
-          Please upload relevant files such as your company logo, brand style guide, photos, or certifications.
-          Accepted types: Images, PDF, ZIP up to 20 MB each.
+          {readOnly 
+            ? "These are the files uploaded by the client for this request."
+            : "Please upload relevant files such as your company logo, brand style guide, photos, or certifications. Accepted types: Images, PDF, ZIP up to 20 MB each."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-          <BirFileUploader birId={birId} fileType={BirFileType.Logo} onUploadSuccess={handleUploadSuccess} />
-          <BirFileUploader birId={birId} fileType={BirFileType.StyleGuide} onUploadSuccess={handleUploadSuccess} />
-          <BirFileUploader birId={birId} fileType={BirFileType.Photo} onUploadSuccess={handleUploadSuccess} />
-          <BirFileUploader birId={birId} fileType={BirFileType.Certificate} onUploadSuccess={handleUploadSuccess} />
-          <BirFileUploader birId={birId} fileType={BirFileType.Misc} onUploadSuccess={handleUploadSuccess} />
-        </div>
+        {!readOnly && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            <BirFileUploader birId={birId} fileType={BirFileType.Logo} onUploadSuccess={handleUploadSuccess} />
+            <BirFileUploader birId={birId} fileType={BirFileType.StyleGuide} onUploadSuccess={handleUploadSuccess} />
+            <BirFileUploader birId={birId} fileType={BirFileType.Photo} onUploadSuccess={handleUploadSuccess} />
+            <BirFileUploader birId={birId} fileType={BirFileType.Certificate} onUploadSuccess={handleUploadSuccess} />
+            <BirFileUploader birId={birId} fileType={BirFileType.Misc} onUploadSuccess={handleUploadSuccess} />
+          </div>
+        )}
 
         {uploadedFiles && uploadedFiles.length > 0 && (
           <div className="mt-8">

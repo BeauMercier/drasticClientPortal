@@ -48,7 +48,7 @@ const fetcher = async (projectId: string): Promise<UseBirData> => {
   const typedBirFiles: BirFileRow[] = birFilesData || []; // Ensure it's an array
 
   // 3. Generate Signed URLs for the files
-  let generatedSignedFiles: SignedBirFile[] | null = null;
+  let generatedSignedFiles: SignedBirFile[] = []; // Initialize to empty array, not null
   if (typedBirFiles.length > 0) {
     try {
       const signedUrlPromises = typedBirFiles.map(async (file) => {
@@ -71,7 +71,11 @@ const fetcher = async (projectId: string): Promise<UseBirData> => {
       generatedSignedFiles = await Promise.all(signedUrlPromises);
     } catch (error) {
       console.error('Error generating signed URLs:', error);
-      generatedSignedFiles = typedBirFiles.map((file) => ({ ...file, publicUrl: undefined }));
+      generatedSignedFiles = typedBirFiles.map((file) => ({
+        ...file,
+        publicUrl: undefined,
+        error: 'generic', // Explicitly set error to 'generic'
+      }));
     }
   }
 

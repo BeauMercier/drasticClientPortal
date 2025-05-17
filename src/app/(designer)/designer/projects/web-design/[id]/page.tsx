@@ -1,20 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/features/auth';
 // import { getProjectForDesigner } from '@/lib/api/client-api'; // TODO: Implement or verify this API function
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import BusinessInfoGate from '@/features/bir/BusinessInfoGate'; // Import the gate
+import { useToast } from '@/components/ui/use-toast'; // Import useToast hook
 
 // Assume a Project type exists or define a basic one
 // TODO: Replace with actual shared Project type if available
-interface ProjectDetails {
+interface ProjectDetails { // Basic structure, expand as needed based on API response
     id: string;
     title: string;
     project_type: string;
-    // other fields...
+    description?: string; // Example field
+    // Add other fields returned by /api/projects/web_design/[projectId]
+    client?: { id: string; full_name?: string; email?: string; company?: string };
+    designer_assignment?: { id: string; full_name?: string; email?: string };
+    // Potentially other fields like status, dates etc.
 }
 
 /**
@@ -25,66 +30,62 @@ interface ProjectDetails {
  */
 export default function DesignerProjectDetailsPage() {
     const { projectType, id } = useParams(); // Get params from URL
+    const router = useRouter(); // Initialize useRouter
     const { user, isLoading: authLoading } = useAuth();
-    const [project, setProject] = useState<ProjectDetails | null>(null); // Keep state, but populate with placeholder
-    const [isLoading, setIsLoading] = useState(true); // Keep loading state
+    const [project, setProject] = useState<ProjectDetails | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const { toast } = useToast(); // Get toast function from the hook
 
-     // --- Placeholder Data --- 
-     // --- START: Placeholder Data Section --- 
-     // This section simulates project data loading for development purposes.
-     // TODO: Remove this entire placeholder section (including the useEffect below) 
-     //       once the actual data fetching logic is implemented using a function like `getProjectForDesigner`.
-     const placeholderProjectId = Array.isArray(id) ? id[0] : id || 'placeholder-id';
-     const placeholderProjectType = Array.isArray(projectType) ? projectType[0] : projectType || 'web_design';
-     const placeholderProject: ProjectDetails = {
-         id: placeholderProjectId,
-         title: `Project ${placeholderProjectId}`,
-         project_type: placeholderProjectType,
-     };
-     // Simulate loading and setting placeholder data
-     useEffect(() => {
-         if (!authLoading) {
-             setTimeout(() => {
-                 setProject(placeholderProject);
-                 setIsLoading(false);
-             }, 500); // Simulate network delay
-         }
-     }, [authLoading, placeholderProject]); 
-     // --- END: Placeholder Data Section ---
-
-    /* // --- Actual Data Fetching Logic (Commented Out) ---
     useEffect(() => {
         const loadProject = async () => {
             const projectId = Array.isArray(id) ? id[0] : id;
-            const type = Array.isArray(projectType) ? projectType[0] : projectType;
+            // projectType from URL params can be used for validation if needed, but API path is specific
+            const currentProjectType = 'web_design'; // Hardcoded as this page is for web_design
 
-            if (!projectId || !type || !user) return;
+            if (!projectId || !user) { // User must be loaded to ensure auth checks on API pass
+                setIsLoading(false); // Stop loading if no projectId or user
+                return;
+            }
 
             setIsLoading(true);
             setError(null);
             try {
-                // TODO: Implement or verify getProjectForDesigner API function
-                // const fetchedProject = await getProjectForDesigner(projectId, type);
-                 const fetchedProject = null; // Temporarily null
-                if (!fetchedProject) {
-                    throw new Error('Project not found or access denied.');
+                const response = await fetch(`/api/projects/web_design/${projectId}`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: `HTTP error! status: ${response.status}` }));
+                    // Check for 403/404 for redirect
+                    if (response.status === 403 || response.status === 404) {
+                        toast({
+                            title: response.status === 403 ? 'Access Denied' : 'Project Not Found',
+                            description: errorData.error || (response.status === 403 ? "You don't have permission to view this project." : "The requested project does not exist."),
+                            variant: 'destructive',
+                        });
+                        router.push('/designer/projects'); // Redirect to projects list
+                        return; // Stop further processing
+                    }
+                    throw new Error(errorData.error || `Failed to fetch project details. Status: ${response.status}`);
                 }
-                // setProject(fetchedProject as ProjectDetails);
+                const fetchedProject = await response.json();
+                setProject(fetchedProject as ProjectDetails);
             } catch (err: any) {
                 console.error("Error loading project for designer:", err);
                 setError(err.message || 'Failed to load project details.');
+                toast({
+                    title: 'Error Loading Project',
+                    description: err.message || 'An unexpected error occurred.',
+                    variant: 'destructive',
+                });
                 setProject(null);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        if (!authLoading) {
-             loadProject();
+        if (!authLoading) { // Only run if auth state is resolved
+            loadProject();
         }
-    }, [id, projectType, user, authLoading]);
-    */
+    }, [id, user, authLoading]); // projectType from URL can be added if used in fetch path or logic
 
     if (isLoading || authLoading) {
         // Basic loading state
@@ -102,8 +103,8 @@ export default function DesignerProjectDetailsPage() {
     }
 
     if (!project) {
-        // This might briefly show if placeholder hasn't set yet
-        return <p className="text-center p-4">Loading project data...</p>;
+        // This might briefly show if loading or if project is null after an error without explicit error message shown
+        return <p className="text-center p-4">Loading project data or project not found...</p>;
     }
 
     return (
@@ -113,19 +114,24 @@ export default function DesignerProjectDetailsPage() {
             {/* Placeholder for other project details */}
             <Card>
                  <CardHeader><CardTitle>Project Summary</CardTitle></CardHeader>
-                 <CardContent><p>Details about project {project.id}...</p></CardContent>
+                 <CardContent>
+                    <p>Project ID: {project.id}</p>
+                    <p>Type: {project.project_type}</p>
+                    {project.description && <p>Description: {project.description}</p>}
+                    {project.client && <p>Client: {project.client.full_name || project.client.email}</p>}
+                 </CardContent>
             </Card>
 
             {/* Integrate Business Info Gate - Only show if web design */}
-            {project.project_type === 'web_design' && (
+            {project.project_type === 'web_design' && project.id && ( // Ensure project.id is also available
                  <Card>
                     <CardHeader>
-                        <CardTitle>Business Information</CardTitle>
+                        <CardTitle>Business Information & Client Files</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <BusinessInfoGate 
                             projectId={project.id}
-                            projectType={project.project_type}
+                            projectType={project.project_type} // This will be 'web_design'
                         />
                     </CardContent>
                 </Card>

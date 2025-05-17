@@ -250,6 +250,22 @@
         - [ ] Ensure responsiveness and dark mode compatibility.
         - [ ] Test with various project types and stage progressions.
 
+### [New Date - Add Today's Date Here] - BIR & Project Detail UI Refinements
+
+- [x] **BIR Submission Status Bug Fix:** Ensured `handleSubmitAllAnswers` in `MultiStepBirForm.tsx` explicitly sends `status: 'submitted'` on final submission for both POST and PATCH.
+- [x] **Web Design Project Detail Page UI - Title Display:**
+    - Fixed missing project title in timeline `CardTitle` by using `project.title` (discovered from DB) instead of `project.name` in `src/app/(client)/client/projects/web-design/[id]/page.tsx`.
+    - Used `project.title` for the main page H1 as well.
+- [x] **Web Design Project Detail Page UI - Layout & Duplicate Title:**
+    - Removed main `<header>` (H1, client/due date) from the page.
+    - Increased `CardTitle` font size in timeline card to `text-2xl`.
+- [x] **Web Design Project Detail Page UI - Client/Due Date Display:**
+    - Updated client name to use `project.client?.full_name`.
+    - Conditionally rendered client/due date line only if both `project.client?.full_name` and `project.due_date` exist.
+- [x] **Web Design Project Detail Page UI - Hide Raw Status:**
+    - Removed `Badge` displaying `project.status` from `src/app/(client)/client/projects/web-design/[id]/page.tsx`.
+- [x] **BIR File Uploads - Multiple Files:** Updated `BirFileUploader.tsx` to allow selection and sequential upload of multiple files for each file type category.
+
 ### [Current Date] - Admin Project Management Enhancements (Designer Assignment & Visibility)
 
 *   **[DONE] Fixed Designer Project Visibility:**

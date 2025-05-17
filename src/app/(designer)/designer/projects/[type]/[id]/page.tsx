@@ -8,12 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ClockIcon, ArrowPathIcon, PaperClipIcon, DocumentIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, ArrowPathIcon, PaperClipIcon, DocumentIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import { getUserProfile, getDesignerProject, addProjectNote, getProjectNotes, deleteProjectNote, getProjectRevisions, createProjectRevision, updateRevision, deleteRevision } from '@/lib/api/client-api';
 import { ProjectRevision, RevisionStatus, ProjectTypeForRevision } from '@/lib/types/project';
 import { ProjectFile } from '@/lib/types/project';
 import { ProjectNote } from '@/lib/types/project';
 import { ProjectDetails } from '@/lib/types/project';
+import { useBir } from '@/features/bir/useBir';
+import { SignedBirFile } from '@/lib/types/bir';
+import { FileIcon, ImageIcon, DownloadIcon } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 // Project type names mapping
 const projectTypeNames = {
@@ -45,6 +50,13 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [revisions, setRevisions] = useState<ProjectRevision[]>([]);
   const [filesSubTab, setFilesSubTab] = useState<'designer' | 'client'>('designer');
+  
+  const isWebDesign = params.type === 'web_design';
+  const { 
+    signedBirFiles, 
+    isLoading: isLoadingBir, 
+    error: birError 
+  } = useBir(isWebDesign ? params.id : undefined);
   
   // New revision form state
   const [showRevisionForm, setShowRevisionForm] = useState(false);
@@ -228,6 +240,16 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
       console.error('Error fetching project revisions:', error);
       return false;
     }
+  };
+
+  // MOVED HELPER FUNCTION HERE
+  // Display formatted file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   // Handle adding a new revision
@@ -874,15 +896,6 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
       case 'current': return 'Current';
       default: return 'Unknown';
     }
-  };
-
-  // Display formatted file size
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   if (isLoading) {
@@ -1600,169 +1613,254 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
                 )}
               </div>
                 
-              {filteredAndSortedFiles().length > 0 ? (
-                fileViewMode === 'list' ? (
-                  <ul className="divide-y divide-gray-200">
-                    {filteredAndSortedFiles().map((file, index) => (
-                      <li key={index} className="py-4 flex justify-between items-center">
-                        <div className="flex items-center">
-                          {getFileIcon(file)}
-                          <div className="ml-3">
-                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                            <p className="text-xs text-gray-500">
-                              Uploaded {formatDate(file.upload_date)} • {formatFileSize(file.size)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleFileDownload(file.url, file.name)}
-                            disabled={isSubmitting}
-                          >
-                            Download
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                            onClick={() => handleFileDelete(file.url, file.name)}
-                            disabled={isSubmitting}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {filteredAndSortedFiles().map((file, index) => (
-                      <div 
-                        key={index} 
-                        className="relative group border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all duration-200"
-                      >
-                        <div className="flex items-center justify-center bg-gray-50 h-36 p-4">
-                          {isViewableImage(file) ? (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <img 
-                                src={`/api/projects/files/download?path=${encodeURIComponent(file.url)}&preview=true`}
-                                alt={file.name}
-                                className="max-h-full max-w-full object-contain"
-                                loading="lazy"
-                                onError={(e) => {
-                                  // If image fails to load, show file icon
-                                  const target = e.target as HTMLImageElement;
-                                  if (target.parentElement) {
-                                    // Hide the broken image
-                                    target.style.display = 'none';
-                                    
-                                    // Create container for icon
-                                    const iconContainer = document.createElement('div');
-                                    iconContainer.className = 'flex flex-col items-center justify-center h-full';
-                                    
-                                    // Create icon element based on file type
-                                    const iconType = getFileType(file);
-                                    const iconColor = 
-                                      iconType === 'image' ? 'text-blue-500' : 
-                                      iconType === 'pdf' ? 'text-red-500' : 
-                                      iconType === 'document' ? 'text-blue-600' : 
-                                      iconType === 'spreadsheet' ? 'text-green-600' : 
-                                      iconType === 'presentation' ? 'text-orange-500' : 
-                                      iconType === 'archive' ? 'text-yellow-500' : 'text-gray-400';
-                                    
-                                    iconContainer.innerHTML = `
-                                      <svg class="h-12 w-12 ${iconColor}" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
-                                      </svg>
-                                      <span class="mt-2 text-xs text-gray-500 uppercase">${file.name.split('.').pop() || ''}</span>
-                                    `;
-                                    
-                                    target.parentElement.appendChild(iconContainer);
-                                  }
-                                }}
-                              />
-                            </div>
-                          ) : isImage(file) ? (
-                            // Special handling for non-web image formats like HEIC
-                            <div className="flex flex-col items-center justify-center h-full">
-                              <svg className="h-8 w-8 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
-                              </svg>
-                              <span className="mt-2 text-xs text-gray-500">IMAGE</span>
-                              <span className="text-xs text-gray-500 uppercase">{file.name.split('.').pop()}</span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-full">
-                              {getFileIcon(file)}
-                              <span className="mt-2 text-xs text-gray-500 uppercase">{file.name.split('.').pop()}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-3">
-                          <p className="text-sm font-medium text-gray-900 truncate" title={file.name}>
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatFileSize(file.size)}
-                          </p>
-                        </div>
-                        <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="bg-white shadow-sm"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleFileDownload(file.url, file.name);
-                            }}
-                            disabled={isSubmitting}
-                          >
-                            Download
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="bg-white shadow-sm text-red-600 hover:text-red-800 hover:bg-red-50"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleFileDelete(file.url, file.name);
-                            }}
-                            disabled={isSubmitting}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              ) : (
-                <div className="text-center py-8">
-                  <DocumentIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <h3 className="text-sm font-medium text-gray-900">
-                    {filesSubTab === 'designer' 
-                      ? 'No designer files uploaded yet' 
-                      : 'No client files available yet'
-                    }
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {filesSubTab === 'designer'
-                      ? 'Upload files to share with the client'
-                      : 'The client hasn\'t uploaded any files for this project'
-                    }
-                  </p>
-                  {filesSubTab === 'designer' && (
-                    <Button 
-                      className="mt-4" 
-                      onClick={handleFileUpload}
-                      disabled={isSubmitting}
-                    >
-                      Upload Files
-                    </Button>
+              {/* Conditional rendering for BIR files / other files */}
+              {filesSubTab === 'client' && isWebDesign ? (
+                // === NEW: BIR Files for Web Design ===
+                <>
+                  {isLoadingBir && (
+                    <div className="flex items-center justify-center py-10">
+                      <ArrowPathIcon className="h-6 w-6 text-gray-500 animate-spin mr-2" />
+                      <p className="text-sm text-gray-500">Loading client files…</p>
+                    </div>
                   )}
-                </div>
+                  {birError && (
+                     <div className="text-center py-8 px-4 bg-red-50 rounded-md">
+                        <svg className="mx-auto h-10 w-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <h3 className="mt-2 text-sm font-medium text-red-800">Unable to load client files</h3>
+                        <p className="mt-1 text-sm text-red-700">There was an issue fetching the Business Information files. Please try again later or contact support if the problem persists.</p>
+                        {birError.message && <p className="mt-1 text-xs text-red-600">Error: {birError.message}</p>}
+                      </div>
+                  )}
+                  {!isLoadingBir && !birError && (!signedBirFiles || signedBirFiles.length === 0) && (
+                    <div className="text-center py-10">
+                      <DocumentIcon className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-semibold text-gray-900">No client files</h3>
+                      <p className="mt-1 text-sm text-gray-500">The client hasn&rsquo;t uploaded any files for this project&rsquo;s Business Information Request yet.</p>
+                    </div>
+                  )}
+                  {!isLoadingBir && !birError && signedBirFiles && signedBirFiles.length > 0 && (
+                    <ul role="list" className="divide-y divide-gray-200 border-t border-gray-200">
+                      {signedBirFiles.map((file) => (
+                        <li key={file.id} className="flex items-center justify-between py-3 hover:bg-gray-50 px-2">
+                          <div className="flex min-w-0 items-center gap-x-3">
+                            <PaperClipIcon className="h-5 w-5 flex-shrink-0 text-gray-400" aria-hidden="true" />
+                            <div className="min-w-0 flex-auto">
+                              {file.publicUrl ? (
+                                <a
+                                  href={file.publicUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm font-medium text-indigo-600 hover:text-indigo-500 truncate"
+                                  title={file.original_name}
+                                >
+                                  {file.original_name}
+                                </a>
+                              ) : (
+                                <span className="text-sm text-gray-500 truncate" title={file.original_name}>
+                                  {file.original_name} (Processing)
+                                </span>
+                              )}
+                               <p className="text-xs text-gray-500">
+                                {file.size_bytes !== null && file.size_bytes !== undefined ? formatFileSize(file.size_bytes) : 'N/A'}
+                                {file.mime_type && ` • ${file.mime_type}`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="ml-4 flex-shrink-0 flex items-center gap-x-3">
+                            {file.publicUrl && (
+                              <a
+                                href={file.publicUrl}
+                                download={file.original_name}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-x-1.5 rounded-md bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                              >
+                                <DocumentArrowDownIcon className="-ml-0.5 h-4 w-4 text-gray-500" aria-hidden="true" />
+                                Download
+                              </a>
+                            )}
+                            {!file.publicUrl && file.error === 'not_found' && (
+                               <span className="text-xs text-yellow-600 italic">File not in storage</span>
+                            )}
+                            {!file.publicUrl && file.error === 'generic' && (
+                               <span className="text-xs text-red-600 italic">Download error</span>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                // === EXISTING Logic for Designer Files OR Non-Web-Design Client Files ===
+                <>
+                  {filteredAndSortedFiles().length > 0 ? (
+                    fileViewMode === 'list' ? (
+                      <ul className="divide-y divide-gray-200">
+                        {filteredAndSortedFiles().map((file, index) => (
+                          <li key={index} className="py-4 flex justify-between items-center">
+                            <div className="flex items-center">
+                              {getFileIcon(file)}
+                              <div className="ml-3">
+                                <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                                <p className="text-xs text-gray-500">
+                                  Uploaded {formatDate(file.upload_date)} • {formatFileSize(file.size)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleFileDownload(file.url, file.name)}
+                                disabled={isSubmitting}
+                              >
+                                Download
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                onClick={() => handleFileDelete(file.url, file.name)}
+                                disabled={isSubmitting}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {filteredAndSortedFiles().map((file, index) => (
+                          <div 
+                            key={index} 
+                            className="relative group border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all duration-200"
+                          >
+                            <div className="flex items-center justify-center bg-gray-50 h-36 p-4">
+                              {isViewableImage(file) ? (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <img 
+                                    src={`/api/projects/files/download?path=${encodeURIComponent(file.url)}&preview=true`}
+                                    alt={file.name}
+                                    className="max-h-full max-w-full object-contain"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      // If image fails to load, show file icon
+                                      const target = e.target as HTMLImageElement;
+                                      if (target.parentElement) {
+                                        // Hide the broken image
+                                        target.style.display = 'none';
+                                        
+                                        // Create container for icon
+                                        const iconContainer = document.createElement('div');
+                                        iconContainer.className = 'flex flex-col items-center justify-center h-full';
+                                        
+                                        // Create icon element based on file type
+                                        const iconType = getFileType(file);
+                                        const iconColor = 
+                                          iconType === 'image' ? 'text-blue-500' : 
+                                          iconType === 'pdf' ? 'text-red-500' : 
+                                          iconType === 'document' ? 'text-blue-600' : 
+                                          iconType === 'spreadsheet' ? 'text-green-600' : 
+                                          iconType === 'presentation' ? 'text-orange-500' : 
+                                          iconType === 'archive' ? 'text-yellow-500' : 'text-gray-400';
+                                        
+                                        iconContainer.innerHTML = `
+                                          <svg class="h-12 w-12 ${iconColor}" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
+                                          </svg>
+                                          <span class="mt-2 text-xs text-gray-500 uppercase">${file.name.split('.').pop() || ''}</span>
+                                        `;
+                                        
+                                        target.parentElement.appendChild(iconContainer);
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              ) : isImage(file) ? (
+                                // Special handling for non-web image formats like HEIC
+                                <div className="flex flex-col items-center justify-center h-full">
+                                  <svg className="h-8 w-8 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd"></path>
+                                  </svg>
+                                  <span className="mt-2 text-xs text-gray-500">IMAGE</span>
+                                  <span className="text-xs text-gray-500 uppercase">{file.name.split('.').pop()}</span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center justify-center h-full">
+                                  {getFileIcon(file)}
+                                  <span className="mt-2 text-xs text-gray-500 uppercase">{file.name.split('.').pop()}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-3">
+                              <p className="text-sm font-medium text-gray-900 truncate" title={file.name}>
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {formatFileSize(file.size)}
+                              </p>
+                            </div>
+                            <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="bg-white shadow-sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleFileDownload(file.url, file.name);
+                                }}
+                                disabled={isSubmitting}
+                              >
+                                Download
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="bg-white shadow-sm text-red-600 hover:text-red-800 hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleFileDelete(file.url, file.name);
+                                }}
+                                disabled={isSubmitting}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-center py-8">
+                      <DocumentIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <h3 className="text-sm font-medium text-gray-900">
+                        {filesSubTab === 'designer' 
+                          ? 'No designer files uploaded yet' 
+                          : "The client hasn't uploaded any files for this project"
+                        }
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {filesSubTab === 'designer'
+                          ? 'Upload files to share with the client'
+                          : 'The client hasn\'t uploaded any files for this project'
+                        }
+                      </p>
+                      {filesSubTab === 'designer' && (
+                        <Button 
+                          className="mt-4" 
+                          onClick={handleFileUpload}
+                          disabled={isSubmitting}
+                        >
+                          Upload Files
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

@@ -19,6 +19,7 @@ import { BirAnswersData } from '@/lib/validation/bir';
 import { format } from 'date-fns';
 import { FileIcon, ImageIcon, DownloadIcon } from 'lucide-react'; // Import icons
 import { cn } from '@/lib/utils'; // Assuming cn utility is available
+import { Skeleton } from '@/components/ui/skeleton';
 
 export interface BirSummaryProps {
   bir: BirRow;
@@ -130,7 +131,22 @@ export default function BirSummary({ bir, signedFiles }: BirSummaryProps) {
         {/* Display Files */}
         <section>
           <h4 className="text-lg font-semibold mb-3">Uploaded Files</h4>
-          {signedFiles && signedFiles.length > 0 ? (
+          {signedFiles === null && (
+            // Skeleton for when signedFiles is null (still loading/processing or error state)
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 border rounded bg-muted/50">
+                  <Skeleton className="h-10 w-10 rounded" />
+                  <div className="flex-grow min-w-0">
+                    <Skeleton className="h-4 w-3/4 mb-1" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                  <Skeleton className="h-5 w-5" />
+                </div>
+              ))}
+            </div>
+          )}
+          {signedFiles && signedFiles.length > 0 && (
             <ul className="space-y-3">
               {signedFiles.map((file) => (
                 <li key={file.id} className="flex items-center gap-3 p-2 border rounded bg-muted/50">
@@ -181,7 +197,8 @@ export default function BirSummary({ bir, signedFiles }: BirSummaryProps) {
                 </li>
               ))}
             </ul>
-          ) : (
+          )}
+          {signedFiles && signedFiles.length === 0 && (
             <p className="text-muted-foreground italic">No files have been uploaded for this request.</p>
           )}
         </section>

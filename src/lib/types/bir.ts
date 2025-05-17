@@ -45,5 +45,13 @@ export enum BirFileType {
   Misc = 'misc',
 }
 
-// Type combining BirFileRow with a potential signed URL
-export type SignedBirFile = BirFileRow & { publicUrl?: string }; 
+// Type combining BirFileRow with a potential signed URL and error status from useBir hook
+export type SignedBirFile = BirFileRow & { 
+  publicUrl?: string;
+  /**
+   * 'not_found'    – file missing in storage
+   * 'generic'      – any other error we normalise into a generic one
+   * string         – fallback for unforeseen Supabase / network errors
+   */
+  error?: 'not_found' | 'generic' | string | undefined; 
+}; 

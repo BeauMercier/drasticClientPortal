@@ -10,14 +10,16 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/features/auth';
-import { BellIcon } from '@heroicons/react/24/outline';
+import { BellIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import { supabase } from '@/lib/api';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeToggle } from '../atoms';
+import { useUI } from '@/shared/contexts/UIContext';
 
 export default function Header() {
   const { user } = useAuth();
+  const { toggleSidebar, sidebarExpanded } = useUI();
   const pathname = usePathname();
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -51,9 +53,23 @@ export default function Header() {
   const getPageTitle = () => {
     const pathSegments = pathname?.split('/').filter(Boolean) || ['dashboard'];
     const mainPath = pathSegments[0];
-    
-    // Special handling for admin section
-    if (mainPath === 'admin') {
+    let pageTitle = 'Dashboard';
+
+    if (mainPath === 'client') {
+      const clientSubPath = pathSegments[1];
+      if (!clientSubPath) {
+        pageTitle = 'Dashboard';
+      } else {
+        const clientTitles: Record<string, string> = {
+          'projects': 'Projects',
+          'my-profile': 'My Profile',
+          'files': 'My Files',
+          'billing': 'Billing & Payments',
+          'settings': 'Settings'
+        };
+        pageTitle = clientTitles[clientSubPath] || 'Client Dashboard';
+      }
+    } else if (mainPath === 'admin') {
       const subPath = pathSegments[1];
       
       if (subPath === 'users') return 'User Management';
@@ -64,17 +80,21 @@ export default function Header() {
       if (subPath === 'settings') return 'System Settings';
       
       return 'Admin Dashboard';
+    } else if (mainPath === 'designer') {
+        const designerSubPath = pathSegments[1];
+        if (designerSubPath === 'projects') return 'My Projects';
+        return 'Designer Dashboard';
+    } else {
+        const genericTitles: Record<string, string> = {
+          'dashboard': 'Dashboard',
+          'files': 'My Files',
+          'projects': 'Projects',
+          'billing': 'Billing & Payments',
+          'settings': 'Settings',
+        };
+        pageTitle = genericTitles[mainPath] || 'Dashboard';
     }
-    
-    const titles: Record<string, string> = {
-      'dashboard': 'Dashboard',
-      'files': 'My Files',
-      'projects': 'Projects',
-      'billing': 'Billing & Payments',
-      'settings': 'Settings',
-    };
-    
-    return titles[mainPath] || 'Dashboard';
+    return pageTitle;
   };
 
   // Get appropriate action button based on current path
@@ -182,9 +202,17 @@ export default function Header() {
   const adminBreadcrumbs = getAdminBreadcrumbs();
 
   return (
-    <header className="bg-black shadow-lg py-4 px-6 border-b border-gray-900 z-50">
-      <div className="flex items-center justify-between">
+    <header className="sticky top-0 bg-black shadow-lg h-[72px] min-h-[72px] flex-none px-6 border-b border-gray-900 z-50 flex items-center">
+      <div className="w-full flex items-center justify-between">
         <div className="flex items-center">
+          <button
+            onClick={toggleSidebar}
+            className="mr-3 p-2 rounded-md text-gray-300 hover:bg-gray-900 hover:text-white md:hidden"
+            aria-label="Toggle sidebar"
+          >
+            <Bars3Icon className="h-6 w-6" />
+          </button>
+          
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold text-white mr-2">{getPageTitle()}</h1>
             {adminBreadcrumbs}

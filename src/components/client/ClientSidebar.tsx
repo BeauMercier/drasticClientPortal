@@ -42,15 +42,16 @@ export default function ClientSidebar() { // Renamed component
   return (
     // Fixed positioning and full viewport height - EXACTLY like AdminSidebar
     <div 
-      className={`fixed top-0 left-0 h-screen bg-black text-white shadow-lg transition-all duration-300 ${
-        sidebarExpanded ? 'w-64' : 'w-16'
-      }`}
+      className={`fixed top-0 left-0 h-screen bg-black text-white shadow-lg 
+                 transition-all duration-300 ease-in-out z-40
+                 ${sidebarExpanded ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-16 md:translate-x-0'}
+      `}
     >
-      {/* Header section - Match the main header height of 72px */}
-      <div className="flex items-center justify-between h-[72px] px-4 relative">
+      {/* Header section - Match the main header height of 72px - HIDDEN ON MOBILE */}
+      <div className="hidden md:flex items-center justify-between h-[72px] px-4 relative">
         {/* Separate border div with adjusted positioning */}
         <div className="absolute bottom-[-1px] left-0 right-0 h-[1px] bg-gray-400"></div>
-        <div className={`${sidebarExpanded ? 'block' : 'hidden'} items-center`}>
+        <div className={`${sidebarExpanded ? 'md:block hidden' : 'hidden'} items-center`}>
           <div className="relative w-[160px] h-[45px] brightness-0 invert">
             <Image 
               src="/images/logos/Asset 1.svg"
@@ -81,8 +82,8 @@ export default function ClientSidebar() { // Renamed component
       </div>
 
       {/* Navigation: Update height calculation to account for 72px header */}
-      <nav className="flex-grow overflow-y-auto mt-6">
-        <ul className="space-y-2 px-2">
+      <nav className="flex-grow overflow-y-auto px-2 pt-[72px] md:pt-0 md:mt-6">
+        <ul className="space-y-2">
           {clientMenuItems.map((item) => { // Use clientMenuItems
             // Updated isActive logic for client base path
             const isActive = pathname === item.href || (item.href !== '/client' && pathname.startsWith(item.href));
@@ -90,7 +91,11 @@ export default function ClientSidebar() { // Renamed component
               <li key={item.name}>
                 <Link
                   href={item.href}
-                  // Use the exact same active/inactive styling as AdminSidebar
+                  onClick={() => {
+                    if (sidebarExpanded && window.innerWidth < 768) {
+                      toggleSidebar();
+                    }
+                  }}
                   className={`flex items-center p-2 rounded-md transition-colors ${
                     isActive 
                       ? 'bg-[#ff2424] text-white' 

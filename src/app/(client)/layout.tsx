@@ -11,11 +11,11 @@ export default function ClientLayout({ children }: PropsWithChildren) {
   const { sidebarExpanded } = useUI();
   
   return (
-    <div className="min-h-screen h-full bg-black"> 
+    <div className="min-h-screen h-full bg-gray-100 dark:bg-black"> 
       <div className="flex h-full"> 
         {/* <RoleSidebar /> */}
         <ClientSidebar /> {/* Use ClientSidebar */}
-        <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarExpanded ? 'ml-64' : 'ml-16'}`}> 
+        <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 w-full ${sidebarExpanded ? 'md:ml-64' : 'md:ml-16'} ml-0`}> 
           <Header />
           <main className="relative flex-grow p-6 overflow-y-auto bg-gray-100 dark:bg-gray-900">
             {children}

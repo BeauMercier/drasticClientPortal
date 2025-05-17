@@ -53,7 +53,7 @@ export default function ClientDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]"> {/* Adjust height as needed */}
+      <div className="flex items-center justify-center min-h-[300px]"> {/* Changed height */}
         <ArrowPathIcon className="h-8 w-8 text-gray-500 animate-spin" />
         <span className="ml-2">Loading Dashboard...</span>
       </div>

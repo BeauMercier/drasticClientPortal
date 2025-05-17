@@ -158,26 +158,46 @@ export default function DesignerProjectsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-white">My Projects</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Projects</h1>
       </div>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-8">
-        <TabsList className="bg-gray-800">
-          <TabsTrigger value="all" className="data-[state=active]:bg-red-500">All Projects</TabsTrigger>
-          <TabsTrigger value="active" className="data-[state=active]:bg-red-500">Active</TabsTrigger>
-          <TabsTrigger value="upcoming" className="data-[state=active]:bg-red-500">Upcoming Deadlines</TabsTrigger>
-          <TabsTrigger value="completed" className="data-[state=active]:bg-red-500">Completed</TabsTrigger>
+        <TabsList className="bg-slate-200 dark:bg-slate-800 p-1 rounded-lg">
+          <TabsTrigger 
+            value="all" 
+            className="px-3 py-1.5 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-primary-600 data-[state=active]:text-white dark:data-[state=active]:bg-primary-500 dark:data-[state=active]:text-white"
+          >
+            All Projects
+          </TabsTrigger>
+          <TabsTrigger 
+            value="active" 
+            className="px-3 py-1.5 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-primary-600 data-[state=active]:text-white dark:data-[state=active]:bg-primary-500 dark:data-[state=active]:text-white"
+          >
+            Active
+          </TabsTrigger>
+          <TabsTrigger 
+            value="upcoming" 
+            className="px-3 py-1.5 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-primary-600 data-[state=active]:text-white dark:data-[state=active]:bg-primary-500 dark:data-[state=active]:text-white"
+          >
+            Upcoming Deadlines
+          </TabsTrigger>
+          <TabsTrigger 
+            value="completed" 
+            className="px-3 py-1.5 text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 data-[state=active]:bg-primary-600 data-[state=active]:text-white dark:data-[state=active]:bg-primary-500 dark:data-[state=active]:text-white"
+          >
+            Completed
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="all" className="mt-6">
-          <h2 className="text-lg font-medium text-gray-200 mb-4">All Projects ({projects.length})</h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-200 mb-4">All Projects ({projects.length})</h2>
           <div className="grid grid-cols-1 gap-6">
             {renderProjects(filteredProjects)}
           </div>
         </TabsContent>
         
         <TabsContent value="active" className="mt-6">
-          <h2 className="text-lg font-medium text-gray-200 mb-4">Active Projects ({
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-200 mb-4">Active Projects ({
             projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled').length
           })</h2>
           <div className="grid grid-cols-1 gap-6">
@@ -186,14 +206,14 @@ export default function DesignerProjectsPage() {
         </TabsContent>
         
         <TabsContent value="upcoming" className="mt-6">
-          <h2 className="text-lg font-medium text-gray-200 mb-4">Upcoming Deadlines</h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-200 mb-4">Upcoming Deadlines</h2>
           <div className="grid grid-cols-1 gap-6">
             {renderProjects(filteredProjects)}
           </div>
         </TabsContent>
         
         <TabsContent value="completed" className="mt-6">
-          <h2 className="text-lg font-medium text-gray-200 mb-4">Completed Projects ({
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-200 mb-4">Completed Projects ({
             projects.filter(p => p.status === 'completed').length
           })</h2>
           <div className="grid grid-cols-1 gap-6">
@@ -208,26 +228,26 @@ export default function DesignerProjectsPage() {
   function renderProjects(projectsList: any[]) {
     if (projectsList.length === 0) {
       return (
-        <Card className="bg-gray-800 border-gray-700">
+        <Card className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           <CardContent className="p-6">
-            <p className="text-center text-gray-400">No projects found</p>
+            <p className="text-center text-gray-600 dark:text-gray-400">No projects found</p>
           </CardContent>
         </Card>
       );
     }
     
     return projectsList.map((project) => (
-      <Card key={project.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-200 bg-gray-800 border-gray-700">
+      <Card key={project.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
         <CardContent className="p-6">
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <h3 className="text-lg font-medium text-white">
-                <Link href={`/designer/projects/${project.type || 'web_design'}/${project.id}`} className="hover:underline text-red-400">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                <Link href={`/designer/projects/${project.type || 'web_design'}/${project.id}`} className="hover:underline text-primary-600 dark:text-primary-400">
                   {project.name || project.title}
                 </Link>
               </h3>
               
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 {project.description?.substring(0, 150)}
                 {project.description?.length > 150 ? '...' : ''}
               </p>
@@ -238,7 +258,7 @@ export default function DesignerProjectsPage() {
                 </Badge>
                 
                 {project.deadline && (
-                  <span className="text-xs text-gray-400 flex items-center">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
                     <ClockIcon className="h-3 w-3 mr-1" />
                     Due {formatDate(project.deadline)}
                   </span>
@@ -249,7 +269,7 @@ export default function DesignerProjectsPage() {
                 </Badge>
                 
                 {project.client_name && (
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     Client: {project.client_name}
                   </span>
                 )}
@@ -258,7 +278,7 @@ export default function DesignerProjectsPage() {
             
             <div className="ml-4">
               <Button 
-                className="bg-red-600 hover:bg-red-700 text-white"
+                className="bg-primary-600 hover:bg-primary-700 text-white"
                 size="sm" 
                 onClick={() => router.push(`/designer/projects/${project.type || 'web_design'}/${project.id}`)}
               >

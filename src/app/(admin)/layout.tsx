@@ -10,14 +10,14 @@ export default function AdminLayout({ children }: PropsWithChildren) {
   const { sidebarExpanded } = useUI();
   
   return (
-    <div className="min-h-screen h-full bg-black">
+    <div className="min-h-screen h-full bg-gray-100 dark:bg-black">
       <div className="flex h-full">
         <AdminSidebar /> {/* Use the specific AdminSidebar */}
         {/* Adjust margin based on sidebar state */}
         <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarExpanded ? 'ml-64' : 'ml-16'}`}>
           <Header /> {/* Keep the header */}
-          {/* Use dark background for main content area */}
-          <main className="flex-grow p-6 overflow-y-auto bg-gray-900 dark:bg-black">
+          {/* Apply theme-aware background to the main content area */}
+          <main className="flex-grow p-6 overflow-y-auto bg-gray-100 dark:bg-gray-900">
               {children}
           </main>
         </div>

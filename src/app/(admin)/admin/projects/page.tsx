@@ -558,40 +558,40 @@ export default function AdminProjects() {
   return (
     <div className="container mx-auto p-4 md:p-6">
       <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard - Projects</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Admin Dashboard - Projects</h1>
         <p className="text-muted-foreground">Manage all client projects from one place.</p>
       </header>
 
       {/* Search and Filter UI - Restored */}
       <div className="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500 dark:text-gray-400" />
           <Input
             type="search"
             placeholder="Search by title, client, type..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8 w-full"
+            className="pl-8 w-full bg-white dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-50 placeholder:text-gray-500 dark:placeholder:text-gray-400"
           />
         </div>
         <div className="flex items-center gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px] bg-white dark:bg-gray-950 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-50 data-[placeholder]:text-gray-500 dark:data-[placeholder]:text-gray-400">
               <span className="flex items-center"> 
-                <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
+                <Filter className="mr-2 h-4 w-4 text-gray-500 dark:text-gray-400" />
                 <SelectValue placeholder="Filter by status" />
               </span>
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="on_hold">On Hold</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectContent className="bg-white dark:bg-gray-950 border-gray-300 dark:border-gray-800 text-gray-900 dark:text-gray-50">
+              <SelectItem value="all" className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">All Statuses</SelectItem>
+              <SelectItem value="pending" className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">Pending</SelectItem>
+              <SelectItem value="in_progress" className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">In Progress</SelectItem>
+              <SelectItem value="on_hold" className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">On Hold</SelectItem>
+              <SelectItem value="completed" className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">Completed</SelectItem>
+              <SelectItem value="cancelled" className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">Cancelled</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => { setIsAddProjectOpen(true); fetchClients(); }}>
+          <Button onClick={() => { setIsAddProjectOpen(true); fetchClients(); }} className="bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600">
             <Plus className="mr-2 h-4 w-4" />
             Add Project
           </Button>
@@ -599,31 +599,31 @@ export default function AdminProjects() {
       </div>
       
       {isLoading && (
-        // Skeleton loading state - existing code
+        // Skeleton loading state
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="p-4 rounded-lg border animate-pulse">
-              <Skeleton className="h-24 w-full" /> {/* Simplified Skeleton Card */}
+            <div key={i} className="p-4 rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 animate-pulse">
+              <Skeleton className="h-24 w-full bg-gray-200 dark:bg-gray-700" />
             </div>
           ))}
         </div>
       )}
 
       {!isLoading && error && (
-        <div className="text-red-500 text-center py-10 bg-red-50 p-4 rounded-md">
+        <div className="text-red-700 dark:text-red-400 text-center py-10 bg-red-50 dark:bg-red-900/30 p-4 rounded-md">
           <h2 className="text-xl font-semibold mb-2">Failed to load projects</h2>
           <p>{error}</p>
-          <Button onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
+          <Button onClick={() => window.location.reload()} className="mt-4 bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600">Try Again</Button>
         </div>
       )}
 
       {!isLoading && !error && projects.length === 0 && (
          <div className="text-center py-10">
-            <Briefcase className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-semibold text-gray-900">No projects found</h3>
-            <p className="mt-1 text-sm text-gray-500">Get started by creating a new project.</p>
+            <Briefcase className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
+            <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">No projects found</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating a new project.</p>
             <div className="mt-6">
-                <Button onClick={() => setIsAddProjectOpen(true)}>
+                <Button onClick={() => setIsAddProjectOpen(true)} className="bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600">
                     <Plus className="-ml-0.5 mr-1.5 h-5 w-5" aria-hidden="true" />
                     New Project
                 </Button>
@@ -636,7 +636,7 @@ export default function AdminProjects() {
           {filteredProjects.map((project) => (
             <div 
               key={project.id} 
-              className="bg-card border rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => {
                 console.log('[AdminProjects] Project card clicked:', project?.title);
                 fetchProjectDetails(project);
@@ -648,20 +648,24 @@ export default function AdminProjects() {
                     project.type === 'web_design' ? 'default' :
                     project.type === 'logo_design' ? 'secondary' :
                     'outline'
+                  } className={
+                    project.type === 'web_design' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-700' :
+                    project.type === 'logo_design' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700' :
+                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
                   }>{project.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</Badge>
                   <DropdownMenu>
-                    <DropdownMenuTrigger onClick={(e) => e.stopPropagation()} className="h-7 w-7 p-0 flex items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-ring data-[state=open]:bg-muted hover:bg-accent hover:text-accent-foreground">
+                    <DropdownMenuTrigger onClick={(e) => e.stopPropagation()} className="h-7 w-7 p-0 flex items-center justify-center rounded-md focus:outline-none focus:ring-2 focus:ring-ring data-[state=open]:bg-gray-100 dark:data-[state=open]:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">
                       <span className="flex items-center justify-center"> {/* Wrapper for single child */}
                         <MoreHorizontal className="h-4 w-4" />
                         <span className="sr-only">Open menu</span>
                       </span>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}> {/* Stop propagation here too */}
-                      <DropdownMenuItem onClick={() => fetchProjectDetails(project)}>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-50">
+                      <DropdownMenuItem onClick={() => fetchProjectDetails(project)} className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">
                         <Eye className="mr-2 h-4 w-4" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleEdit(project)}>
+                      <DropdownMenuItem onClick={() => handleEdit(project)} className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Project
                       </DropdownMenuItem>
@@ -670,11 +674,11 @@ export default function AdminProjects() {
                         setSelectedDesignerId(project.designer_id || ''); // Pre-select assigned designer
                         setIsAssignDesignerOpen(true);
                         fetchDesigners();
-                      }}>
+                      }} className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">
                         <UserPlus className="mr-2 h-4 w-4" />
                         Assign Designer
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => { setProjectToDelete(project); setIsDeleteConfirmOpen(true); }} className="text-red-600 hover:!text-red-700 focus:!text-red-700">
+                      <DropdownMenuItem onClick={() => { setProjectToDelete(project); setIsDeleteConfirmOpen(true); }} className="text-red-600 hover:!text-red-700 hover:!bg-red-50 dark:text-red-500 dark:hover:!text-red-400 dark:hover:!bg-red-900/50 focus:!text-red-700 dark:focus:!text-red-400 focus:!bg-red-50 dark:focus:!bg-red-900/50">
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete Project
                       </DropdownMenuItem>
@@ -682,15 +686,15 @@ export default function AdminProjects() {
                   </DropdownMenu>
                 </div>
                 <h3 
-                  className="text-xl font-semibold leading-tight truncate group-hover:underline"
+                  className="text-xl font-semibold leading-tight truncate text-gray-900 dark:text-white group-hover:underline"
                   // onClick handler removed from h3 as the parent div is now clickable
                 >
                   {project.title}
                 </h3>
-                <p className="mt-1 text-sm text-muted-foreground truncate" title={project.description || ''}>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 truncate" title={project.description || ''}>
                   {project.description || 'No description'}
                 </p>
-                <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                <div className="mt-3 space-y-1 text-xs text-gray-500 dark:text-gray-400">
                   <div className="flex items-center">
                     <Briefcase className="mr-1.5 h-3.5 w-3.5" />
                     Client: {project.client?.full_name || project.client?.company || project.user_id}
@@ -698,13 +702,13 @@ export default function AdminProjects() {
                   {project.status && (
                       <div className="flex items-center">
                           <span className={`mr-1.5 h-2 w-2 rounded-full ${getStatusColor(project.status)}`}></span>
-                          Status: <span className="capitalize">{project.status.replace(/_/g, ' ')}</span>
+                          Status: <span className="capitalize text-gray-700 dark:text-gray-300">{project.status.replace(/_/g, ' ')}</span>
                       </div>
                   )}
                   {project.current_stage && (
                        <div className="flex items-center">
-                          <span className="text-xs">→</span> {/* Simpler arrow */}
-                          <span className="ml-1">Stage:</span> <span className="capitalize ml-1">{project.current_stage.replace(/-/g, ' ')}</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">→</span> {/* Simpler arrow */}
+                          <span className="ml-1">Stage:</span> <span className="capitalize ml-1 text-gray-700 dark:text-gray-300">{project.current_stage.replace(/-/g, ' ')}</span>
                       </div>
                   )}
                   {project.deadline && (
@@ -722,55 +726,55 @@ export default function AdminProjects() {
       
       {/* Edit Project Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-50">
           <DialogHeader>
-            <DialogTitle>Edit Project: {editProject?.title}</DialogTitle> {/* Use title */}
-            <DialogDescription>
+            <DialogTitle className="text-gray-900 dark:text-white">Edit Project: {editProject?.title}</DialogTitle> {/* Use title */}
+            <DialogDescription className="text-gray-600 dark:text-gray-400">
               Update the details for this project. Click save when you're done.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-title" className="text-right">Title</Label> {/* Changed from Name to Title */}
+              <Label htmlFor="edit-title" className="text-right text-gray-700 dark:text-gray-300">Title</Label> {/* Changed from Name to Title */}
               <Input
                 id="edit-title"
                 name="title" // Name attribute for forms
                 value={editFormData.title} // Controlled component
                 onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))}
-                className="col-span-3"
+                className="col-span-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-50 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 placeholder="Project Title"
                 required
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-description" className="text-right">Description</Label>
+              <Label htmlFor="edit-description" className="text-right text-gray-700 dark:text-gray-300">Description</Label>
               <Textarea
                 id="edit-description"
                 name="description"
                 value={editFormData.description} // Controlled component
                 onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
-                className="col-span-3"
+                className="col-span-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-50 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                 placeholder="Project Description"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-deadline" className="text-right">Deadline</Label>
+              <Label htmlFor="edit-deadline" className="text-right text-gray-700 dark:text-gray-300">Deadline</Label>
               <Input
                 id="edit-deadline"
                 name="deadline"
                 type="date"
                 value={editFormData.deadline} // Controlled component
                 onChange={(e) => setEditFormData(prev => ({ ...prev, deadline: e.target.value }))}
-                className="col-span-3"
+                className="col-span-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-50 placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-status" className="text-right">Status</Label>
+              <Label htmlFor="edit-status" className="text-right text-gray-700 dark:text-gray-300">Status</Label>
               <Select value={editStatus} onValueChange={setEditStatus} name="status">
-                <SelectTrigger id="edit-status" className="col-span-3">
+                <SelectTrigger id="edit-status" className="col-span-3 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-50 data-[placeholder]:text-gray-400 dark:data-[placeholder]:text-gray-500">
                   <SelectValue placeholder="Select status..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white dark:bg-gray-950 border-gray-300 dark:border-gray-800 text-gray-900 dark:text-gray-50">
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="on_hold">On Hold</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
@@ -780,7 +784,7 @@ export default function AdminProjects() {
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-stage" className="text-right">Stage</Label>
+              <Label htmlFor="edit-stage" className="text-right text-gray-700 dark:text-gray-300">Stage</Label>
               <div className="col-span-3">
                 <StageSelect 
                   value={stage} 

@@ -5,6 +5,8 @@ import { useForm, SubmitHandler, FieldErrors, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { KeyedMutator } from 'swr';
+import { clsx } from 'clsx';
+import { XMarkIcon } from "@heroicons/react/24/outline";
 
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -84,11 +86,23 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
   const [isSubmittingTextData, setIsSubmittingTextData] = useState(false);
   const [textDataSubmittedSuccessfully, setTextDataSubmittedSuccessfully] = useState(false);
 
-  // Filter out FileUploadStep initially from the textual steps
-  // const textualSteps = birStepsConfig.filter(step => step.id !== 'fileUpload');
-  // Let's assume for now birStepsConfig only contains textual steps
-  const textualSteps = birStepsConfig; 
+  const textualSteps = birStepsConfig;
   const isLastTextualStep = currentStepIndex === textualSteps.length - 1;
+
+  // Define isEditing early, before any potential early returns related to loading/error states.
+  // It depends on textDataSubmittedSuccessfully and fetchedBir status.
+  const isApproved = fetchedBir && fetchedBir.status === 'approved';
+  const isEditing = !textDataSubmittedSuccessfully && !isApproved;
+
+  // Scroll lock effect - Called unconditionally at the top level
+  useEffect(() => {
+    if (isEditing) {
+      document.body.classList.add("overflow-hidden");
+    } else {
+      document.body.classList.remove("overflow-hidden");
+    }
+    return () => document.body.classList.remove("overflow-hidden");
+  }, [isEditing]);
 
   const form = useForm<BirFormValues>({
     resolver: zodResolver(birInsertSchema),
@@ -104,18 +118,8 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     if (user?.id && !form.getValues('client_id')) {
       form.setValue('client_id', user.id);
     }
-
-    if (birLoading) return; // Don't do anything until bir data is loaded or confirmed not present
-
-    // DO NOT set textDataSubmittedSuccessfully here when just loading a draft or existing data.
-    // This state should only be true after a successful SUBMIT operation via handleSubmitAllAnswers.
-    // if (fetchedBir && !form.formState.isDirty && !textDataSubmittedSuccessfully && shouldInitializeTextDataSubmitted) {
-    //   setTextDataSubmittedSuccessfully(true);
-    // }
-    
-    // Form reset logic
-    // Only reset/populate if not in summary view OR if user clicked edit (which sets textDataSubmittedSuccessfully to false).
-    if (!textDataSubmittedSuccessfully) { 
+    if (birLoading) return;
+    if (!textDataSubmittedSuccessfully && !isApproved) { // Only reset if editing and not approved
       if (fetchedBir && isValidAnswersObject(fetchedBir.answers)) {
         const mergedAnswers = { ...getDefaultAnswers(), ...fetchedBir.answers };
         form.reset({
@@ -123,8 +127,8 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
           client_id: user?.id || fetchedBir.client_id || '',
           project_type: 'web_design',
           answers: mergedAnswers,
-        }, { keepValues: form.formState.isDirty }); // Preserve dirty fields if user was editing
-      } else if (!birError && !fetchedBir && user?.id) { // No fetchedBir, but user exists (new form)
+        }, { keepValues: form.formState.isDirty });
+      } else if (!birError && !fetchedBir && user?.id) {
         form.reset({
           project_id: projectId,
           project_type: 'web_design',
@@ -133,24 +137,16 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
         });
       }
     }
-  }, [fetchedBir, projectId, birLoading, birError, user, form, textDataSubmittedSuccessfully]); // Added textDataSubmittedSuccessfully back to deps
+  }, [fetchedBir, projectId, birLoading, birError, user, form, textDataSubmittedSuccessfully, isApproved]);
 
   const handleNextStep = async () => {
     const currentStepFields = textualSteps[currentStepIndex].fields;
-    // Need to cast field names to Path<BirFormValues> for trigger
     const fieldsToValidate = currentStepFields.map(field => `answers.${field}` as Path<BirFormValues>);
-
     const isValid = await form.trigger(fieldsToValidate.length > 0 ? fieldsToValidate : undefined);
     if (isValid) {
-      if (!isLastTextualStep) {
-        setCurrentStepIndex((prev) => prev + 1);
-      }
+      if (!isLastTextualStep) setCurrentStepIndex((prev) => prev + 1);
     } else {
-      toast({
-        title: "Validation Error",
-        description: "Please check the current step for errors before proceeding.",
-        variant: "destructive",
-      });
+      toast({ title: "Validation Error", description: "Please check errors.", variant: "destructive" });
     }
   };
 
@@ -162,303 +158,245 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     setIsSubmittingTextData(true);
     const currentValues = form.getValues();
     let savedBirId: string | null = null;
-
     try {
       if (fetchedBir && fetchedBir.id) {
-        // Update existing BIR as a draft
-        const updatePayload: BirUpdateDTO = {
-          id: fetchedBir.id,
-          answers: pruneEmptyStrings(currentValues.answers ?? {}), // Prune empty strings here too
-          status: 'pending',
-        };
+        const updatePayload: BirUpdateDTO = { id: fetchedBir.id, answers: pruneEmptyStrings(currentValues.answers ?? {}), status: 'pending' };
         const validationResult = birUpdateSchema.safeParse(updatePayload);
-        if (!validationResult.success) {
-          console.error("Draft update validation error:", validationResult.error.flatten());
-          throw new Error('Validation failed when saving draft.');
-        }
-
-        const res = await fetch('/api/bir', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(validationResult.data),
-        });
+        if (!validationResult.success) throw new Error('Validation failed saving draft.');
+        const res = await fetch('/api/bir', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(validationResult.data) });
         const result = await res.json();
         if (!res.ok) throw new Error(result.error || 'Failed to save draft.');
         savedBirId = result.id;
-        toast({ title: "Draft Saved", description: "Your progress has been saved as a draft." });
       } else {
-        // Create new BIR as a draft
-        const insertPayload: BirInsertDTO = {
-          project_id: projectId,
-          client_id: user?.id || '', // Ensure client_id is set
-          project_type: 'web_design',
-          answers: pruneEmptyStrings(currentValues.answers ?? {}), // Prune empty strings from answers
-          status: 'pending', // Add status for new drafts
-        };
-
-        // Validate specifically for insert, potentially with a more lenient schema if needed for drafts
-        const basicInsertSchema = z.object({
-          project_id: z.string().uuid(),
-          client_id: z.string().uuid(),
-          project_type: z.literal('web_design'),
-          // answers is intentionally z.any() here for the draft to avoid frontend deep validation issues.
-          // Backend will validate answers more strictly.
-          answers: z.any(), 
-          status: birStatusSchema.optional(), // Use imported birStatusSchema for draft validation
-        });
-
+        const insertPayload: BirInsertDTO = { project_id: projectId, client_id: user?.id || '', project_type: 'web_design', answers: pruneEmptyStrings(currentValues.answers ?? {}), status: 'pending' };
+        const basicInsertSchema = z.object({ project_id: z.string().uuid(), client_id: z.string().uuid(), project_type: z.literal('web_design'), answers: z.any(), status: birStatusSchema.optional() });
         const validationResult = basicInsertSchema.safeParse(insertPayload);
         if (!validationResult.success) {
-          console.error("Draft insert basic validation error (frontend):", validationResult.error.flatten());
-          const errorMessages = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
-          throw new Error(`Basic validation failed: ${errorMessages}`);
+            const errorMessages = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+            throw new Error(`Basic validation failed: ${errorMessages}`);
         }
-
-        // Send the validated basic payload (which includes potentially incomplete/invalid answers for a draft)
-        const res = await fetch('/api/bir', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(validationResult.data), // Send validated data (answers still as is)
-        });
+        const res = await fetch('/api/bir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(validationResult.data) });
         const result = await res.json();
-        if (!res.ok) throw new Error(result.error || 'Failed to save draft.'); // Changed error message
+        if (!res.ok) throw new Error(result.error || 'Failed to save draft.');
         savedBirId = result.id;
-        toast({ title: "Draft Saved", description: "Your progress has been saved as a draft." }); // Changed toast message
       }
-
-      await parentMutateBir(); // Revalidate BIR data globally
-      await localMutateBir();  // Revalidate local BIR data state
+      toast({ title: "Draft Saved", description: "Progress saved." });
+      await parentMutateBir(); 
+      await localMutateBir();  
       if (onSaveAndExit) {
         onSaveAndExit(savedBirId);
       }
     } catch (error: any) {
-      console.error("Error in handleSaveDraft:", error);
-      toast({
-        title: "Error Saving",
-        description: error.message || "An unexpected error occurred.",
-        variant: "destructive",
-      });
+      toast({ title: "Error Saving Draft", description: error.message, variant: "destructive" });
     } finally {
       setIsSubmittingTextData(false);
     }
   };
-
+  
   const handleSubmitAllAnswers: SubmitHandler<BirFormValues> = async (values) => {
     setIsSubmittingTextData(true);
-    // Determine if it's an update or new submission based on fetchedBir's state *before* this submission attempt.
     const isUpdateMode = !!(fetchedBir && fetchedBir.id);
     const method = isUpdateMode ? 'PATCH' : 'POST';
     let payload: any;
-
     try {
       const processedAnswers = values.answers;
       if (isUpdateMode && fetchedBir) {
-        const updatePayload: BirUpdateDTO = { 
-          id: fetchedBir.id, 
-          answers: processedAnswers,
-          status: 'submitted' // Explicitly set status to 'submitted'
-        };
+        const updatePayload: BirUpdateDTO = { id: fetchedBir.id, answers: processedAnswers, status: 'submitted' };
         const validationResult = birUpdateSchema.safeParse(updatePayload);
-        if (!validationResult.success) {
-          console.error("Validation error during update submission:", validationResult.error.flatten());
-          throw new Error('Validation failed for update.'); // Simplified error
-        }
+        if (!validationResult.success) throw new Error('Validation failed for update.');
         payload = validationResult.data;
       } else {
-        // For POST (insert), also ensure status is 'submitted'
-        const insertPayload: BirInsertDTO = {
-          project_id: projectId, // Ensure project_id is from props
-          client_id: user?.id || '', // Ensure client_id is from auth or form
-          project_type: 'web_design', // Ensure project_type
-          answers: processedAnswers, // Use processedAnswers
-          status: 'submitted' // Explicitly set status to 'submitted'
-        };
+        const insertPayload: BirInsertDTO = { project_id: projectId, client_id: user?.id || '', project_type: 'web_design', answers: processedAnswers, status: 'submitted' };
         const validationResult = birInsertSchema.safeParse(insertPayload);
-        if (!validationResult.success) {
-          console.error("Validation error during insert submission:", validationResult.error.flatten());
-          throw new Error('Validation failed for insert.'); // Simplified error
-        }
+        if (!validationResult.success) throw new Error('Validation failed for insert.');
         payload = validationResult.data;
       }
-
-      const res = await fetch('/api/bir', {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch('/api/bir', { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Save failed');
-
       toast({ title: "Success", description: `Business information ${isUpdateMode ? 'updated' : 'submitted'}.` });
-      setTextDataSubmittedSuccessfully(true);
+      setTextDataSubmittedSuccessfully(true); // This will set isEditing to false
       await parentMutateBir();
       await localMutateBir();
-      // TODO: Potentially advance to FileUploadStep if it exists and this was successful
-      // if (birStepsConfig.find(step => step.id === 'fileUpload')) {
-      //   const fileUploadStepIndex = birStepsConfig.findIndex(step => step.id === 'fileUpload');
-      //   setCurrentStepIndex(fileUploadStepIndex);
-      // }
     } catch (error: any) {
-      console.error("Error submitting BIR answers:", error);
-      toast({ title: "Error", description: error.message || 'An unexpected error occurred.', variant: "destructive" });
+      toast({ title: "Error Submitting", description: error.message, variant: "destructive" });
     } finally {
       setIsSubmittingTextData(false);
     }
   };
 
   const onFormError = (errors: FieldErrors<BirFormValues>) => {
-    console.error('❌ RHF validation errors →', errors);
-    toast({
-      title: "Validation Error",
-      description: "Please review the form for errors. Check all steps if necessary.",
-      variant: "destructive"
-    });
+    console.error('RHF validation errors:', errors);
+    toast({ title: "Validation Error", description: "Please review form.", variant: "destructive" });
   };
 
   const handleEdit = () => {
-    setTextDataSubmittedSuccessfully(false);
+    setTextDataSubmittedSuccessfully(false); // This will set isEditing to true
     setCurrentStepIndex(0);
-    // Form will repopulate via useEffect if fetchedBir exists
+  };
+  
+  // New handler for the "X" button in the overlay header - Defined before early returns
+  const handleCloseOverlay = () => {
+    handleSaveDraft(); 
   };
 
-  if (authLoading || birLoading) return <p>Loading Business Information Form...</p>;
-  if (birError) return <p className="text-red-600">Error loading form data: {birError.message}</p>;
-  if (!user) return <p className="text-red-600">Error: User not found. Cannot display form.</p>;
-  if (fetchedBir && fetchedBir.status === 'approved') {
+  // Approved state check - Renders separately and exits early
+  if (isApproved) { // Use the early defined isApproved flag
     return (
       <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
-        {/* Visual Stepper - Still show progress */}
+        {/* Visual Stepper - Still show progress (all green) */}
         <div className="mb-10 flex items-start justify-center space-x-6 sm:space-x-10 overflow-x-auto pb-4 pt-2">
           {textualSteps.map((step, index) => (
             <div key={step.id} className="flex flex-col items-center w-28 sm:w-32">
-              <div
-                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ease-in-out border-2 bg-green-500 text-white border-green-600`} // All green if approved
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
-                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-                </svg>
+              <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ease-in-out border-2 bg-green-500 text-white border-green-600">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" /></svg>
               </div>
               <p className="mt-2 text-xs sm:text-sm text-center text-muted-foreground">{step.name}</p>
             </div>
           ))}
         </div>
-        <div className="p-6 text-center bg-green-50 border border-green-200 rounded-md">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto text-green-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h3 className="text-lg font-medium text-green-700">Information Approved</h3>
-          <p className="text-sm text-green-600 mt-1">This business information request has been approved and cannot be edited.</p>
+        <div className="p-6 text-center bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700/50 rounded-md">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto text-green-500 dark:text-green-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <h3 className="text-lg font-medium text-green-700 dark:text-green-300">Information Approved</h3>
+          <p className="text-sm text-green-600 dark:text-green-400 mt-1">This business information request has been approved and cannot be edited.</p>
         </div>
       </div>
     );
   }
-
+  
+  // Loading / Error / No User states (these are fine for early returns after hooks)
+  if (authLoading || (birLoading && !fetchedBir)) return <p>Loading Business Information Form...</p>; // Adjusted birLoading condition
+  if (birError && !fetchedBir) return <p className="text-red-600">Error loading form data: {birError.message}</p>; // Adjusted birError condition
+  if (!user) return <p className="text-red-600">Error: User not found. Cannot display form.</p>;
+  
   const CurrentStepComponent = textualSteps[currentStepIndex].component as React.ComponentType<StepProps>;
 
-  return (
-    <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
-      {/* Visual Stepper */}
-      <div className="mb-10 flex items-start justify-center space-x-6 sm:space-x-10 overflow-x-auto pb-4 pt-2">
-        {textualSteps.map((step, index) => {
-          const isCompleted = textDataSubmittedSuccessfully || index < currentStepIndex;
-          const isActive = !textDataSubmittedSuccessfully && index === currentStepIndex;
-          
-          let stepStyle = 'bg-muted text-muted-foreground border-gray-300'; // Upcoming
-          if (isCompleted) {
-            stepStyle = 'bg-green-500 text-white border-green-600';
-          }
-          if (isActive) {
-            stepStyle = 'bg-primary text-primary-foreground scale-110 border-primary-dark ring-2 ring-primary-focus ring-offset-2 ring-offset-card';
-          }
+  // This is the content that will be rendered either inline or inside the overlay
+  const internalFormContent = (
+    <>
+      {/* Compact Mobile Header for STEPS (only when isEditing and on mobile) */}
+      {isEditing && (
+        <div className="sm:hidden px-4 pt-6 pb-2"> 
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Step {currentStepIndex + 1} of {textualSteps.length}
+          </p>
+          <h2 className="mt-1 text-base font-medium text-primary-600 dark:text-primary-400">
+            {textualSteps[currentStepIndex].name}
+          </h2>
+        </div>
+      )}
 
+      {/* FULL SCROLLABLE STEPPER (Buttons) */}
+      <div
+        className={clsx(
+          "overflow-x-auto space-x-4 sm:space-x-6 pb-4", 
+          isEditing 
+            ? "hidden sm:flex mt-6 px-4 sm:px-6 border-t border-gray-200 dark:border-gray-700" // Added border-t here for editing overlay
+            : "flex mb-10", 
+           // Removed border from here: isEditing && textualSteps.length > 0 && "border-b dark:border-gray-700"
+           // Border is now part of the editing mode's stepper container directly for visual hierarchy with overlay header
+        )}
+      >
+        {textualSteps.map((step, index) => {
+          const isActiveButton = isEditing && (index === currentStepIndex);
+          const isCompleteForButtonStyling = !isEditing || (isEditing && index < currentStepIndex);
           return (
-            <div key={step.id} className="flex flex-col items-center w-28 sm:w-32">
-              <div
-                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ease-in-out border-2 ${stepStyle}`}
-              >
-                {isCompleted && !isActive ? ( // Show checkmark if completed and not also the active step (unless all submitted)
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5">
-                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  index + 1
-                )}
-              </div>
-              <p 
-                className={`mt-2 text-xs sm:text-sm text-center ${isActive ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
-              >
+            <button
+              key={step.id}
+              disabled={!isEditing}
+              onClick={() => isEditing && setCurrentStepIndex(index)}
+              className={clsx(
+                "flex-shrink-0 w-24 sm:w-28 text-center rounded-md py-2 focus:outline-none transition-colors duration-150",
+                isActiveButton && "bg-primary-600 text-white dark:bg-primary-500 dark:text-white shadow-md",
+                isCompleteForButtonStyling && !isActiveButton && "bg-primary-100 text-primary-600 dark:bg-primary-700 dark:text-primary-200",
+                !isActiveButton && !isCompleteForButtonStyling && "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+                !isEditing && "cursor-default opacity-75"
+              )}
+              aria-current={isActiveButton ? "step" : undefined}
+            >
+              <span className="block text-sm font-medium">{index + 1}</span>
+              <span className="mt-1 block text-[11px] leading-tight truncate">
                 {step.name}
-              </p>
-            </div>
+              </span>
+            </button>
           );
         })}
       </div>
 
-      {textDataSubmittedSuccessfully ? (
-        <div className="p-6 text-center bg-green-50 border border-green-200 rounded-md">
-           <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto text-green-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <h3 className="text-lg font-medium text-green-700">Information Submitted</h3>
-          <p className="text-sm text-green-600 mt-1">Your business information has been successfully submitted.</p>
-          <p className="text-sm text-muted-foreground mt-1">You can proceed to upload files or edit the information.</p>
-          <div className="mt-4 flex justify-center space-x-3">
-            <Button onClick={handleEdit} variant="outline">
-              Edit Information
-            </Button>
-            {/* Placeholder for "Proceed to File Upload" button */}
-            {/* <Button onClick={handleProceedToFiles}>Upload Files</Button> */}
-          </div>
-        </div>
-      ) : (
-        <>
-          <h2 className="text-xl font-semibold text-center sm:text-left">{textualSteps[currentStepIndex].name}</h2>
-          
-          <form onSubmit={form.handleSubmit(handleSubmitAllAnswers, onFormError)} className="space-y-6">
-            <CurrentStepComponent form={form} isSubmitting={isSubmittingTextData || authLoading || birLoading} />
-
-            <div className="flex justify-between items-center pt-6">
-              <div>
-                {currentStepIndex > 0 && (
-                  <Button type="button" onClick={handlePreviousStep} variant="outline" disabled={isSubmittingTextData}>
-                    Previous
-                  </Button>
-                )}
-              </div>
-              
-              {/* Centered Save and Exit Button, and Next/Submit on the right */}
-              <div className="flex-grow flex justify-center">
-                <Button 
-                  type="button" 
-                  onClick={handleSaveDraft} 
-                  disabled={isSubmittingTextData} 
-                  variant="secondary" 
-                >
-                  Save and Exit
-                </Button>
-              </div>
-
-              <div>
-                {!isLastTextualStep && (
-                  <Button type="button" onClick={handleNextStep} disabled={isSubmittingTextData}>
-                    Next
-                  </Button>
-                )}
-                {isLastTextualStep && (
-                  <Button type="submit" disabled={isSubmittingTextData || authLoading || birLoading}>
-                    {isSubmittingTextData 
-                      ? 'Saving...' 
-                      : ( (fetchedBir && fetchedBir.id && !textDataSubmittedSuccessfully) || (fetchedBir && fetchedBir.id && currentStepIndex !== 0) ) // Check if updating existing draft or submitted info
-                        ? 'Update & Save All Answers' 
-                        : 'Save All Answers'}
-                  </Button>
-                )}
+      {/* Actual Form Content or Summary Card */}
+      {/* Wrapper for content area with max-width for overlay mode, and conditional padding */}
+      <div className={clsx(
+          isEditing ? "flex-1 px-4 sm:px-6 pb-20 pt-2 overflow-y-auto" : "pt-0" 
+        )}
+      >
+        <div className={clsx(isEditing && "max-w-2xl mx-auto")}> 
+          {textDataSubmittedSuccessfully && !isApproved ? (
+            <div className="p-6 text-center bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700/50 rounded-md">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto text-green-500 dark:text-green-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <h3 className="text-lg font-medium text-green-700 dark:text-green-300">Information Submitted</h3>
+              <p className="text-sm text-green-600 dark:text-green-400 mt-1">Your business information has been successfully submitted.</p>
+              <p className="text-sm text-muted-foreground mt-1">You can proceed to upload files or edit the information.</p>
+              <div className="mt-4 flex justify-center space-x-3">
+                <Button onClick={handleEdit} variant="outline">Edit Information</Button>
               </div>
             </div>
-          </form>
-        </>
-      )}
-      {/* TODO: Render FileUploadStep after text data is submitted and fetchedBir.id exists, potentially triggered from the summary card */}
+          ) : !isApproved && (
+            <>
+              <form onSubmit={form.handleSubmit(handleSubmitAllAnswers, onFormError)} className="space-y-6">
+                <CurrentStepComponent form={form} isSubmitting={isSubmittingTextData || authLoading || birLoading} />
+                <div className="flex justify-between items-center pt-6">
+                  <div>
+                    {currentStepIndex > 0 && (
+                      <Button type="button" onClick={handlePreviousStep} variant="outline" disabled={isSubmittingTextData}>Previous</Button>
+                    )}
+                  </div>
+                  <div className="flex-grow flex justify-center">
+                    <Button type="button" onClick={handleSaveDraft} disabled={isSubmittingTextData} variant="secondary">Save and Exit</Button>
+                  </div>
+                  <div>
+                    {!isLastTextualStep && (
+                      <Button type="button" onClick={handleNextStep} disabled={isSubmittingTextData}>Next</Button>
+                    )}
+                    {isLastTextualStep && (
+                      <Button type="submit" disabled={isSubmittingTextData || authLoading || birLoading}>
+                        {isSubmittingTextData ? 'Saving...' : ((fetchedBir && fetchedBir.id && !textDataSubmittedSuccessfully) || (fetchedBir && fetchedBir.id && currentStepIndex !== 0)) ? 'Update & Save All Answers' : 'Save All Answers'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+
+  if (isEditing) {
+    return (
+      <div className="fixed inset-0 z-[60] flex flex-col bg-white dark:bg-black text-gray-900 dark:text-gray-100">
+        <header className="sticky top-0 z-[61] flex items-center justify-between h-14 px-4 border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-black/80 backdrop-blur-sm sm:px-6">
+          <h1 className="text-sm font-medium text-gray-700 dark:text-gray-200">
+            Business Information Request
+          </h1>
+          <button
+            onClick={handleCloseOverlay}
+            className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            aria-label="Close"
+          >
+            <XMarkIcon className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+          </button>
+        </header>
+        {/* The internalFormContent handles its own scrolling for the form area if needed */}
+        {internalFormContent} 
+      </div>
+    );
+  }
+
+  // Render inline if not editing (handles its own padding and card-like appearance)
+  return (
+    <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
+        {internalFormContent}
     </div>
   );
 } 

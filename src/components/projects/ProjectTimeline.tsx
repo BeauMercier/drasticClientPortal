@@ -49,11 +49,21 @@ export default function ProjectTimeline({
 }: ProjectTimelineProps) {
   console.log('[Timeline debug]', { currentStage, stageDates });
 
-  const activeColor = "blue-500";
-  const completedColor = "green-500";
-  const pendingColor = "border"; // For bar background
-  const pendingDotBorderColor = "border";
-  const pendingDotTextColor = "muted-foreground";
+  // Using color definitions inspired by the patch for better theming
+  const activeColor = "primary-600"; // Main color for active elements (e.g., border, icon)
+  const activeDotBg = "primary-50"; // Background for active dot (light variant)
+  const darkActiveDotBg = "primary-900"; // Background for active dot in dark mode
+
+  const completedColor = "primary-600"; // Main color for completed elements
+
+  const pendingBorderColor = "gray-400";
+  const pendingDotBg = "gray-200";
+  const pendingTextColor = "gray-500"; // Adjusted from muted-foreground for specific pending text
+
+  const darkPendingBorderColor = "gray-600";
+  const darkPendingDotBg = "gray-800";
+  const darkPendingTextColor = "gray-400";
+
 
   // New status calculation logic
   const stageKeys = stages.map(s => s.key) as ProjectStage[];
@@ -94,19 +104,21 @@ export default function ProjectTimeline({
 
   return (
     <div className="relative w-full">
-      {/* ─────────────── Continuous track (behind dots) ─────────────── */}
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 select-none">
+      {/* ─────────────── Continuous track (behind dots) - DESKTOP ONLY ─────────────── */}
+      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 select-none hidden md:block">
         <div className="flex justify-between">
           {stages.slice(0, -1).map((stage, idx) => {
             const currentStageKey = stageKeys[idx];
             const nextStageKey = stageKeys[idx+1];
-            let barBgClass = `bg-${pendingColor}`;
+            let barBgClass = `bg-${pendingBorderColor} dark:bg-${darkPendingBorderColor} opacity-50`; // Default pending bar
 
-            // Updated bar color logic
+            // Updated bar color logic based on patch's connector color approach
             if (statuses[currentStageKey] === 'completed' && statuses[nextStageKey] === 'completed') {
               barBgClass = `bg-${completedColor}`;
             } else if (statuses[currentStageKey] === 'completed' && statuses[nextStageKey] === 'active') {
-              barBgClass = `bg-${activeColor}`;
+              barBgClass = `bg-${activeColor}`; // Or completedColor, depending on desired effect up to active
+            } else if (statuses[currentStageKey] === 'active') {
+               barBgClass = `bg-${activeColor} opacity-50`;
             }
 
             return (
@@ -120,40 +132,72 @@ export default function ProjectTimeline({
       </div>
 
       {/* ─────────────── Dots, labels & dates ─────────────── */}
-      <div className="relative z-10 flex justify-between items-start">
-        {stages.map((stage) => {
-          const DotIcon = stage.icon;
+      <div className={clsx(
+        "relative z-10 flex items-start",
+        "flex-col space-y-10 md:flex-row md:space-y-0 md:justify-between" // Use space-y-10 as per patch
+      )}>
+        {stages.map((stage, stageIndex) => { // Renamed 'i' from patch to 'stageIndex' for clarity
+          const StageIcon = stage.icon; // Use StageIcon as per existing pattern
           const stageKey = stage.key as StageKey;
-          
-          // Updated dot, icon, and label color logic
-          let dotClasses = `bg-background border-${pendingDotBorderColor} text-${pendingDotTextColor}`;
-          let iconClasses = `text-${pendingDotTextColor}`;
-          let labelClasses = `text-${pendingDotTextColor}`;
-
           const status = statuses[stageKey];
+          const isLast  = stageIndex === stages.length - 1;
+          
+          let dotSpecificClasses = "";
+          let iconSpecificClasses = "";
+          let labelSpecificClasses = `text-${pendingTextColor} dark:text-${darkPendingTextColor}`;
+          let connectorLineColor = `before:bg-${pendingBorderColor} dark:before:bg-${darkPendingBorderColor} before:opacity-50`;
 
           if (status === 'active') {
-            dotClasses = `shadow-lg bg-${activeColor} border-${activeColor} text-white scale-110`;
-            iconClasses = `text-white`;
-            labelClasses = `text-${activeColor}`;
-          } else if (status === 'completed') {
-            dotClasses = `bg-${completedColor} border-${completedColor} text-white`;
-            iconClasses = `text-white`;
-            labelClasses = `text-${completedColor}`;
-          }
+            dotSpecificClasses = `bg-${activeDotBg} border-${activeColor} dark:bg-${darkActiveDotBg} scale-105 shadow-lg`;
+            iconSpecificClasses = `text-${activeColor}`;
+            labelSpecificClasses = `text-${activeColor}`;
+            connectorLineColor = `before:bg-${activeColor} before:opacity-50`; // Active part of connector
+             // If the *next* stage is also not pending (i.e., it's current or completed), connector is solid.
+            if (!isLast && statuses[stageKeys[stageIndex + 1]] !== 'pending') {
+                 connectorLineColor = `before:bg-${activeColor}`;
+            }
 
+          } else if (status === 'completed') {
+            dotSpecificClasses = `bg-${completedColor} border-${completedColor} text-white`;
+            iconSpecificClasses = `text-white`; // Icon inside completed dot is white
+            labelSpecificClasses = `text-${completedColor}`;
+            connectorLineColor = `before:bg-${completedColor}`;
+          } else { // Pending
+            dotSpecificClasses = `bg-${pendingDotBg} border-${pendingBorderColor} dark:bg-${darkPendingDotBg} dark:border-${darkPendingBorderColor}`;
+            iconSpecificClasses = `text-${pendingTextColor} dark:text-${darkPendingTextColor}`; // Icon color for pending
+          }
+          
           return (
-            <div key={stage.key} className="flex flex-col items-center text-center">
+            <div 
+              key={stage.key} 
+              className={clsx(
+                "relative flex flex-col items-center text-center w-full md:w-auto"
+              )}
+            >
+              {/* MOBILE CONNECTOR (pseudo element) */}
+              {!isLast && ( // Render span only if not the last item
+                <span
+                  className={clsx(
+                    "absolute md:hidden left-1/2 -translate-x-1/2",
+                    "top-5 -z-10", // top-5 (20px) for h-10 (40px) dot, starts at center
+                    "bottom-0",    // Extends to the bottom of this parent div
+                    "before:content-[''] before:absolute before:left-1/2 before:-translate-x-1/2",
+                    "before:top-0 before:bottom-0 before:w-1",
+                    connectorLineColor // Apply the determined connector line color
+                  )}
+                />
+              )}
+
               {/* Dot */}
-              <span
+              <span // Keeping span structure for dot as it allows separate icon styling control
                 className={clsx(
-                  "flex shrink-0 items-center justify-center rounded-full border-2 transition",
+                  "flex shrink-0 items-center justify-center rounded-full border-4 transition z-10", // border-4 as per patch, z-10 for dot
                   "w-10 h-10 md:w-12 md:h-12",
-                  dotClasses
+                  dotSpecificClasses
                 )}
               >
-                <DotIcon
-                  className={clsx("w-5 h-5 md:w-6 md:h-6", iconClasses)}
+                <StageIcon // Use StageIcon
+                  className={clsx("w-5 h-5 md:w-6 md:h-6", iconSpecificClasses)}
                   strokeWidth={2}
                 />
               </span>
@@ -161,8 +205,8 @@ export default function ProjectTimeline({
               {/* Label */}
               <span
                 className={clsx(
-                  "mt-2 font-medium text-xs md:text-sm leading-none",
-                  labelClasses
+                  "mt-2 font-medium text-xs md:text-sm leading-tight", // leading-tight for compact labels
+                  labelSpecificClasses
                 )}
               >
                 {stage.label}
@@ -170,8 +214,11 @@ export default function ProjectTimeline({
 
               {/* Date (if available) */}
               {stageDates[stage.key] && (
-                <span className="mt-1 text-xs text-muted-foreground">
-                  {format(parseISO(stageDates[stage.key] as string), "MMM d, yyyy")}
+                <span className={clsx(
+                  "mt-1 text-[11px] md:text-xs", // Adjusted text size from patch
+                  `text-${pendingTextColor} dark:text-${darkPendingTextColor}` // Date text color
+                  )}>
+                  {format(parseISO(stageDates[stage.key] as string), "MMM d, yyyY")}
                 </span>
               )}
             </div>

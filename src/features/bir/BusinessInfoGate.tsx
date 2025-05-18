@@ -26,6 +26,9 @@ export default function BusinessInfoGate({ projectId, projectType, parentMutateB
     const { user, isLoading: authLoading } = useAuth(); 
     const userRole = user?.role;
 
+    console.log('[BusinessInfoGate] Props:', { projectId, projectType });
+    console.log('[BusinessInfoGate] User Role:', userRole);
+
     // Fetch BIR data
     // Fetch only if projectType is web_design and projectId is valid
     const shouldFetchBir = projectType === 'web_design' && !!projectId;
@@ -36,6 +39,8 @@ export default function BusinessInfoGate({ projectId, projectType, parentMutateB
         error: birError, 
         mutate: localMutateBir // Renamed internal mutate to avoid conflict
     } = useBir(shouldFetchBir ? projectId : undefined);
+
+    console.log('[BusinessInfoGate] useBir State:', { bir, birLoading, birError, shouldFetchBir });
 
     // Determine which mutate function to use: prefer parent's if provided
     const effectiveMutateBir: KeyedMutator<any> = parentMutateBir || localMutateBir;
@@ -164,11 +169,14 @@ export default function BusinessInfoGate({ projectId, projectType, parentMutateB
 
     /* ---------- DESIGNER / ADMIN VIEW ---------- */
     if (userRole === 'designer' || userRole === 'admin') {
+        console.log('[BusinessInfoGate] Entering Designer/Admin view logic.');
         // Show summary if BIR exists
         if (bir) {
+            console.log('[BusinessInfoGate] Designer/Admin: BIR data exists, rendering BirSummary.');
             return <BirSummary bir={bir} signedFiles={signedBirFiles} />;
         }
         // Show placeholder if BIR doesn't exist
+        console.log('[BusinessInfoGate] Designer/Admin: BIR data does NOT exist or is null/undefined, showing placeholder.');
         return (
             <p className="italic text-muted-foreground p-4 border rounded-lg">
                 The client has not submitted their business information yet.

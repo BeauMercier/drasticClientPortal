@@ -29,10 +29,12 @@ import { handleRefreshTokenError } from '@/lib/supabase/auth-helpers';
 // --- Helper Function to Map Supabase Session/User to Local Types ---
 const mapSupabaseSessionToLocal = (supabaseSession: SupabaseSession | null): { localSession: Session | null, localUser: User | null } => {
   if (!supabaseSession || !supabaseSession.user) {
+    console.log('[AuthContext] mapSupabaseSessionToLocal: Supabase session or user is null.');
     return { localSession: null, localUser: null };
   }
 
   const supabaseUser: SupabaseUser = supabaseSession.user;
+  console.log('[AuthContext] mapSupabaseSessionToLocal: Received supabaseUser:', JSON.parse(JSON.stringify(supabaseUser))); // Deep copy for logging
 
   // --- Throw error if email is missing --- 
   if (!supabaseUser.email) {
@@ -132,7 +134,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         (event: string, newSession: SupabaseSession | null) => {
           if (!isMounted) return;
           
-          let localUserForLog: User | null = null;
           try {
             const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
             setSession(localSession);

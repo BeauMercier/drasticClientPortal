@@ -42,7 +42,7 @@ const FileList: React.FC<FileListProps> = ({
 
   // Change in state management to add file type filtering
   const [activeTab, setActiveTab] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'gallery'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'gallery'>('gallery');
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [fileTypeFilter, setFileTypeFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('name');
@@ -106,13 +106,18 @@ const FileList: React.FC<FileListProps> = ({
       
       for (const file of urlsToFetch) {
         try {
-          const { data } = await fetch(`/api/files/url?path=${encodeURIComponent(file.fullPath)}`).then(res => res.json());
-          if (data?.url) { // Check the correct property returned by the API
+          const response = await fetch(`/api/files/url?path=${encodeURIComponent(file.fullPath)}`);
+          if (!response.ok) {
+            console.error(`Failed to fetch preview URL for ${file.name}: ${response.statusText}`);
+            continue;
+          }
+          const responseData = await response.json(); // Expect { url: "..." }
+          if (responseData?.url) { // Check responseData.url directly
             // Initialize newUrls only when we have the first URL to add
             if (!newUrls) {
               newUrls = { ...previewUrls }; // Create copy only when needed
             }
-            newUrls[file.id] = data.url; // Assign the signed URL
+            newUrls[file.id] = responseData.url; // Assign the signed URL
             addedNewUrl = true; // Mark that we added a URL
           }
         } catch (error) {

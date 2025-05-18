@@ -11,6 +11,7 @@ A comprehensive client portal built with Next.js, TypeScript, Tailwind CSS, and 
 - **Responsive UI**: Modern UI built with Tailwind CSS and shadcn/ui components
 - **File Management**: 
     - General user files and project-specific files (non-BIR) via Supabase Storage (`project-files` bucket), with metadata in `user_files` table and RLS.
+    - Client-facing file browser (`/client/files`) defaults to an icon/gallery view, shows image previews, and has a clean breadcrumb navigation.
 - **Business Information Request (BIR)**: (Web Design Projects Only) An integrated form for clients to submit required business details directly within their web design project workspace, replacing external tools.
    - Includes file uploads for BIR-specific documents (e.g., logos, style guides) stored in a separate private Supabase Storage bucket (`bir-files`) with metadata in `bir_file` table, all controlled by RLS.
 - **Enhanced Project Timeline**:

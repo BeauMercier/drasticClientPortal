@@ -79,6 +79,7 @@ export interface ProjectNote {
   project_id: string;
   created_at: string;
   created_by: string;
+  is_private: boolean;
 }
 
 // Project interfaces by type

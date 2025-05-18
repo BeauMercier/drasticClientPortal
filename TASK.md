@@ -108,6 +108,12 @@
 - [x] **Fixed Login Redirect Loop (`/login?redirectedFrom=%2Flogin`):**
     - `src/middleware.ts`: Corrected the logic for `authenticatedPathsPrefixes` to explicitly filter out `/login` from the list of paths requiring authentication, preventing it from being treated as a path that requires prior authentication for unauthenticated users.
 
+### Client Files UI/UX Enhancements ([Current Date])
+
+- [x] **Cleaned up Breadcrumb:** Removed the "Root" text from the breadcrumb when viewing the top-level directory in `/client/files` (`src/components/FileList/index.tsx`).
+- [x] **Default to Gallery View:** Changed the default view mode in `src/components/FileList/index.tsx` to "gallery" (icon view) instead of "list".
+- [x] **Fixed Image Previews in Gallery:** Corrected the logic in `src/components/FileList/index.tsx` to ensure actual image previews are loaded and displayed in gallery mode, not just placeholders.
+
 ### UI Component Enhancements
 
 - [x] **Project Timeline Refactor ([Current Date]):** Comprehensively refactored `src/components/projects/ProjectTimeline.tsx` based on detailed specification.

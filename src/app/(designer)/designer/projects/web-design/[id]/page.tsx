@@ -123,19 +123,25 @@ export default function DesignerProjectDetailsPage() {
             </Card>
 
             {/* Integrate Business Info Gate - Only show if web design */}
-            {project && project.id && project.project_type === 'web_design' && (
-                 <Card>
-                    {/* <CardHeader>
-                        <CardTitle>Business Information & Client Files</CardTitle>
-                    </CardHeader> */}
-                    <CardContent>
-                        <BusinessInfoGate 
-                            projectId={project.id}
-                            projectType={project.project_type} // This will be 'web_design'
-                        />
-                    </CardContent>
-                </Card>
-            )}
+            {(() => {
+                console.log('[DesignerPage] Attempting to render BusinessInfoGate. Project Data:', project);
+                if (project && project.id && project.project_type === 'web_design') {
+                    return (
+                         <Card>
+                            {/* <CardHeader>
+                                <CardTitle>Business Information & Client Files</CardTitle>
+                            </CardHeader> */}
+                            <CardContent>
+                                <BusinessInfoGate 
+                                    projectId={project.id}
+                                    projectType={project.project_type} // This will be 'web_design'
+                                />
+                            </CardContent>
+                        </Card>
+                    );
+                }
+                return null;
+            })()}
 
              {/* Placeholder for tasks, files etc. */}
               <Card>

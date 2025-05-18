@@ -70,4 +70,17 @@ Card.displayName = 'Card';
 CardHeader.displayName = 'CardHeader';
 CardTitle.displayName = 'CardTitle';
 CardDescription.displayName = 'CardDescription';
-CardContent.displayName = 'CardContent'; 
+CardContent.displayName = 'CardContent';
+
+export const CardFooter = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className = '', ...props }, ref) => {
+    return (
+      <div
+        className={`p-6 pt-0 ${className}`}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+CardFooter.displayName = 'CardFooter'; 

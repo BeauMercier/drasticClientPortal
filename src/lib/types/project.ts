@@ -192,6 +192,22 @@ export interface RevisionFile extends BaseEntity {
 // Project stages for the timeline
 export type ProjectStage = 'discovery' | 'concept-development' | 'refinement' | 'finalization' | 'delivery';
 
+// Interface for active client projects for the dashboard
+export interface ActiveClientProject {
+  id: string;
+  title: string;
+  project_type: ProjectType;
+  status: ProjectStatus;
+  current_stage: ProjectStage | null;
+  discovery_date: string | null;
+  concept_development_date: string | null;
+  refinement_date: string | null;
+  finalization_date: string | null;
+  delivery_date: string | null;
+  // Add other relevant fields like thumbnail_url if needed for cards
+  thumbnail_url?: string | null;
+}
+
 // Designer project assignment
 export type DesignerProject = Tables<'designer_projects'>;
 

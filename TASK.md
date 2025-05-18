@@ -108,6 +108,13 @@
 - [x] **Fixed Login Redirect Loop (`/login?redirectedFrom=%2Flogin`):**
     - `src/middleware.ts`: Corrected the logic for `authenticatedPathsPrefixes` to explicitly filter out `/login` from the list of paths requiring authentication, preventing it from being treated as a path that requires prior authentication for unauthenticated users.
 
+### UI Component Enhancements
+
+- [x] **Project Timeline Refactor ([Current Date]):** Comprehensively refactored `src/components/projects/ProjectTimeline.tsx` based on detailed specification.
+    - Updated JSDoc within the component.
+    - Updated `PLANNING.MD` with the new specification details.
+    - Ensured visual rules (dot/bar colors), status algorithm (completed, active, pending based on `currentStageKey`), color palette, and responsive layout (desktop/mobile) align with the spec.
+
 ### [New Date - e.g., April 4, 2024] - Avatar Investigation
 
 - [ ] **Investigate and Resolve Profile Avatar Display/Save Issue**

@@ -1,132 +1,248 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ActiveClientProject, ProjectStage, ProjectType } from '@/lib/types/project';
+import ProjectTimeline, { StageConfig } from '@/components/projects/ProjectTimeline';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
-// TODO: Import actual client data fetching functions (e.g., getClientProfile, getClientProjects)
-// import { getClientProfile, getClientProjects } from '@/lib/api/client-api'; 
-// TODO: Import specific types for client data
-// import { Project } from '@/lib/types/project'; 
+import {
+  ArrowRightIcon, BriefcaseIcon, BellIcon, LinkIcon, 
+  NewspaperIcon, QuestionMarkCircleIcon, SparklesIcon
+} from '@heroicons/react/24/outline';
+import { Zap, Lightbulb, PenTool, ShieldCheck, Package } from 'lucide-react';
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { getUserProfile } from '@/lib/api/client-api';
+import { Tables } from '@/lib/database.types';
+
+const stageConfigs: StageConfig[] = [
+  { key: 'discovery', label: 'Discovery', icon: Zap },
+  { key: 'concept-development', label: 'Concept', icon: Lightbulb },
+  { key: 'refinement', label: 'Refinement', icon: PenTool },
+  { key: 'finalization', label: 'Finalization', icon: ShieldCheck },
+  { key: 'delivery', label: 'Delivery', icon: Package },
+];
 
 export default function ClientDashboardPage() {
-  const router = useRouter();
+  const [activeProjects, setActiveProjects] = useState<ActiveClientProject[]>([]);
+  const [userProfile, setUserProfile] = useState<Tables<'profiles'> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // TODO: Define state for actual client data (e.g., projects, profile)
-  const [clientProjects, setClientProjects] = useState<any[]>([]); // Using any[] as placeholder
 
   useEffect(() => {
-    const loadDashboardData = async () => {
+    async function fetchInitialData() {
+      setIsLoading(true);
+      setIsLoadingProfile(true);
+      setError(null);
       try {
-        setIsLoading(true);
-        setError(null);
+        const projectsResponse = await fetch('/api/client/active-projects');
+        if (!projectsResponse.ok) {
+          const errorData = await projectsResponse.json();
+          throw new Error(errorData.error || 'Failed to fetch active projects');
+        }
+        const projectsData: ActiveClientProject[] = await projectsResponse.json();
+        setActiveProjects(projectsData);
 
-        // --- Placeholder for fetching user profile and checking role ---
-        // const userProfile = await getClientProfile(); 
-        // const isUserClient = userProfile?.role?.toLowerCase() === 'client';
-        // if (!isUserClient) {
-        //   console.warn('Non-client attempted to access client dashboard');
-        //   router.replace('/login'); // Or appropriate redirect
-        //   return;
-        // }
-        console.log("Simulating client role check and data fetch..."); // Placeholder logic
-
-        // --- Placeholder for fetching client-specific data ---
-        // const projects = await getClientProjects();
-        // setClientProjects(projects || []);
-        console.log("Simulating fetch for client projects..."); // Placeholder logic
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-        setClientProjects([{ id: 'proj1', name: 'Sample Client Project 1' }, { id: 'proj2', name: 'Sample Client Project 2' }]); // Placeholder data
+        const profileData = await getUserProfile();
+        setUserProfile(profileData);
 
       } catch (err) {
-        console.error('Error loading client dashboard:', err);
-        setError('Failed to load dashboard data. Please try again later.');
+        const e = err as Error;
+        console.error("Dashboard fetch error:", e.message);
+        setError(e.message);
       } finally {
         setIsLoading(false);
+        setIsLoadingProfile(false);
       }
-    };
+    }
+    fetchInitialData();
+  }, []);
 
-    loadDashboardData();
-  }, [router]);
+  const quickLinks = [
+    {
+      title: 'Website Dashboard',
+      description: 'Access your website analytics.',
+      href: userProfile?.website_dashboard_url || '#',
+      icon: NewspaperIcon,
+      bgColor: 'bg-blue-500',
+      textColor: 'text-white',
+      buttonText: 'Go to Dashboard',
+      disabled: !userProfile?.website_dashboard_url,
+      external: !!userProfile?.website_dashboard_url,
+    },
+    {
+      title: 'Lead Dashboard',
+      description: 'View and manage your leads.',
+      href: 'https://Leads.DrasticDigital.com',
+      icon: SparklesIcon, 
+      bgColor: 'bg-green-500',
+      textColor: 'text-white',
+      buttonText: 'Go to Leads',
+      external: true,
+      disabled: false,
+    },
+    {
+      title: 'Project Files',
+      description: 'Access all your project files.',
+      href: '/client/files',
+      icon: BriefcaseIcon,
+      bgColor: 'bg-purple-500',
+      textColor: 'text-white',
+      buttonText: 'Browse Files',
+      external: false,
+      disabled: false,
+    },
+    {
+      title: 'Support',
+      description: 'Get help or browse documentation.',
+      href: '/support',
+      icon: QuestionMarkCircleIcon,
+      bgColor: 'bg-amber-500',
+      textColor: 'text-white',
+      buttonText: 'Contact Support',
+      external: false,
+      disabled: false,
+    },
+  ];
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[300px]"> {/* Changed height */}
-        <ArrowPathIcon className="h-8 w-8 text-gray-500 animate-spin" />
-        <span className="ml-2">Loading Dashboard...</span>
-      </div>
-    );
-  }
+  const projectStageDates = (project: ActiveClientProject): Record<ProjectStage, string | null> => ({
+    'discovery': project.discovery_date,
+    'concept-development': project.concept_development_date,
+    'refinement': project.refinement_date,
+    'finalization': project.finalization_date,
+    'delivery': project.delivery_date,
+  });
 
-  if (error) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card className="bg-red-50 border-red-200">
-           <CardContent className="p-6">
-             <p className="text-red-700">{error}</p>
-           </CardContent>
-         </Card>
-      </div>
-    );
-  }
+  const getFirstName = () => {
+    if (userProfile?.full_name) {
+      return userProfile.full_name.split(' ')[0];
+    }
+    return 'Client'; // Fallback if name not available
+  };
 
-  // --- Main Dashboard Content ---
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Client Dashboard</h1>
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+          Hi {isLoadingProfile ? '...' : getFirstName()}!
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">Welcome back! Here's an overview of your projects and resources.</p>
+      </header>
 
-      {/* Placeholder for Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-         <Card>
-           <CardHeader><CardTitle>My Projects</CardTitle></CardHeader>
-           <CardContent>
-             <p className="text-3xl font-bold">{clientProjects.length}</p>
-             <p className="text-sm text-gray-500">Active projects</p>
-           </CardContent>
-         </Card>
-         {/* Add more relevant client stats cards here */}
-         <Card>
-           <CardHeader><CardTitle>Account Status</CardTitle></CardHeader>
-           <CardContent>
-             <p className="text-green-600 font-semibold">Active</p> 
-             <Button size="sm" variant="outline" className="mt-2" onClick={() => router.push('/client/billing')}>View Billing</Button>
-           </CardContent>
-         </Card>
-         <Card>
-           <CardHeader><CardTitle>Quick Links</CardTitle></CardHeader>
-           <CardContent className="flex flex-col space-y-2">
-             <Button size="sm" variant="link" className="justify-start p-0 h-auto" onClick={() => router.push('/client/my-profile')}>My Profile</Button>
-             {/* Add more relevant links */}
-           </CardContent>
-         </Card>
-      </div>
+      {/* Active Projects Section */}
+      <section>
+        <h2 className="text-2xl font-semibold mb-6 text-gray-700 dark:text-gray-300 flex items-center">
+          <BriefcaseIcon className="h-6 w-6 mr-2" /> Active Projects
+        </h2>
+        {(isLoading && !activeProjects.length) && <p className="text-gray-600 dark:text-gray-400">Loading projects...</p>}
+        {error && !isLoading && <p className="text-red-500">Error loading projects: {error}</p>}
+        {!isLoading && !error && (
+          <>
+            {activeProjects.length === 0 && (
+              <p className="text-gray-600 dark:text-gray-400">You have no active projects at the moment.</p>
+            )}
+            {activeProjects.length === 1 && activeProjects[0] && (
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-2xl">{activeProjects[0].title}</CardTitle>
+                  <Badge variant="secondary" className="w-fit">{activeProjects[0].project_type.replace('_', ' ').toUpperCase()}</Badge>
+                </CardHeader>
+                <CardContent>
+                  {activeProjects[0].current_stage && (
+                    <ProjectTimeline
+                      stages={stageConfigs}
+                      currentStage={activeProjects[0].current_stage} 
+                      stageDates={projectStageDates(activeProjects[0])}
+                    />
+                  )}
+                  {!activeProjects[0].current_stage && <p className="text-gray-500">Project stage information not available.</p>}
+                </CardContent>
+                 <CardFooter className="flex justify-end">
+                    <Link href={`/client/projects/${activeProjects[0].project_type}/${activeProjects[0].id}`} passHref>
+                        <Button variant="default">View Project <ArrowRightIcon className="ml-2 h-4 w-4" /></Button>
+                    </Link>
+                </CardFooter>
+              </Card>
+            )}
+            {activeProjects.length > 1 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {activeProjects.map((project) => (
+                  <Card key={project.id} className="shadow-md hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <CardTitle>{project.title}</CardTitle>
+                      <Badge variant="outline">{project.project_type.replace('_', ' ').toUpperCase()}</Badge>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        Current Stage: <span className="font-semibold">{project.current_stage ? project.current_stage.replace('-', ' ') : 'N/A'}</span>
+                      </p>
+                      {project.thumbnail_url && (
+                        <img src={project.thumbnail_url} alt={project.title} className="rounded-md aspect-video object-cover my-2" />
+                      )}
+                    </CardContent>
+                    <CardFooter className="flex justify-end">
+                        <Link href={`/client/projects/${project.project_type}/${project.id}`} passHref>
+                            <Button variant="outline" size="sm">View Details <ArrowRightIcon className="ml-2 h-4 w-4" /></Button>
+                        </Link>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
-      {/* Placeholder for Project List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Project Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {clientProjects.length > 0 ? (
-            <ul className="space-y-3">
-              {clientProjects.map((project) => (
-                <li key={project.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                  {/* TODO: Link to actual project page e.g., /client/projects/{project.id} */}
-                  <span className="font-medium text-blue-600 hover:underline cursor-pointer">{project.name}</span>
-                  {/* Add more project details */}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500 text-center py-4">You have no active projects.</p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Quick Links Section */}
+      <section>
+        <h2 className="text-2xl font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
+          <LinkIcon className="h-6 w-6 mr-2" /> Quick Links
+        </h2>
+        {(isLoadingProfile) && <p className="text-gray-600 dark:text-gray-400">Loading links...</p>}
+        {!isLoadingProfile && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {quickLinks.map((link) => (
+              <Card key={link.title} className={`shadow-lg hover:shadow-xl transition-shadow duration-300 ${link.bgColor} ${link.disabled ? 'opacity-70' : ''} text-white`}>
+                <CardHeader>
+                  <div className="flex items-center space-x-3">
+                      <link.icon className={`h-8 w-8 ${link.textColor}`} />
+                      <CardTitle className="text-xl text-white">{link.title}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-white">{link.description}</p>
+                </CardContent>
+                <CardFooter>
+                  {link.external ? (
+                    <a 
+                      href={link.href} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className={`w-full ${link.disabled ? 'pointer-events-none' : ''}`}
+                    >
+                      <Button variant="outline" className="w-full bg-white/20 hover:bg-white/30 border-white/50 text-white" disabled={link.disabled}>
+                          {link.buttonText} <ArrowRightIcon className="ml-2 h-4 w-4" />
+                      </Button>
+                    </a>
+                  ) : (
+                    <Link href={link.href} passHref legacyBehavior={link.disabled || link.href === '#'}> 
+                      <a className={`w-full ${link.disabled ? 'pointer-events-none' : ''}`}> 
+                        <Button variant="outline" className="w-full bg-white/20 hover:bg-white/30 border-white/50 text-white" disabled={link.disabled}>
+                            {link.buttonText} <ArrowRightIcon className="ml-2 h-4 w-4" />
+                        </Button>
+                      </a>
+                    </Link>
+                  )}
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
 
-      {/* Add other sections as needed for the client dashboard */}
-
+      {/* Notifications Section has been removed */}
     </div>
   );
 } 

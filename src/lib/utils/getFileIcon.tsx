@@ -1,9 +1,15 @@
 import React from 'react';
 import { FileTextIcon, ImageIcon, FolderIcon } from 'lucide-react';
-import { FileObject } from '@/shared/contexts/FileContext';
+
+// Define a simpler type for the file parameter, including only what's used by this function
+interface GetFileIconFileParam {
+  mime_type?: string | null;
+  is_folder?: boolean;
+  name?: string;
+}
 
 export const getFileIcon = (
-  file: Partial<FileObject> & { mime_type?: string | null, is_folder?: boolean, name?: string }, 
+  file: GetFileIconFileParam, 
   iconSize?: number | string // Tailwind size class like 'h-5 w-5' or number for style prop
 ): React.ReactElement => {
   let className = "mr-2 flex-shrink-0";

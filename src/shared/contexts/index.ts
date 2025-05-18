@@ -7,4 +7,4 @@
 // No contexts yet 
 
 export * from './UIContext';
-export * from './FileContext'; 
+// The line exporting FileContext was here and is now removed. 

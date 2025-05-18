@@ -196,7 +196,7 @@ export type ProjectStage = 'discovery' | 'concept-development' | 'refinement' | 
 export interface ActiveClientProject {
   id: string;
   title: string;
-  project_type: ProjectType;
+  project_type: string;
   status: ProjectStatus;
   current_stage: ProjectStage | null;
   discovery_date: string | null;

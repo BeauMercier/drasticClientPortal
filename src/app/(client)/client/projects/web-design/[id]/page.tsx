@@ -41,6 +41,7 @@ const PROJECT_STAGES: StageConfig[] = [
 ];
 
 export default function WebDesignProjectDetails() {
+  console.log("Attempting to load WebDesignProjectDetails page...");
   const { id: routeId } = useParams();
   const projectId = Array.isArray(routeId) ? routeId[0] : routeId;
 

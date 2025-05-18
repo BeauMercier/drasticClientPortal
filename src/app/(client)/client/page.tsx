@@ -43,6 +43,7 @@ export default function ClientDashboardPage() {
           throw new Error(errorData.error || 'Failed to fetch active projects');
         }
         const projectsData: ActiveClientProject[] = await projectsResponse.json();
+        console.log('[Dashboard] Raw projectsData from API:', JSON.stringify(projectsData, null, 2));
         setActiveProjects(projectsData);
 
         const profileData = await getUserProfile();
@@ -143,52 +144,62 @@ export default function ClientDashboardPage() {
             {activeProjects.length === 0 && (
               <p className="text-gray-600 dark:text-gray-400">You have no active projects at the moment.</p>
             )}
-            {activeProjects.length === 1 && activeProjects[0] && (
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="text-2xl">{activeProjects[0].title}</CardTitle>
-                  <Badge variant="secondary" className="w-fit">{activeProjects[0].project_type.replace('_', ' ').toUpperCase()}</Badge>
-                </CardHeader>
-                <CardContent>
-                  {activeProjects[0].current_stage && (
-                    <ProjectTimeline
-                      stages={stageConfigs}
-                      currentStage={activeProjects[0].current_stage} 
-                      stageDates={projectStageDates(activeProjects[0])}
-                    />
-                  )}
-                  {!activeProjects[0].current_stage && <p className="text-gray-500">Project stage information not available.</p>}
-                </CardContent>
-                 <CardFooter className="flex justify-end">
-                    <Link href={`/client/projects/${activeProjects[0].project_type}/${activeProjects[0].id}`} passHref>
-                        <Button variant="default">View Project <ArrowRightIcon className="ml-2 h-4 w-4" /></Button>
+            {activeProjects.length > 0 && console.log('[Dashboard] activeProjects state before render:', JSON.stringify(activeProjects, null, 2))}
+            {activeProjects.length === 1 && activeProjects[0] && (() => {
+              const project = activeProjects[0];
+              const projectLinkHref = `/client/projects/${project.project_type}/${project.id}`;
+              console.log(`[Dashboard] Single project link href: ${projectLinkHref}`);
+              return (
+                <Card className="shadow-lg">
+                  <CardHeader>
+                    <CardTitle className="text-2xl">{project.title}</CardTitle>
+                    <Badge variant="secondary" className="w-fit">{project.project_type.replace('_', ' ').toUpperCase()}</Badge>
+                  </CardHeader>
+                  <CardContent>
+                    {project.current_stage && (
+                      <ProjectTimeline
+                        stages={stageConfigs}
+                        currentStage={project.current_stage} 
+                        stageDates={projectStageDates(project)}
+                      />
+                    )}
+                    {!project.current_stage && <p className="text-gray-500">Project stage information not available.</p>}
+                  </CardContent>
+                  <CardFooter className="flex justify-end">
+                    <Link href={projectLinkHref} passHref prefetch={false}>
+                      <Button variant="default">View Project <ArrowRightIcon className="ml-2 h-4 w-4" /></Button>
                     </Link>
-                </CardFooter>
-              </Card>
-            )}
+                  </CardFooter>
+                </Card>
+              );
+            })()}
             {activeProjects.length > 1 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {activeProjects.map((project) => (
-                  <Card key={project.id} className="shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <CardTitle>{project.title}</CardTitle>
-                      <Badge variant="outline">{project.project_type.replace('_', ' ').toUpperCase()}</Badge>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                        Current Stage: <span className="font-semibold">{project.current_stage ? project.current_stage.replace('-', ' ') : 'N/A'}</span>
-                      </p>
-                      {project.thumbnail_url && (
-                        <img src={project.thumbnail_url} alt={project.title} className="rounded-md aspect-video object-cover my-2" />
-                      )}
-                    </CardContent>
-                    <CardFooter className="flex justify-end">
-                        <Link href={`/client/projects/${project.project_type}/${project.id}`} passHref>
-                            <Button variant="outline" size="sm">View Details <ArrowRightIcon className="ml-2 h-4 w-4" /></Button>
+                {activeProjects.map((project) => {
+                  const projectLinkHref = `/client/projects/${project.project_type}/${project.id}`;
+                  console.log(`[Dashboard] Multi-project link href for ${project.id}: ${projectLinkHref}`);
+                  return (
+                    <Card key={project.id} className="shadow-md hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <CardTitle>{project.title}</CardTitle>
+                        <Badge variant="outline">{project.project_type.replace('_', ' ').toUpperCase()}</Badge>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          Current Stage: <span className="font-semibold">{project.current_stage ? project.current_stage.replace('-', ' ') : 'N/A'}</span>
+                        </p>
+                        {project.thumbnail_url && (
+                          <img src={project.thumbnail_url} alt={project.title} className="rounded-md aspect-video object-cover my-2" />
+                        )}
+                      </CardContent>
+                      <CardFooter className="flex justify-end">
+                        <Link href={projectLinkHref} passHref prefetch={false}>
+                          <Button variant="outline" size="sm">View Details <ArrowRightIcon className="ml-2 h-4 w-4" /></Button>
                         </Link>
-                    </CardFooter>
-                  </Card>
-                ))}
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </>

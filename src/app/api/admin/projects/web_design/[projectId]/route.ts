@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createApiClient } from '@/lib/api/server-utils'; // Needed for verifyAdminAccess
+import { createApiClient, requireAuth } from '@/lib/api/server-utils';
 import { createAdminClient } from '@/lib/api/server';
 
 interface Params {
@@ -64,13 +64,20 @@ async function verifyAdminAccess() {
  *         description: Server error.
  */
 export async function GET(request: NextRequest, { params }: Params) {
+  await requireAuth(); // Ensure user is authenticated
+
+  const { projectId } = params;
+
+  if (!projectId) {
+    return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+  }
+
   try {
     const { authorized, error: authError } = await verifyAdminAccess();
     if (!authorized) {
       return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
     }
 
-    const { projectId } = params;
     const adminClient = createAdminClient();
 
     // Step 1: Fetch specific project details, joining with client info
@@ -97,22 +104,40 @@ export async function GET(request: NextRequest, { params }: Params) {
       .from('designer_projects')
       .select('*, designer:designer_id (id, full_name, email)')
       .eq('project_id', projectId)
-      .eq('project_type', 'web_design') // Explicitly match type
+      .eq('project_type', 'web_design') // Ensure we only get for web_design type
       .maybeSingle();
-      
+
     if (assignmentError) {
-        console.warn(`Could not fetch assignment details for project ${projectId}: ${assignmentError.message}`);
-        // Don't fail the request, just return project without assignment info
+      // Log warning but don't fail the request, project might not have a designer
+      console.warn('Error fetching designer assignment:', assignmentError);
     }
     
+    // Step 2b: Fetch BIR details
+    let birData = null;
+    const { data: birResult, error: birError } = await adminClient
+      .from('business_information_requests')
+      .select('id, status')
+      .eq('project_id', projectId)
+      .maybeSingle();
+
+    if (birError) {
+      // Log warning but don't fail the request, BIR might not exist yet
+      console.warn('Error fetching BIR details:', birError);
+    } else if (birResult) {
+      birData = {
+        bir_id: birResult.id,
+        bir_status: birResult.status,
+      };
+    }
+
     // Step 3: Combine the data
     const combinedData = {
-        ...projectData,
-        designer_assignment: assignmentData?.designer || null,
+      ...projectData,
+      designer_assignment: assignmentData?.designer || null,
+      ...birData, // Add bir_id and bir_status, will be null if not found
     };
 
     return NextResponse.json(combinedData);
-
   } catch (error: any) {
     console.error('Unexpected error in GET handler:', error);
     return NextResponse.json({ error: error.message || 'Failed to fetch project details due to server error' }, { status: 500 });

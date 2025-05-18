@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { KeyedMutator } from 'swr';
 import { clsx } from 'clsx';
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { CheckCircle2 } from "lucide-react";
 
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -84,24 +85,21 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isSubmittingTextData, setIsSubmittingTextData] = useState(false);
-  const [textDataSubmittedSuccessfully, setTextDataSubmittedSuccessfully] = useState(false);
 
   const textualSteps = birStepsConfig;
   const isLastTextualStep = currentStepIndex === textualSteps.length - 1;
 
-  // Define isEditing early, before any potential early returns related to loading/error states.
-  // It depends on textDataSubmittedSuccessfully and fetchedBir status.
   const isApproved = fetchedBir && fetchedBir.status === 'approved';
-  const isEditing = !textDataSubmittedSuccessfully && !isApproved;
+  const isEditing = !isApproved;
 
-  // Scroll lock effect - Called unconditionally at the top level
   useEffect(() => {
     if (isEditing) {
-      document.body.classList.add("overflow-hidden");
+      // For now, let's assume if editing, we might still want scroll lock if it was part of an older design even for inline
+      // document.body.classList.add("overflow-hidden");
     } else {
-      document.body.classList.remove("overflow-hidden");
+      // document.body.classList.remove("overflow-hidden");
     }
-    return () => document.body.classList.remove("overflow-hidden");
+    // return () => document.body.classList.remove("overflow-hidden");
   }, [isEditing]);
 
   const form = useForm<BirFormValues>({
@@ -119,7 +117,7 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
       form.setValue('client_id', user.id);
     }
     if (birLoading) return;
-    if (!textDataSubmittedSuccessfully && !isApproved) { // Only reset if editing and not approved
+    if (isEditing) {
       if (fetchedBir && isValidAnswersObject(fetchedBir.answers)) {
         const mergedAnswers = { ...getDefaultAnswers(), ...fetchedBir.answers };
         form.reset({
@@ -137,7 +135,7 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
         });
       }
     }
-  }, [fetchedBir, projectId, birLoading, birError, user, form, textDataSubmittedSuccessfully, isApproved]);
+  }, [fetchedBir, projectId, birLoading, birError, user, form, isEditing]);
 
   const handleNextStep = async () => {
     const currentStepFields = textualSteps[currentStepIndex].fields;
@@ -215,9 +213,11 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Save failed');
       toast({ title: "Success", description: `Business information ${isUpdateMode ? 'updated' : 'submitted'}.` });
-      setTextDataSubmittedSuccessfully(true); // This will set isEditing to false
       await parentMutateBir();
       await localMutateBir();
+      if (onSaveAndExit) {
+        onSaveAndExit(result.id);
+      }
     } catch (error: any) {
       toast({ title: "Error Submitting", description: error.message, variant: "destructive" });
     } finally {
@@ -230,21 +230,9 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     toast({ title: "Validation Error", description: "Please review form.", variant: "destructive" });
   };
 
-  const handleEdit = () => {
-    setTextDataSubmittedSuccessfully(false); // This will set isEditing to true
-    setCurrentStepIndex(0);
-  };
-  
-  // New handler for the "X" button in the overlay header - Defined before early returns
-  const handleCloseOverlay = () => {
-    handleSaveDraft(); 
-  };
-
-  // Approved state check - Renders separately and exits early
-  if (isApproved) { // Use the early defined isApproved flag
+  if (isApproved) {
     return (
       <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
-        {/* Visual Stepper - Still show progress (all green) */}
         <div className="mb-10 flex items-start justify-center space-x-6 sm:space-x-10 overflow-x-auto pb-4 pt-2">
           {textualSteps.map((step, index) => (
             <div key={step.id} className="flex flex-col items-center w-28 sm:w-32">
@@ -264,19 +252,16 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     );
   }
   
-  // Loading / Error / No User states (these are fine for early returns after hooks)
-  if (authLoading || (birLoading && !fetchedBir)) return <p>Loading Business Information Form...</p>; // Adjusted birLoading condition
-  if (birError && !fetchedBir) return <p className="text-red-600">Error loading form data: {birError.message}</p>; // Adjusted birError condition
+  if (authLoading || (birLoading && !fetchedBir)) return <p>Loading Business Information Form...</p>;
+  if (birError && !fetchedBir) return <p className="text-red-600">Error loading form data: {birError.message}</p>;
   if (!user) return <p className="text-red-600">Error: User not found. Cannot display form.</p>;
   
   const CurrentStepComponent = textualSteps[currentStepIndex].component as React.ComponentType<StepProps>;
 
-  // This is the content that will be rendered either inline or inside the overlay
   const internalFormContent = (
     <>
-      {/* Compact Mobile Header for STEPS (only when isEditing and on mobile) */}
       {isEditing && (
-        <div className="sm:hidden px-4 pt-6 pb-2"> 
+        <div className="md:hidden px-4 mt-10">
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Step {currentStepIndex + 1} of {textualSteps.length}
           </p>
@@ -286,80 +271,95 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
         </div>
       )}
 
-      {/* FULL SCROLLABLE STEPPER (Buttons) */}
       <div
         className={clsx(
-          "overflow-x-auto space-x-4 sm:space-x-6 pb-4", 
-          isEditing 
-            ? "hidden sm:flex mt-6 px-4 sm:px-6 border-t border-gray-200 dark:border-gray-700" // Added border-t here for editing overlay
-            : "flex mb-10", 
-           // Removed border from here: isEditing && textualSteps.length > 0 && "border-b dark:border-gray-700"
-           // Border is now part of the editing mode's stepper container directly for visual hierarchy with overlay header
+          "mt-6 px-4 md:px-6 pb-4 overflow-x-auto",
+          !isEditing && "opacity-50 pointer-events-none",
+          {
+             "flex mb-10 space-x-4 md:space-x-6": !isEditing,
+             "hidden md:flex w-full justify-around border-t border-gray-200 dark:border-gray-700": isEditing
+          }
         )}
       >
         {textualSteps.map((step, index) => {
-          const isActiveButton = isEditing && (index === currentStepIndex);
-          const isCompleteForButtonStyling = !isEditing || (isEditing && index < currentStepIndex);
+          const isCompleted = index < currentStepIndex;
+          const isActive = !isCompleted && index === currentStepIndex;
+          
+          let stepStyle = 'bg-muted text-muted-foreground border-gray-300'; // Upcoming
+          if (isCompleted) {
+            stepStyle = 'bg-green-500 text-white border-green-600';
+          }
+          if (isActive) {
+            stepStyle = 'bg-primary text-primary-foreground scale-110 border-primary-dark ring-2 ring-primary-focus ring-offset-2 ring-offset-card';
+          }
+
           return (
-            <button
-              key={step.id}
-              disabled={!isEditing}
-              onClick={() => isEditing && setCurrentStepIndex(index)}
-              className={clsx(
-                "flex-shrink-0 w-24 sm:w-28 text-center rounded-md py-2 focus:outline-none transition-colors duration-150",
-                isActiveButton && "bg-primary-600 text-white dark:bg-primary-500 dark:text-white shadow-md",
-                isCompleteForButtonStyling && !isActiveButton && "bg-primary-100 text-primary-600 dark:bg-primary-700 dark:text-primary-200",
-                !isActiveButton && !isCompleteForButtonStyling && "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
-                !isEditing && "cursor-default opacity-75"
-              )}
-              aria-current={isActiveButton ? "step" : undefined}
-            >
-              <span className="block text-sm font-medium">{index + 1}</span>
+            <div key={step.id} className="flex flex-col items-center flex-1 px-1">
+              <div
+                className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ease-in-out border-2 ${stepStyle}`}
+              >
+                {index + 1}
+              </div>
               <span className="mt-1 block text-[11px] leading-tight truncate">
                 {step.name}
               </span>
-            </button>
+            </div>
           );
         })}
       </div>
 
-      {/* Actual Form Content or Summary Card */}
-      {/* Wrapper for content area with max-width for overlay mode, and conditional padding */}
       <div className={clsx(
-          isEditing ? "flex-1 px-4 sm:px-6 pb-20 pt-2 overflow-y-auto" : "pt-0" 
+          "px-4 sm:px-6 pt-2"
         )}
       >
-        <div className={clsx(isEditing && "max-w-2xl mx-auto")}> 
-          {textDataSubmittedSuccessfully && !isApproved ? (
-            <div className="p-6 text-center bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700/50 rounded-md">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 mx-auto text-green-500 dark:text-green-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <h3 className="text-lg font-medium text-green-700 dark:text-green-300">Information Submitted</h3>
-              <p className="text-sm text-green-600 dark:text-green-400 mt-1">Your business information has been successfully submitted.</p>
-              <p className="text-sm text-muted-foreground mt-1">You can proceed to upload files or edit the information.</p>
-              <div className="mt-4 flex justify-center space-x-3">
-                <Button onClick={handleEdit} variant="outline">Edit Information</Button>
-              </div>
-            </div>
-          ) : !isApproved && (
+        <div className=""> 
+          {!isApproved && (
             <>
               <form onSubmit={form.handleSubmit(handleSubmitAllAnswers, onFormError)} className="space-y-6">
                 <CurrentStepComponent form={form} isSubmitting={isSubmittingTextData || authLoading || birLoading} />
-                <div className="flex justify-between items-center pt-6">
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     {currentStepIndex > 0 && (
-                      <Button type="button" onClick={handlePreviousStep} variant="outline" disabled={isSubmittingTextData}>Previous</Button>
+                      <Button
+                        type="button"
+                        onClick={handlePreviousStep}
+                        variant="outline"
+                        disabled={isSubmittingTextData}
+                        className="w-full sm:w-auto whitespace-normal"
+                      >
+                        Previous
+                      </Button>
                     )}
                   </div>
-                  <div className="flex-grow flex justify-center">
-                    <Button type="button" onClick={handleSaveDraft} disabled={isSubmittingTextData} variant="secondary">Save and Exit</Button>
+                  <div className="flex justify-center sm:flex-grow">
+                    <Button
+                      type="button"
+                      onClick={handleSaveDraft}
+                      disabled={isSubmittingTextData}
+                      variant="secondary"
+                      className="w-full sm:w-auto whitespace-normal"
+                    >
+                      Save and Exit
+                    </Button>
                   </div>
                   <div>
                     {!isLastTextualStep && (
-                      <Button type="button" onClick={handleNextStep} disabled={isSubmittingTextData}>Next</Button>
+                      <Button
+                        type="button"
+                        onClick={handleNextStep}
+                        disabled={isSubmittingTextData}
+                        className="w-full sm:w-auto whitespace-normal"
+                      >
+                        Next
+                      </Button>
                     )}
                     {isLastTextualStep && (
-                      <Button type="submit" disabled={isSubmittingTextData || authLoading || birLoading}>
-                        {isSubmittingTextData ? 'Saving...' : ((fetchedBir && fetchedBir.id && !textDataSubmittedSuccessfully) || (fetchedBir && fetchedBir.id && currentStepIndex !== 0)) ? 'Update & Save All Answers' : 'Save All Answers'}
+                      <Button
+                        type="submit"
+                        disabled={isSubmittingTextData || authLoading || birLoading}
+                        className="w-full sm:w-auto whitespace-normal"
+                      >
+                        {isSubmittingTextData ? 'Saving...' : ((fetchedBir && fetchedBir.id && currentStepIndex !== 0)) ? 'Update & Save All Answers' : 'Save All Answers'}
                       </Button>
                     )}
                   </div>
@@ -372,31 +372,11 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     </>
   );
 
-  if (isEditing) {
-    return (
-      <div className="fixed inset-0 z-[60] flex flex-col bg-white dark:bg-black text-gray-900 dark:text-gray-100">
-        <header className="sticky top-0 z-[61] flex items-center justify-between h-14 px-4 border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-black/80 backdrop-blur-sm sm:px-6">
-          <h1 className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            Business Information Request
-          </h1>
-          <button
-            onClick={handleCloseOverlay}
-            className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-            aria-label="Close"
-          >
-            <XMarkIcon className="w-6 h-6 text-gray-500 dark:text-gray-400" />
-          </button>
-        </header>
-        {/* The internalFormContent handles its own scrolling for the form area if needed */}
-        {internalFormContent} 
-      </div>
-    );
-  }
+  const inlineModeWrapperClasses = "space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground";
 
-  // Render inline if not editing (handles its own padding and card-like appearance)
   return (
-    <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
-        {internalFormContent}
+    <div className={inlineModeWrapperClasses}>
+      {internalFormContent} 
     </div>
   );
 } 

@@ -123,11 +123,11 @@ export default function DesignerProjectDetailsPage() {
             </Card>
 
             {/* Integrate Business Info Gate - Only show if web design */}
-            {project.project_type === 'web_design' && project.id && ( // Ensure project.id is also available
+            {project && project.id && project.project_type === 'web_design' && (
                  <Card>
-                    <CardHeader>
+                    {/* <CardHeader>
                         <CardTitle>Business Information & Client Files</CardTitle>
-                    </CardHeader>
+                    </CardHeader> */}
                     <CardContent>
                         <BusinessInfoGate 
                             projectId={project.id}

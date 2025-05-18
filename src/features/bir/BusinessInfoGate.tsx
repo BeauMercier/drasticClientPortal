@@ -9,7 +9,7 @@ import BirSummary, { BirSummaryProps } from './BirSummary'; // Corrected import 
 import { Skeleton } from '@/components/ui/skeleton'; // For loading state
 import { KeyedMutator } from 'swr'; // Added for KeyedMutator type
 import { Button } from '@/components/ui/button'; // Added Button import
-import { CheckCircle, Edit3, FileText } from 'lucide-react'; // Added icons
+import { BirStatusBanner } from './components/BirStatusBanner';
 
 interface BusinessInfoGateProps {
     projectId: string;
@@ -113,52 +113,44 @@ export default function BusinessInfoGate({ projectId, projectType, parentMutateB
         // Case 2: BIR exists and is not currently being edited by the user.
         if (bir) { // bir is guaranteed to exist here if !isEditing
             if (bir.status === 'pending') {
-                 // User has a saved draft
-                return (
-                    <div className="p-4 border rounded-lg shadow-sm bg-card space-y-3">
-                        <div className="flex items-center">
-                            <FileText className="h-5 w-5 mr-2 text-blue-500" />
-                            <p className="text-sm font-medium">You have a saved draft.</p>
-                        </div>
-                        <Button onClick={() => { setIsEditing(true); setShowSummaryInsteadOfForm(false);}}>Edit/Continue Draft</Button>
-                    </div>
-                );
+               return (
+                 <BirStatusBanner
+                   status="pending"
+                   onEdit={() => setIsEditing(true)}
+                 />
+               );
             }
 
             if (bir.status === 'submitted') {
                 const summaryProps: BirSummaryProps = { bir, signedFiles: signedBirFiles };
                 return (
-                    <div className="p-4 border rounded-lg shadow-sm bg-green-50 border-green-200 space-y-3">
-                        <div className="flex items-center">
-                            <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
-                            <p className="text-sm font-medium text-green-700">Business Information Submitted!</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Your answers have been submitted and are awaiting review. You can still make changes if needed.
-                        </p>
-                        <div className="flex space-x-2">
-                            <Button onClick={() => { setIsEditing(true); setShowSummaryInsteadOfForm(false); }}>Edit Information</Button>
-                            <Button variant="outline" onClick={() => { setIsEditing(false); setShowSummaryInsteadOfForm(true); }}>Review Submitted Info</Button>
-                        </div>
-                         {showSummaryInsteadOfForm && <BirSummary {...summaryProps} />}
-                    </div>
+                  <>
+                    <BirStatusBanner
+                      status="submitted"
+                      onEdit={() => {
+                        setIsEditing(true);
+                        setShowSummaryInsteadOfForm(false);
+                      }}
+                      onReview={() => {
+                        setIsEditing(false);
+                        setShowSummaryInsteadOfForm(true);
+                      }}
+                    />
+                    {showSummaryInsteadOfForm && <BirSummary {...summaryProps} />}
+                  </>
                 );
             }
             
             if (bir.status === 'approved') {
-                 const summaryProps: BirSummaryProps = { bir, signedFiles: signedBirFiles };
-                 return (
-                    <div className="p-4 border rounded-lg shadow-sm bg-blue-50 border-blue-200 space-y-3">
-                        <div className="flex items-center">
-                            <CheckCircle className="h-5 w-5 mr-2 text-blue-600" />
-                            <p className="text-sm font-medium text-blue-700">Business Information Approved!</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Your business information has been reviewed and approved.
-                        </p>
-                        <Button variant="outline" onClick={() => { setIsEditing(false); setShowSummaryInsteadOfForm(true); }}>Review Approved Info</Button>
-                        {showSummaryInsteadOfForm && <BirSummary {...summaryProps} />}
-                    </div>
+                const summaryProps: BirSummaryProps = { bir, signedFiles: signedBirFiles };
+                return (
+                  <>
+                    <BirStatusBanner
+                      status="approved"
+                      onReview={() => setShowSummaryInsteadOfForm(true)}
+                    />
+                    {showSummaryInsteadOfForm && <BirSummary {...summaryProps} />}
+                  </>
                 );
             }
         }

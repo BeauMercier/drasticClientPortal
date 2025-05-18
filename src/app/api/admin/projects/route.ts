@@ -161,6 +161,41 @@ export async function GET(request: NextRequest) {
     }
     // --- End: Fetch and map designer assignments ---
     
+    // --- Start: Fetch and map BIR data for web_design projects ---
+    if (allProjects.length > 0) {
+      const webDesignProjectIds = allProjects
+        .filter(p => p.type === 'web_design')
+        .map(p => p.id);
+
+      if (webDesignProjectIds.length > 0) {
+        const { data: birs, error: birError } = await adminClient
+          .from('business_information_requests')
+          .select('project_id, id, status')
+          .in('project_id', webDesignProjectIds);
+
+        if (birError) {
+          console.warn('Failed to fetch BIR data for admin project list:', birError.message);
+        } else if (birs) {
+          const birsMap = new Map<string, { bir_id: string; bir_status: string }>();
+          birs.forEach(bir => {
+            birsMap.set(bir.project_id, { bir_id: bir.id, bir_status: bir.status });
+          });
+          allProjects = allProjects.map(p => {
+            if (p.type === 'web_design') {
+              const birData = birsMap.get(p.id);
+              return { 
+                ...p, 
+                bir_id: birData?.bir_id || null, 
+                bir_status: birData?.bir_status || null 
+              };
+            }
+            return p;
+          });
+        }
+      }
+    }
+    // --- End: Fetch and map BIR data ---
+    
     allProjects.sort((a, b) => 
       new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     );

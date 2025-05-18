@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Filter, Plus, CalendarIcon, MoreHorizontal, Trash2, Edit, Eye, UserPlus, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
+import Link from 'next/link';
 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StageSelect } from "@/components/projects/StageSelect";
 import { ProjectStage, ProjectType as LibProjectType, ClientProfileData } from "@/lib/types/project";
+import AdminProjectDetailsModal from './components/AdminProjectDetailsModal';
+import { AdminProject } from "./types"; // Import AdminProject
 
 // Helper function for safe date formatting
 const safeFormatDate = (dateInput: string | null | undefined, formatString: string = 'MMM d, yyyy'): string => {
@@ -56,18 +59,27 @@ const safeFormatDate = (dateInput: string | null | undefined, formatString: stri
 // Updated Project interface to align with API response and use title
 interface Project {
   id: string;
-  type: LibProjectType; // Use aliased ProjectType from lib
-  title: string; // Canonical name field
-  name?: string; // Optional, for transition. TODO: name will be removed after migration from types
+  type: LibProjectType;
+  title: string;
+  name?: string;
   description?: string | null;
-  status: string; // Consider using ProjectStatus from lib/types/project
+  status: string;
   deadline?: string | null;
-  user_id: string; // Foreign key to user/client
-  client: ClientProfileData; // Nested client information
+  due_date?: string | null;
+  user_id: string;
+  client_id?: string;
+  client: ClientProfileData;
+  client_name?: string | null;
+  client_email?: string | null;
+  client_company?: string | null;
   designer_id?: string | null;
+  designer_name?: string | null;
+  designer_email?: string | null;
   created_at: string;
   updated_at: string;
   current_stage?: ProjectStage | null;
+  birId?: string | null;
+  birStatus?: string | null;
 }
 
 // Helper function for status badge color (can be outside component or memoized)
@@ -107,10 +119,8 @@ export default function AdminProjects() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [projectDetails, setProjectDetails] = useState<any | null>(null); // Kept as any for now, details fetch might bring more fields
-  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedProjectForModal, setSelectedProjectForModal] = useState<Project | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
@@ -160,29 +170,60 @@ export default function AdminProjects() {
     }
   }, [editProject]);
 
-  useEffect(() => {
-    const fetchProjectsScoped = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await fetch('/api/admin/projects/');
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-          throw new Error(errorData.error || `Failed to fetch projects: ${response.statusText}`);
-        }
-        const data = await response.json();
-        // API now returns a flat array directly
-        setProjects(data as Project[]);
-      } catch (err) {
-        console.error('Error in fetchProjectsScoped:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch projects');
-        setProjects([]);
-      } finally {
-        setIsLoading(false);
+  const fetchProjects = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await fetch('/api/admin/projects/');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        throw new Error(errorData.error || `Failed to fetch projects: ${response.statusText}`);
       }
-    };
-    fetchProjectsScoped();
+      const data = await response.json();
+      const mappedData: Project[] = data.map((p: any) => ({
+        ...p, // Spread raw API data first
+        id: p.id,
+        type: p.type as LibProjectType,
+        title: p.title,
+        description: p.description,
+        status: p.status,
+        deadline: p.deadline, // Keep original deadline from API if needed by page.tsx
+        due_date: p.deadline || null, // Map for AdminProject
+        user_id: p.user_id, // Keep original user_id
+        client_id: p.user_id, // Map for AdminProject
+        client: p.client, // Keep original client object
+        client_name: p.client?.full_name || null, // Map for AdminProject
+        client_email: p.client?.email || null,   // Map for AdminProject
+        client_company: p.client?.company || null,// Map for AdminProject
+        designer_id: p.designer_id || null,
+        // designer_name and designer_email are not reliably in list API data
+        // AdminProject makes them optional, so this is fine.
+        designer_name: p.designer_name || null, // if API happens to provide it
+        designer_email: p.designer_email || null, // if API happens to provide it
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+        current_stage: p.current_stage,
+        birId: p.bir_id || null,
+        birStatus: p.bir_status || null,
+      }));
+      setProjects(mappedData);
+    } catch (err) {
+      console.error('Error in fetchProjects:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch projects');
+      setProjects([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
   }, []);
+
+  const openDetailsModal = (project: Project) => {
+    setSelectedProjectForModal(project);
+    setIsDetailsModalOpen(true);
+  };
 
   const fetchProjectDetails = async (project: Project) => {
     console.log('[AdminProjects] fetchProjectDetails called for:', project?.title);
@@ -190,28 +231,11 @@ export default function AdminProjects() {
       console.log('[AdminProjects] fetchProjectDetails: No project provided');
       return;
     }
-    setIsDetailsOpen(true);
-    setSelectedProject(project);
-    setIsDetailsLoading(true);
-    console.log('[AdminProjects] fetchProjectDetails: Dialog open, loading details...');
-    try {
-      const response = await fetch(`/api/admin/projects/${project.type}/${project.id}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-        console.error('[AdminProjects] fetchProjectDetails: API error', errorData);
-        throw new Error(errorData.error || 'Failed to fetch project details');
-      }
-      const details = await response.json();
-      console.log('[AdminProjects] fetchProjectDetails: Details received', details);
-      setProjectDetails(details);
-    } catch (error: any) {
-      console.error('[AdminProjects] fetchProjectDetails: Catch block error', error);
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      setProjectDetails(null);
-    } finally {
-      setIsDetailsLoading(false);
-      console.log('[AdminProjects] fetchProjectDetails: Finished loading.');
-    }
+    // This function originally fetched more details, now we just open the modal with existing list data
+    setSelectedProjectForModal(project);
+    setIsDetailsModalOpen(true);
+    // console.log('[AdminProjects] fetchProjectDetails: Dialog open, details might be in selectedProjectForModal');
+    // Original detailed fetch logic removed as AdminProjectDetailsModal uses project prop directly
   };
 
   const fetchDesigners = async () => {
@@ -525,8 +549,8 @@ export default function AdminProjects() {
       const searchMatch = 
           (project.title?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || // Directly use project.title
           typeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (project.client?.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-          (project.client?.company?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+          (project.client_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+          (project.client_company?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
           (project.user_id && project.user_id.toLowerCase().includes(searchTerm.toLowerCase())); // Keep user_id search if useful
 
       const statusMatch = statusFilter === 'all' || project.status.toLowerCase() === statusFilter.toLowerCase();
@@ -661,9 +685,15 @@ export default function AdminProjects() {
                       </span>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-50">
-                      <DropdownMenuItem onClick={() => fetchProjectDetails(project)} className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">
+                      <DropdownMenuItem onSelect={() => openDetailsModal(project)}>
                         <Eye className="mr-2 h-4 w-4" />
-                        View Details
+                        View Quick Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">
+                        <Link href={`/admin/projects/view/${project.id}?type=${project.type}`}>
+                          <Briefcase className="mr-2 h-4 w-4" /> {/* Using Briefcase as an example icon */}
+                          View Full Details
+                        </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleEdit(project)} className="hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800">
                         <Edit className="mr-2 h-4 w-4" />
@@ -697,7 +727,7 @@ export default function AdminProjects() {
                 <div className="mt-3 space-y-1 text-xs text-gray-500 dark:text-gray-400">
                   <div className="flex items-center">
                     <Briefcase className="mr-1.5 h-3.5 w-3.5" />
-                    Client: {project.client?.full_name || project.client?.company || project.user_id}
+                    Client: {project.client_name || project.user_id}
                   </div>
                   {project.status && (
                       <div className="flex items-center">
@@ -804,67 +834,14 @@ export default function AdminProjects() {
       </Dialog>
 
       {/* View Project Details Dialog */}
-      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Project Details: {selectedProject?.title}</DialogTitle>
-            <DialogDescription>
-              Viewing details for project: {selectedProject?.title}. Client: {selectedProject?.client?.full_name || selectedProject?.client?.company || 'N/A'}.
-            </DialogDescription>
-          </DialogHeader>
-          {isDetailsLoading ? (
-            <div className="py-4">
-              <Skeleton className="h-4 w-1/2 mb-2" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-          ) : projectDetails ? (
-            <div className="py-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="font-semibold mb-1">Title</h4>
-                <p className="text-muted-foreground">{projectDetails.title}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Client</h4>
-                <p className="text-muted-foreground">{projectDetails.client?.full_name || projectDetails.client?.company || projectDetails.user_id || 'N/A'}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Project Type</h4>
-                <p className="text-muted-foreground capitalize">{projectDetails.type?.replace(/_/g, ' ') || 'N/A'}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Status</h4>
-                <p className="text-muted-foreground capitalize">{projectDetails.status?.replace(/_/g, ' ') || 'N/A'}</p>
-              </div>
-              <div className="md:col-span-2">
-                <h4 className="font-semibold mb-1">Description</h4>
-                <p className="text-muted-foreground whitespace-pre-wrap">{projectDetails.description || 'No description provided.'}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Deadline</h4>
-                <p className="text-muted-foreground">{safeFormatDate(projectDetails.deadline)}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Current Stage</h4>
-                <p className="text-muted-foreground capitalize">{projectDetails.current_stage?.replace(/-/g, ' ') || 'N/A'}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Created At</h4>
-                <p className="text-muted-foreground">{safeFormatDate(projectDetails.created_at, 'PPpp')}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Last Updated</h4>
-                <p className="text-muted-foreground">{safeFormatDate(projectDetails.updated_at, 'PPpp')}</p>
-              </div>
-              {/* Add more fields as needed from projectDetails specific to project type if they exist */}
-            </div>
-          ) : (
-            <div className="py-4 text-muted-foreground">No details available or failed to load.</div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {isDetailsModalOpen && selectedProjectForModal && (
+        <AdminProjectDetailsModal
+          open={isDetailsModalOpen}
+          onClose={() => setIsDetailsModalOpen(false)}
+          project={selectedProjectForModal as AdminProject} 
+          onBirApproved={fetchProjects} 
+        />
+      )}
       
       {/* Assign Designer Dialog */}
       <Dialog open={isAssignDesignerOpen} onOpenChange={(isOpen) => {

@@ -11,6 +11,7 @@ import {
     updateBir,
 } from '@/lib/api/bir';
 import { requireAuth, createApiClient } from '@/lib/api/server-utils'; // Import createApiClient
+import { UserRole } from '@/lib/types/user'; // Corrected import for UserRole
 
 /* --------------------------------------------------------------------------
    Helpers
@@ -129,16 +130,34 @@ export async function POST(req: Request) {
    -------------------------------------------------------------------------- */
 export async function PATCH(req: Request) {
     try {
-        // Ensure authenticated. RLS will handle specific record access.
-        await requireAuth(); // No req needed
-        const supabase = createApiClient(); // Create authenticated client
+        const { user, error: authError } = await requireAuth(); 
+        if (!user) { // Combined check: if no user, authError should exist or be a generic message
+            return jsonError(authError || 'Authentication required', 401);
+        }
+        const supabase = createApiClient(); 
 
         const raw = await req.json();
-        // Validate the update payload
         const dto = birUpdateSchema.parse(raw);
 
-        // The updateBir helper handles validation and requires the full DTO
-        const bir = await updateBir(supabase, dto); // Pass client and validated DTO
+        if (dto.status === 'approved') {
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+
+            if (profileError || !profile) {
+                console.error('[PATCH /api/bir] Error fetching user profile for role check:', profileError);
+                return jsonError('Could not verify user role for approval.', 500);
+            }
+
+            // Compare with the actual string value for the admin role
+            if (profile.role !== 'admin') { 
+                return jsonError('Only admins can approve BIRs.', 403);
+            }
+        }
+
+        const bir = await updateBir(supabase, dto);
         return jsonOK(bir);
     } catch (err: any) {
         console.error('[PATCH /api/bir] ', err);

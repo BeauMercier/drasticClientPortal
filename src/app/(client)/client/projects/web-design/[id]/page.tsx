@@ -140,13 +140,13 @@ export default function WebDesignProjectDetails() {
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger 
             value="business-info" 
-            className="text-base font-semibold py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+            className="text-lg font-semibold py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
           >
-            Business Information
+            Business Info
           </TabsTrigger>
           <TabsTrigger 
             value="bir-files" 
-            className="text-base font-semibold py-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+            className="text-lg font-semibold py-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
           >
             Project Files
           </TabsTrigger>

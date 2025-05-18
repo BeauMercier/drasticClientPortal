@@ -16,6 +16,11 @@ import { Badge } from "@/components/ui/badge";
 import { getUserProfile } from '@/lib/api/client-api';
 import { Tables } from '@/lib/database.types';
 
+/**
+ * @constant {StageConfig[]} stageConfigs
+ * Configuration for the stages displayed in the ProjectTimeline component.
+ * Each object defines a stage's key, display label, and associated icon.
+ */
 const stageConfigs: StageConfig[] = [
   { key: 'discovery', label: 'Discovery', icon: Zap },
   { key: 'concept-development', label: 'Concept', icon: Lightbulb },
@@ -24,6 +29,16 @@ const stageConfigs: StageConfig[] = [
   { key: 'delivery', label: 'Delivery', icon: Package },
 ];
 
+/**
+ * ClientDashboardPage component.
+ * 
+ * Displays an overview for the authenticated client, including:
+ * - A personalized welcome message.
+ * - A section for "Active Projects", showing a timeline for a single project or cards for multiple projects.
+ * - A "Quick Links" section for easy navigation to relevant parts of the portal or external resources.
+ * 
+ * Fetches active projects and user profile information to dynamically render content.
+ */
 export default function ClientDashboardPage() {
   const [activeProjects, setActiveProjects] = useState<ActiveClientProject[]>([]);
   const [userProfile, setUserProfile] = useState<Tables<'profiles'> | null>(null);
@@ -61,14 +76,25 @@ export default function ClientDashboardPage() {
     fetchInitialData();
   }, []);
 
+  /**
+   * @const {Array<Object>} quickLinks
+   * Configuration for the "Quick Links" section of the dashboard.
+   * Each object defines a link with properties for its title, description, URL (href),
+   * icon, background color (`bgColor`), text colors for base elements (`baseTextColor`)
+   * and descriptions (`descriptionTextColor`), button styling classes (`buttonClasses`),
+   * button text, disabled state, and whether it's an external link.
+   * These properties are used to render theme-aware cards for each quick link.
+   */
   const quickLinks = [
     {
       title: 'Website Dashboard',
       description: 'Access your website analytics.',
       href: userProfile?.website_dashboard_url || '#',
       icon: NewspaperIcon,
-      bgColor: 'bg-blue-500',
-      textColor: 'text-white',
+      bgColor: 'bg-blue-100 dark:bg-blue-600',
+      baseTextColor: 'text-blue-700 dark:text-blue-100',
+      descriptionTextColor: 'text-blue-600 dark:text-blue-200',
+      buttonClasses: 'bg-blue-200 hover:bg-blue-300 text-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 dark:text-blue-50',
       buttonText: 'Go to Dashboard',
       disabled: !userProfile?.website_dashboard_url,
       external: !!userProfile?.website_dashboard_url,
@@ -77,9 +103,11 @@ export default function ClientDashboardPage() {
       title: 'Lead Dashboard',
       description: 'View and manage your leads.',
       href: 'https://Leads.DrasticDigital.com',
-      icon: SparklesIcon, 
-      bgColor: 'bg-green-500',
-      textColor: 'text-white',
+      icon: SparklesIcon,
+      bgColor: 'bg-green-100 dark:bg-green-600',
+      baseTextColor: 'text-green-700 dark:text-green-100',
+      descriptionTextColor: 'text-green-600 dark:text-green-200',
+      buttonClasses: 'bg-green-200 hover:bg-green-300 text-green-700 dark:bg-green-500 dark:hover:bg-green-400 dark:text-green-50',
       buttonText: 'Go to Leads',
       external: true,
       disabled: false,
@@ -89,8 +117,10 @@ export default function ClientDashboardPage() {
       description: 'Access all your project files.',
       href: '/client/files',
       icon: BriefcaseIcon,
-      bgColor: 'bg-purple-500',
-      textColor: 'text-white',
+      bgColor: 'bg-purple-100 dark:bg-purple-600',
+      baseTextColor: 'text-purple-700 dark:text-purple-100',
+      descriptionTextColor: 'text-purple-600 dark:text-purple-200',
+      buttonClasses: 'bg-purple-200 hover:bg-purple-300 text-purple-700 dark:bg-purple-500 dark:hover:bg-purple-400 dark:text-purple-50',
       buttonText: 'Browse Files',
       external: false,
       disabled: false,
@@ -98,12 +128,14 @@ export default function ClientDashboardPage() {
     {
       title: 'Support',
       description: 'Get help or browse documentation.',
-      href: '/support',
+      href: 'https://drasticdigital.com/contact',
       icon: QuestionMarkCircleIcon,
-      bgColor: 'bg-amber-500',
-      textColor: 'text-white',
+      bgColor: 'bg-amber-100 dark:bg-amber-600',
+      baseTextColor: 'text-amber-700 dark:text-amber-100',
+      descriptionTextColor: 'text-amber-600 dark:text-amber-200',
+      buttonClasses: 'bg-amber-200 hover:bg-amber-300 text-amber-700 dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-amber-50',
       buttonText: 'Contact Support',
-      external: false,
+      external: true,
       disabled: false,
     },
   ];
@@ -144,7 +176,6 @@ export default function ClientDashboardPage() {
             {activeProjects.length === 0 && (
               <p className="text-gray-600 dark:text-gray-400">You have no active projects at the moment.</p>
             )}
-            {activeProjects.length > 0 && console.log('[Dashboard] activeProjects state before render:', JSON.stringify(activeProjects, null, 2))}
             {activeProjects.length === 1 && activeProjects[0] && (() => {
               const project = activeProjects[0];
               const projectLinkHref = `/client/projects/${project.project_type}/${project.id}`;
@@ -215,15 +246,15 @@ export default function ClientDashboardPage() {
         {!isLoadingProfile && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {quickLinks.map((link) => (
-              <Card key={link.title} className={`shadow-lg hover:shadow-xl transition-shadow duration-300 ${link.bgColor} ${link.disabled ? 'opacity-70' : ''} text-white`}>
+              <Card key={link.title} className={`shadow-lg hover:shadow-xl transition-shadow duration-300 ${link.bgColor} ${link.disabled ? 'opacity-70' : ''}`}> 
                 <CardHeader>
                   <div className="flex items-center space-x-3">
-                      <link.icon className={`h-8 w-8 ${link.textColor}`} />
-                      <CardTitle className="text-xl text-white">{link.title}</CardTitle>
+                      <link.icon className={`h-8 w-8 ${link.baseTextColor}`} /> 
+                      <CardTitle className={`text-xl ${link.baseTextColor}`}>{link.title}</CardTitle> 
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-white">{link.description}</p>
+                  <p className={`${link.descriptionTextColor}`}>{link.description}</p> 
                 </CardContent>
                 <CardFooter>
                   {link.external ? (
@@ -233,14 +264,14 @@ export default function ClientDashboardPage() {
                       rel="noopener noreferrer"
                       className={`w-full ${link.disabled ? 'pointer-events-none' : ''}`}
                     >
-                      <Button variant="outline" className="w-full bg-white/20 hover:bg-white/30 border-white/50 text-white" disabled={link.disabled}>
+                      <Button variant="default" className={`w-full ${link.buttonClasses}`} disabled={link.disabled}>
                           {link.buttonText} <ArrowRightIcon className="ml-2 h-4 w-4" />
                       </Button>
                     </a>
                   ) : (
                     <Link href={link.href} passHref legacyBehavior={link.disabled || link.href === '#'}> 
                       <a className={`w-full ${link.disabled ? 'pointer-events-none' : ''}`}> 
-                        <Button variant="outline" className="w-full bg-white/20 hover:bg-white/30 border-white/50 text-white" disabled={link.disabled}>
+                        <Button variant="default" className={`w-full ${link.buttonClasses}`} disabled={link.disabled}>
                             {link.buttonText} <ArrowRightIcon className="ml-2 h-4 w-4" />
                         </Button>
                       </a>

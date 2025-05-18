@@ -329,3 +329,23 @@
     - The page now dynamically adjusts navigation: if a client has only one project within a specific category, clicking that category card will navigate directly to that project's detail page.
     - If a client has zero or multiple projects in a category, clicking the card links to the standard list page for that project category.
     - Ensured `projectCategories` in `page.tsx` uses distinct `id` (for data lookup, e.g., `web_design`) and `slug` (for URL routing, e.g., `web-design`) properties to correctly interact with fetched data and Next.js file-based routing.
+
+### [Current Date] - Client Dashboard Enhancement
+
+- [x] **Enhance Client Dashboard (`src/app/(client)/client/page.tsx`)**
+    - [x] Implemented "Active Projects" section:
+        - [x] Fetches data from `/api/client/active-projects`.
+        - [x] Displays a single project with `ProjectTimeline` or multiple projects as cards.
+        - [x] Correctly resolved API issues related to `thumbnail_url` and `titleField` selection.
+        - [x] Resolved linter error (`Type 'void' is not assignable to type 'ReactNode'`) by removing a `console.log` from the render output in the Active Projects section.
+    - [x] Implemented "Quick Links" section:
+        - [x] Derived links from "My Profile" page.
+        - [x] Styled links with theme-aware colors (light/dark mode support for background, text, and icons).
+        - [x] Updated "Support" link to external `https://drasticdigital.com/contact`.
+    - [x] UI Adjustments:
+        - [x] Changed header to "Hi {user's first name}!".
+        - [x] Moved "Quick Links" below "Active Projects".
+        - [x] Removed "Notifications" placeholder section.
+    - [x] Debugged and resolved 404 issue for "View Project" button (self-resolved after `prefetch={false}` added).
+    - [x] Debugged and resolved "No Active Projects" display issue by correcting API logic and Supabase column selection.
+    - [x] Refined Quick Links styling for text visibility against colored backgrounds.

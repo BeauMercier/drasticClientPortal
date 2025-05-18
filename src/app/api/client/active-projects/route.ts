@@ -4,6 +4,16 @@ import { ProjectStage, ProjectType, ActiveClientProject, ProjectStatus } from '@
 import { Database } from '@/lib/database.types';
 // import { createServiceRoleClient } from '@/lib/api/server'; // No longer needed for this version
 
+/**
+ * GET /api/client/active-projects
+ * 
+ * Fetches all active projects for the authenticated client user.
+ * Active projects are defined as those with a status of 'in_progress'.
+ * It queries multiple project tables (web_design_projects, logo_design_projects, social_graphics_projects)
+ * and consolidates the results into a unified ActiveClientProject structure.
+ * 
+ * @returns {Promise<NextResponse>} A NextResponse object containing an array of ActiveClientProject objects or an error message.
+ */
 export async function GET() {
   const supabaseUserClient = createApiClient(); // User-context client for all operations
   const { data: { user }, error: authError } = await supabaseUserClient.auth.getUser();

@@ -346,8 +346,8 @@ const FileList: React.FC<FileListProps> = ({
           // At root: display a non-clickable title based on the context's folderPath or initialFolder.
           // Since folderPath from useFiles() is the current path segments, if it's empty, we are at root.
           <span className="text-gray-700 font-medium">
-            {/* Display "Root" or the name of the root folder if initialFolder provides it and it's not empty */}
-            {(initialFolder && initialFolder !== '') ? initialFolder.split('/').pop() : 'Root'}
+            {/* Display "" (empty string) or the name of the root folder if initialFolder provides it and it's not empty */}
+            {(initialFolder && initialFolder !== '') ? initialFolder.split('/').pop() : ''}
           </span>
         ) : (
           // In a subfolder: display clickable "Root"

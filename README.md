@@ -20,6 +20,12 @@ A comprehensive client portal built with Next.js, TypeScript, Tailwind CSS, and 
     - **Title standardisation:** all project types now use `title` (no more `name` bugs in admin).
     - **Optional DB trigger:** see `fill_missing_stage_dates` (SQL) to auto-fill earlier stage dates and guarantee integrity.
 
+- **Client Dashboard Enhancements**:
+    - **Active Projects Section**: Displays ongoing client projects. If one project is active, a detailed timeline is shown. If multiple are active, they are displayed as interactive cards.
+    - **Quick Links Section**: Provides easy access to common areas like "Website Dashboard", "Lead Dashboard", "Project Files", and "Support". Links and their presentation are theme-aware (light/dark mode).
+    - **Dynamic Header**: Welcomes the client by their first name.
+    - **Improved Layout**: "Quick Links" are positioned below "Active Projects" for better information flow.
+
 ## Getting Started
 
 ### Prerequisites

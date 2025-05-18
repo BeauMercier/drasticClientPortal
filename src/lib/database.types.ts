@@ -1482,6 +1482,7 @@ export type Database = {
           project_type: string | null
           uploaded_at: string | null
           user_id: string | null
+          is_folder: boolean
         }
         Insert: {
           description?: string | null
@@ -1494,6 +1495,7 @@ export type Database = {
           project_type?: string | null
           uploaded_at?: string | null
           user_id?: string | null
+          is_folder?: boolean
         }
         Update: {
           description?: string | null
@@ -1506,6 +1508,7 @@ export type Database = {
           project_type?: string | null
           uploaded_at?: string | null
           user_id?: string | null
+          is_folder?: boolean
         }
         Relationships: [
           {

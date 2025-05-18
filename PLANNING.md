@@ -138,6 +138,7 @@ Files are stored in a single Supabase storage bucket (`project-files`). Metadata
 ### Access Control:
 
 Access to both storage objects and the corresponding `user_files` and `bir_file` database records is controlled primarily by Supabase Row Level Security (RLS) policies. These policies ensure users can only access their own files or files related to projects they are assigned to (if they are designers). Admins have broader access.
+The RLS policies for `user_files` have been verified to correctly allow authenticated clients to select their own files (both general and project-specific) via the `user_id = auth.uid()` condition, which is fundamental for the `/api/client/all-user-files` endpoint.
 
 **The definitive RLS policies for all tables, including `user_files` and `bir_file`, can be found in the `Full_Schema.sql` file in the workspace root or respective migration files.** This file provides a complete snapshot of the database schema, including RLS, functions, and triggers, whereas `supabase/migrations/` may contain incremental changes.
 
@@ -145,6 +146,8 @@ Access to both storage objects and the corresponding `user_files` and `bir_file`
 
 Key API routes for core functionality:
 
+*   **/api/client/all-user-files/**
+    *   `GET`: Fetches all file and folder records from the `user_files` table for the currently authenticated client. Uses Bearer token authentication (bypassing cookie issues) and relies on RLS (`user_id = auth.uid()`) to ensure data security. This endpoint supports the unified file view on `/client/files`.
 *   **/api/admin/projects/**
     *   `GET`: Fetches a list of *all* projects (web, logo, social) for the admin dashboard. Adds a `type` field to each project object.
 *   **/api/admin/projects/[projectType]/[projectId]/**

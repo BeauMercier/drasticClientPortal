@@ -10,6 +10,24 @@ export interface UseBirData {
   signedFiles: SignedBirFile[] | null;
 }
 
+/**
+ * Fetches Business Information Request (BIR) data and associated files for a project.
+ * 
+ * The process involves:
+ * 1. Fetching the main BIR record from `business_information_requests`.
+ * 2. Fetching all associated file metadata from `bir_file`.
+ * 3. Generating signed URLs for each file in the `bir-files` storage bucket.
+ *
+ * IMPORTANT: Access to files in the `bir-files` storage bucket (and thus the success of
+ * `createSignedUrl`) is governed by Row Level Security (RLS) policies defined in Supabase.
+ * These policies typically grant access based on user roles (e.g., 'client', 'designer', 'admin')
+ * and their association with the project or BIR.
+ * - Clients can generally read files linked to their own BIRs.
+ * - Designers can generally read files for projects they are assigned to.
+ * - Admins usually have broader read access.
+ * Ensure these RLS policies are correctly configured in the Supabase dashboard 
+ * (Storage -> Policies for the `bir-files` bucket on the `storage.objects` table).
+ */
 const fetcher = async (projectId: string): Promise<UseBirData> => {
   if (!projectId) {
     throw new Error('Project ID is required to fetch BIR.');
@@ -52,6 +70,8 @@ const fetcher = async (projectId: string): Promise<UseBirData> => {
   if (typedBirFiles.length > 0) {
     try {
       const signedUrlPromises = typedBirFiles.map(async (file) => {
+        // Attempt to create a signed URL. Success depends on RLS policies
+        // granting the current user SELECT permission on the storage object.
         const { data: signedUrlData, error: signError } = await supabase.storage
           .from('bir-files')
           .createSignedUrl(file.storage_path, 60 * 60); // 1 hour expiry

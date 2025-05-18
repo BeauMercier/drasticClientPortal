@@ -200,7 +200,7 @@
 - [ ] **QA:** Test the entire flow thoroughly: form display logic, submission, validation, file handling (now using signed URLs), role-based access (client, designer, admin), mobile responsiveness.
 - [ ] **UI Polishing:** Refine styles, layout, component usage (e.g., status badges), and add more specific field validation messages in `BirForm.tsx`.
 - [x] **Documentation:** Update `PLANNING.md` with details about the BIR signed URL file upload feature.
-- [x] **Documentation:** Update `TASK.md` to reflect BIR signed URL file upload implementation.
+- [x] **Documentation:** Update `TASK.MD` to reflect BIR signed URL file upload implementation.
 - [ ] **Documentation:** Update `README.md` with details about the BIR signed URL file upload feature (if applicable).
 - [ ] **Documentation:** Update onboarding guides for clients explaining the new process.
 - [ ] **Deployment:** Consider releasing behind a feature flag (`NEXT_PUBLIC_ENABLE_BIR=true`).
@@ -355,3 +355,24 @@
     - [x] Debugged and resolved 404 issue for "View Project" button (self-resolved after `prefetch={false}` added).
     - [x] Debugged and resolved "No Active Projects" display issue by correcting API logic and Supabase column selection.
     - [x] Refined Quick Links styling for text visibility against colored backgrounds.
+
+### Client File Management Refactor Update ([Current Date])
+
+- [x] **API Verification (`/api/client/all-user-files`):** Confirmed that the API endpoint is functioning correctly, authenticating via Bearer token, and fetching all user-specific file/folder records from `user_files` based on RLS (`user_id = auth.uid()`). Database inspection confirms `user_id` is correctly populated, and no `NULL` `user_id` issues were found for relevant data. This resolves the previous issue of the API returning zero items and unblocks client-side file display logic.
+- [/] **RLS Policy for `user_files` (Client Access):** The existing RLS policy `"Allow users to select own files"` on `user_files` table (`USING ((user_id = auth.uid()))`) has been verified as effective for client access to their own files. Review for designer/admin access might still be pending if not covered by other tasks.
+
+### [New Date - e.g., April 4, 2024] - Avatar Investigation
+
+- [ ] **Investigate and Resolve Profile Avatar Display/Save Issue**
+    - **Current Understanding of Issue:**
+        - Avatars are stored in Supabase Storage, `project-files` bucket, path: `<user_id>/profile/<filename>`.
+        - `avatar_url` is present in the `profiles` table and `auth.users.user_metadata`.
+        - URLs in database records appear correct (full public URLs) after an attempted update.
+        - `AuthContext` manages user state including `avatar_url`.
+        - **Problem:** Avatar initially loads on the profile page but then disappears, or doesn't persist visually after an update attempt, despite database records showing the correct URL.
+    - **Next Steps:**
+        - Verify client-side state updates in `AuthContext` upon profile update.
+        - Inspect network requests related to avatar loading and any potential 403/404 errors after initial load.
+        - Review RLS policies on `project-files` bucket for avatar paths specifically (ensure public read access is correctly configured if intended, or signed URLs are used consistently).
+        - Check for any race conditions or timing issues in how the avatar URL is set and then used by image components.
+        - Ensure the Supabase client (especially `storage.from(...).getPublicUrl()`) behaves as expected and the URL doesn't change unexpectedly.

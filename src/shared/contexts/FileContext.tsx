@@ -1,39 +1,69 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import supabase from '@/lib/api/client';
 import { FILES_BUCKET } from '@/lib/api/storage';
 
-// Define file object type
+// --- SCOPE CONSTANTS ---
+export const TOP_SCOPE_GENERAL = '__general__';
+export const TOP_SCOPE_PROJECT_PREFIX = '__project_'; // e.g., __project_uuid
+
+// Define file object type used by the context and FileList component
 export interface FileObject {
+  /* identifiers */
   id: string;
-  name: string;
   fullPath: string;
+
+  /* naming */
+  name: string;
+  extension?: string | null; // derived once on load
+
+  /* structural */
   isFolder: boolean;
-  size?: number;
-  created_at: string;
-  extension?: string;
-  url?: string;
+
+  /* ownership / grouping */
+  user_id: string | null;
+  project_id: string | null;
+  project_type?: string | null;
+
+  /* metadata */
+  uploaded_at?: string | null; // Ensure this property exists if referenced, or remove if not used.
+  size?: number | null; // unified size field
+  mime_type?: string | null; // new – used for icons & "Type" column
+}
+
+// Interface for the data shape received from /api/client/all-user-files
+interface AllUserFileResponse {
+  id: string; // user_files.id
+  file_name: string | null;
+  file_path: string;
+  is_folder: boolean;
+  file_size: number | null;
+  file_type: string | null;
+  uploaded_at: string;
+  project_id: string | null;
+  project_type: string | null;
+  user_id: string | null;
 }
 
 interface FolderPath {
-  id: string;
-  name: string;
+  id: string; // Represents a segment of currentFolder path, or a scope ID
+  name: string; // Display name for breadcrumb
 }
 
 interface FileContextType {
-  files: FileObject[];
-  currentFolder: string;
+  files: FileObject[]; // This is the master list of all user_files items
+  currentFolder: string; // Path string: '' (super-root), '__general__', '__general__/foo', '__project_uuid', '__project_uuid/bar'
   folderPath: FolderPath[];
   selectedFile: FileObject | null;
   isLoading: boolean;
-  error: string | null;
+  error: Error | string | null;
   uploadProgress: number;
-  loadFiles: (folderId?: string) => Promise<void>;
-  uploadFile: (file: File) => Promise<void>;
-  createFolder: (folderName: string) => Promise<void>;
+  loadFiles: () => Promise<void>;
+  uploadFile: (file: File, targetScopePath?: string) => Promise<void>; // Signature updated
+  createFolder: (folderName: string, targetScopePath?: string) => Promise<void>; // Signature updated
   deleteFile: (file: FileObject) => Promise<void>;
   selectFile: (file: FileObject | null) => void;
-  navigateToFolder: (folderId: string) => void;
+  navigateToFolder: (path: string | null) => void; // Takes a path string or null for root
   navigateUp: () => void;
 }
 
@@ -46,11 +76,11 @@ const defaultContext: FileContextType = {
   error: null,
   uploadProgress: 0,
   loadFiles: async () => {},
-  uploadFile: async () => {},
-  createFolder: async () => {},
+  uploadFile: async (_file, _targetScopePath) => {},
+  createFolder: async (_folderName, _targetScopePath) => {},
   deleteFile: async () => {},
   selectFile: () => {},
-  navigateToFolder: () => {},
+  navigateToFolder: (_path: string | null) => {}, // Updated default to match signature
   navigateUp: () => {},
 };
 
@@ -118,416 +148,376 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
   const [folderPath, setFolderPath] = useState<FolderPath[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileObject | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [bucketInitialized, setBucketInitialized] = useState(false);
   
   const { toast } = useToast();
   
   // Initialize storage bucket on first render
-  React.useEffect(() => {
+  useEffect(() => {
     if (!bucketInitialized) {
       setBucketInitialized(true);
       initStorage();
     }
-  }, [bucketInitialized, setBucketInitialized]);
+  }, [bucketInitialized]);
   
-  // Update folder path breadcrumbs
-  const updateFolderPath = useCallback((relativePath: string) => {
-    if (!relativePath) {
-      setFolderPath([]);
-      return;
-    }
-
-    const parts = relativePath.split('/').filter(p => p); // Filter empty parts
-    const pathItems: FolderPath[] = [];
-    
-    let currentRelativePath = '';
-    for (const part of parts) {
-      currentRelativePath = currentRelativePath ? `${currentRelativePath}/${part}` : part;
-      pathItems.push({
-        id: currentRelativePath, // ID is the relative path within /general/
-        name: part
-      });
-    }
-    
-    setFolderPath(pathItems);
-  }, [setFolderPath]);
-  
-  // Load files from the current or specified folder within the user's /general directory
-  const loadFiles = useCallback(async (relativeFolderId?: string) => {
+  const loadFiles = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
-    const targetRelativeFolder = relativeFolderId !== undefined ? relativeFolderId : currentFolder;
 
     try {
-      // Get the current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        throw new Error('Authentication error');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        throw new Error(sessionError?.message || 'User session not found.');
+      }
+
+      const response = await fetch('/api/client/all-user-files', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        cache: 'no-store', // as per user suggestion in the prompt
+      });
+
+      if (!response.ok) {
+        let errorMsg = `Failed to fetch files: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch (e) {
+          // Ignore if response is not json
+        }
+        throw new Error(errorMsg);
       }
       
-      if (!user) {
-        throw new Error('You must be logged in to view files');
-      }
+      const data: AllUserFileResponse[] = await response.json();
       
-      // Base path for the user's general files
-      const userGeneralPath = `${user.id}/general`;
-      // Construct the full path to list in storage
-      const storageListPath = targetRelativeFolder 
-        ? `${userGeneralPath}/${targetRelativeFolder}` 
-        : userGeneralPath;
+      const mapped: FileObject[] = data.map((item: AllUserFileResponse) => ({
+        id: item.id,
+        fullPath: item.file_path,
+        name: item.file_name ?? item.id,
+        extension: item.file_path?.includes('.')
+          ? item.file_path.split('.').pop()!
+          : null,
+        isFolder: item.is_folder,
+        user_id: item.user_id,
+        project_id: item.project_id,
+        project_type: item.project_type,
+        uploaded_at: item.uploaded_at,
+        size: item.file_size ?? null,
+        mime_type: item.file_type ?? null,
+      }));
       
-      console.log('[FileContext - loadFiles] Listing files from bucket:', FILES_BUCKET);
-      console.log('[FileContext - loadFiles] Storage List Path:', storageListPath);
-      
-      // List files from Supabase storage
-      const { data, error: listError } = await supabase.storage
-        .from(FILES_BUCKET)
-        .list(storageListPath, {
-          sortBy: { column: 'name', order: 'asc' }
-        });
-      
-      console.log('[FileContext - loadFiles] Raw response from storage.list:', { data, listError });
-      
-      if (listError) {
-        throw new Error(`Failed to load files: ${listError.message}`);
-      }
-      
-      if (!data) {
-        console.log('[FileContext - loadFiles] storage.list returned null data.');
-        setFiles([]);
-        return;
-      }
-      
-      // Transform to FileObject format
-      const fileObjects: FileObject[] = data
-        .filter(item => item.name !== '.keep') // Filter out .keep files used for folders
-        .map(item => {
-          // Check if it's a folder by seeing if metadata is null (standard files have metadata)
-          // Or if the name doesn't contain a dot (basic folder name check, less reliable)
-          const isFolder = !item.metadata; // Primary check for folders created via API/empty uploads
-          const fullStoragePath = `${storageListPath}/${item.name}`;
-          
-          return {
-            id: fullStoragePath, // Use full path as unique ID
-            name: item.name,
-            fullPath: fullStoragePath,
-            isFolder,
-            size: isFolder ? undefined : item.metadata?.size,
-            created_at: item.created_at || new Date().toISOString(),
-            extension: isFolder ? undefined : item.name.split('.').pop(),
-          };
-        });
-      
-      console.log('[FileContext - loadFiles] Fetched file objects (relative to general): ', fileObjects.map(f => f.name));
-      
-      setFiles(fileObjects);
-      
-      // If folder changed, update state and breadcrumbs
-      if (targetRelativeFolder !== currentFolder) {
-        setCurrentFolder(targetRelativeFolder);
-        updateFolderPath(targetRelativeFolder);
-      }
-      // Ensure breadcrumbs are updated even on initial load or refresh of the same folder
-      else if (relativeFolderId === undefined) {
-           updateFolderPath(currentFolder);
-      }
+      console.log('[FileContext - loadFiles] Fetched file objects from API: ', mapped.length, 'items');
+      setFiles(mapped);
+      setCurrentFolder(''); 
+      updateFolderPathArray('');
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error loading files';
-      console.error('Error listing files:', err);
-      setError(errorMessage);
+      console.error('Error listing files from API:', err);
+      setError(err as Error);
       toast({
         title: 'Error',
         description: errorMessage,
         variant: 'destructive'
       });
+      setFiles([]);
     } finally {
       setIsLoading(false);
     }
-  }, [currentFolder, updateFolderPath, setIsLoading, setError, supabase, setFiles, setCurrentFolder, toast]);
+  }, [toast]);
+
+  // Load files on initial mount
+  useEffect(() => {
+    loadFiles();
+  }, [loadFiles]); // loadFiles is memoized with useCallback, so this runs once on mount
   
-  // Upload a file to the current folder
-  const uploadFile = useCallback(async (file: File) => {
-    if (!file) return;
+  const updateFolderPathArray = useCallback((newPath: string) => {
+    if (!newPath) {
+      setFolderPath([]);
+      setSelectedFile(null); // Clear selection when path changes
+      return;
+    }
+    const segments = newPath.split('/');
+    const newBreadcrumbs: FolderPath[] = [];
+
+    let currentBuiltPath = '';
+    segments.forEach((segment, index) => {
+      currentBuiltPath = currentBuiltPath ? `${currentBuiltPath}/${segment}` : segment;
+      let displayName = segment;
+      if (index === 0) { // First segment is a scope
+        if (segment === TOP_SCOPE_GENERAL) {
+          displayName = TOP_SCOPE_GENERAL.replace(/^__SCOPE__|__$/g, '').split('_').map(w=>w[0].toUpperCase()+w.slice(1)).join(' ');
+        } else if (segment.startsWith(TOP_SCOPE_PROJECT_PREFIX)) {
+          const projectId = segment.replace(TOP_SCOPE_PROJECT_PREFIX, '');
+          const projectFile = files.find(f => f.project_id === projectId);
+          const projectType = projectFile?.project_type ? projectFile.project_type.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Project';
+          const projectRootFolder = files.find(pf => pf.project_id === projectId && pf.isFolder && pf.fullPath === `${TOP_SCOPE_PROJECT_PREFIX}${projectId}`);
+          displayName = projectRootFolder?.name || `${projectType}`;
+        }
+      }
+      newBreadcrumbs.push({ id: currentBuiltPath, name: displayName });
+    });
+    setFolderPath(newBreadcrumbs);
+    setSelectedFile(null); // Clear selection when path changes to avoid stale selection
+  }, [files, setFolderPath, setSelectedFile]); // Corrected dependencies
+
+  // Effect to update breadcrumbs when currentFolder changes
+  // This might be redundant if updateFolderPathArray is called synchronously with setCurrentFolder
+  // useEffect(() => {
+  //   updateFolderPathArray(currentFolder);
+  // }, [currentFolder, updateFolderPathArray]); // Removed updateFolderPathArray from its own deps if it was there.
+
+  const selectFile = useCallback((file: FileObject | null) => {
+    setSelectedFile(file);
+  }, []);
+
+  const navigateToFolder = useCallback((path: string | null) => {
+    const targetPath = path === null ? '' : path;
+    // Basic validation: check if the target path is a prefix of any existing file or is an exact folder match
+    // This is a light check; more robust validation might be needed if paths could be arbitrary.
+    // For virtual top-level scopes, they are always valid.
+    const isValidScope = targetPath === TOP_SCOPE_GENERAL || targetPath.startsWith(TOP_SCOPE_PROJECT_PREFIX) || targetPath === '';
     
+    const isExistingFolderPath = files.some(f => f.isFolder && f.fullPath === targetPath);
+    // Check if it's a path that could lead to other files (even if no direct folder object for it)
+    const isPotentialParentPath = files.some(f => f.fullPath.startsWith(`${targetPath}/`));
+
+    if (targetPath === '' || isValidScope || isExistingFolderPath || isPotentialParentPath) {
+      setCurrentFolder(targetPath);
+      updateFolderPathArray(targetPath);
+      setSelectedFile(null); // Reset selected file on navigation
+    } else {
+      console.warn(`[FileContext] Attempted to navigate to non-existent or invalid path: ${targetPath}`);
+      // Optionally, provide feedback to the user, e.g., via a toast notification
+      // toast({ title: "Navigation Error", description: "The specified folder could not be found.", variant: "destructive" });
+    }
+  }, [files, setCurrentFolder, updateFolderPathArray, setSelectedFile, toast]); // Added files and toast to dependencies
+
+  const navigateUp = useCallback(() => {
+    if (currentFolder === '') return; // Already at root
+
+    const segments = currentFolder.split('/');
+    if (segments.length === 1) {
+      // Was in a top-level scope (e.g., '__general__' or '__project_uuid'), go to super root
+      setCurrentFolder('');
+    } else {
+      // Was in a subfolder, pop one segment
+      const newPath = segments.slice(0, -1).join('/');
+      setCurrentFolder(newPath);
+    }
+  }, [currentFolder]); // Removed setCurrentFolder from deps
+
+  const uploadFile = useCallback(async (file: File, targetScopePath?: string) => {
+    // targetScopePath examples: '' (for general root), TOP_SCOPE_GENERAL, TOP_SCOPE_PROJECT_PREFIX + projectId
+    // If targetScopePath is TOP_SCOPE_GENERAL or TOP_SCOPE_PROJECT_PREFIX+id, files go into the root of that scope.
+    // If currentFolder is deeper like TOP_SCOPE_GENERAL/foo, files go into foo.
+    // This logic needs to be robust for where the upload is happening.
+    // For now, assuming `currentFolder` correctly reflects the upload target path relative to a scope root if inside one.
+    if (!file) return;
     setUploadProgress(0);
     setIsLoading(true);
     setError(null);
-    
     try {
-      // Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error(userError?.message || 'Auth error');
       
-      if (userError) {
-        throw new Error('Authentication error');
-      }
-      
-      if (!user) {
-        throw new Error('You must be logged in to upload files');
-      }
-      
-      // Base path for the user's files
-      const basePath = user.id;
-      
-      // Sanitize the filename - replace spaces with underscores and remove any problematic characters
       const sanitizedFilename = file.name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_.-]/g, '');
-      
-      // Define the general folder path
-      const generalFolderPath = `${basePath}/general`;
-      const currentSubFolder = currentFolder ? `/${currentFolder}` : ''; // Keep subfolder navigation within general
+      let storagePrefix = `${user.id}/`; // Base for user
+      let dbProjectId: string | null = null;
+      let dbProjectType: string | null = 'general';
+      let pathWithinScope = '';
 
-      // Path for storage: {userId}/general/{currentSubFolder}/{sanitizedFileName}
-      // Note: We avoid adding a timestamp here now as the API route doesn't, rely on storage policy for conflicts.
-      const storagePath = `${generalFolderPath}${currentSubFolder}/${sanitizedFilename}`;
-       
-      console.log('[FileContext - uploadFile] Attempting upload to storage bucket:', FILES_BUCKET);
-      console.log('[FileContext - uploadFile] Calculated storagePath:', storagePath);
-      console.log('[FileContext - uploadFile] File details:', { name: file.name, size: file.size, type: file.type });
-      
-      // Upload the file
-      const { error: uploadError } = await supabase.storage
-         .from(FILES_BUCKET)
-        .upload(storagePath, file, {
-          cacheControl: '3600',
-          upsert: false, // Keep upsert false to avoid accidental overwrites
-        });
-      
+      const effectiveTarget = targetScopePath !== undefined ? targetScopePath : currentFolder;
+
+      if (effectiveTarget.startsWith(TOP_SCOPE_PROJECT_PREFIX)) {
+        const projectId = effectiveTarget.split('/')[0].replace(TOP_SCOPE_PROJECT_PREFIX, '');
+        const project = files.find(f => f.project_id === projectId && f.id.startsWith(TOP_SCOPE_PROJECT_PREFIX)); // Find virtual project folder
+        dbProjectId = projectId;
+        dbProjectType = project?.project_type || 'other'; // Fallback project type
+        storagePrefix += `projects/${dbProjectType}/${dbProjectId}/`;
+        pathWithinScope = effectiveTarget.split('/').slice(1).join('/');
+      } else {
+        // Includes TOP_SCOPE_GENERAL or empty string (super root implies general for new uploads)
+        storagePrefix += 'general/';
+        dbProjectType = 'general';
+        pathWithinScope = effectiveTarget === TOP_SCOPE_GENERAL ? '' : effectiveTarget.replace(TOP_SCOPE_GENERAL + '/', '').replace(TOP_SCOPE_GENERAL, '');
+      }
+
+      const finalStoragePath = `${storagePrefix}${pathWithinScope ? pathWithinScope + '/' : ''}${sanitizedFilename}`;
+      const finalDbPath = finalStoragePath; // In user_files, file_path is the full storage path
+
+      const { error: uploadError } = await supabase.storage.from(FILES_BUCKET).upload(finalStoragePath, file, { upsert: false });
       if (uploadError) {
-        // Handle potential file conflict error specifically if upsert is false
-        if (uploadError.message.includes('Duplicate')) { // Check for Supabase duplicate error message
-           throw new Error(`File with name "${sanitizedFilename}" already exists in this folder. Please rename the file or delete the existing one.`);
-        } 
-        throw new Error(`Failed to upload file: ${uploadError.message}`);
+        if (uploadError.message.includes('Duplicate')) throw new Error(`File "${sanitizedFilename}" already exists.`);
+        throw new Error(`Upload failed: ${uploadError.message}`);
       }
-      
-      // --- Add Database Insert --- 
-      console.log('[FileContext - uploadFile] Storage upload successful. Attempting DB insert...');
-      const { data: dbData, error: dbError } = await supabase
-        .from('user_files')
-        .insert({
-          user_id: user.id,
-          project_id: null, // No specific project for general uploads
-          project_type: 'general', // Mark as general
-          file_path: storagePath, // The path used for storage
-          file_name: sanitizedFilename,
-          file_type: file.type,
-          file_size: file.size,
-        })
-        .select()
-        .single();
-
+      const { data: dbData, error: dbError } = await supabase.from('user_files').insert({
+        user_id: user.id,
+        project_id: dbProjectId,
+        project_type: dbProjectType,
+        file_path: finalDbPath,
+        file_name: sanitizedFilename,
+        file_type: file.type,
+        file_size: file.size,
+        is_folder: false,
+      }).select().single();
       if (dbError) {
-        console.error('[FileContext - uploadFile] Error inserting file metadata into database:', dbError);
-        // Attempt cleanup of orphaned storage file
-        try {
-          await supabase.storage.from(FILES_BUCKET).remove([storagePath]);
-          console.log('[FileContext - uploadFile] Cleaned up orphaned storage file after DB error:', storagePath);
-        } catch (cleanupError) {
-          console.error('[FileContext - uploadFile] Failed to cleanup orphaned storage file after DB error:', storagePath, cleanupError);
-        }
-        throw new Error(`Failed to save file metadata after upload: ${dbError.message}`);
+        await supabase.storage.from(FILES_BUCKET).remove([finalStoragePath]);
+        throw new Error(`Metadata save failed: ${dbError.message}`);
       }
-      console.log('[FileContext - uploadFile] DB insert successful.', dbData);
-      // --- End Database Insert ---
-
-      // Complete the upload
-      setUploadProgress(100);
-      toast({
-        title: 'Success',
-        description: `File ${file.name} uploaded successfully`,
-      });
-      
-      // Reload files to see the new one - ADD DELAY
-      console.log('[FileContext - uploadFile] Upload successful. Waiting briefly before reloading file list...');
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2000ms (2 seconds)
-      console.log('[FileContext - uploadFile] Reloading file list now.');
+      toast({ title: 'Success', description: `File ${file.name} uploaded.` });
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await loadFiles();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error uploading file';
-      console.error('Error uploading file:', err);
-      setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive'
-      });
+      const errorMessage = err instanceof Error ? err.message : 'Error uploading';
+      setError(err as Error);
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
-      // Reset upload state after a delay
       setTimeout(() => {
         setUploadProgress(0);
         setIsLoading(false);
       }, 1000);
     }
-  }, [currentFolder, loadFiles, setUploadProgress, setIsLoading, setError, supabase, toast]);
-  
-  // Create a new folder
-  const createFolder = useCallback(async (folderName: string) => {
+  }, [currentFolder, files, toast, loadFiles]);
+
+  const createFolder = useCallback(async (folderName: string, targetScopePath?: string) => {
     if (!folderName.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Folder name cannot be empty',
-        variant: 'destructive'
-      });
+      toast({ title: 'Error', description: 'Folder name empty', variant: 'destructive' });
       return;
     }
-    
     setIsLoading(true);
     setError(null);
-    
     try {
-      // Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        throw new Error('Authentication error');
-      }
-      
-      if (!user) {
-        throw new Error('You must be logged in to create folders');
-      }
-      
-      // Base path for the user's files
-      const basePath = user.id;
-      
-      // Define the general folder path
-      const generalFolderPath = `${basePath}/general`;
-      const currentSubFolder = currentFolder ? `/${currentFolder}` : ''; // Keep subfolder navigation within general
+      if (userError || !user) throw new Error(userError?.message || 'Auth error');
 
-      // Path for the placeholder file within the general folder structure
-      const storagePath = `${generalFolderPath}${currentSubFolder}/${folderName.trim()}/.keep`; // Use .keep placeholder
-       
-      console.log('Creating folder placeholder in bucket:', FILES_BUCKET);
-      console.log('Path:', storagePath);
-       
-       // Create a folder JSON file like in the original project
-       // Using an empty .keep file is a common pattern for creating folders in object storage
-       const { error: folderError } = await supabase.storage
-         .from(FILES_BUCKET)
-         .upload(storagePath, new Blob(['']), { // Upload an empty blob
-           contentType: 'text/plain',
-           upsert: false,
-         });
-      
-      if (folderError) {
-        throw new Error(`Failed to create folder: ${folderError.message}`);
+      const sanitizedFolderName = folderName.trim().replace(/[^a-zA-Z0-9_.-]/g, '_');
+      let storagePrefix = `${user.id}/`;
+      let dbProjectId: string | null = null;
+      let dbProjectType: string | null = 'general';
+      let pathWithinScope = '';
+
+      const effectiveTarget = targetScopePath !== undefined ? targetScopePath : currentFolder;
+
+      if (effectiveTarget.startsWith(TOP_SCOPE_PROJECT_PREFIX)) {
+        const projectId = effectiveTarget.split('/')[0].replace(TOP_SCOPE_PROJECT_PREFIX, '');
+        const project = files.find(f => f.project_id === projectId && f.id.startsWith(TOP_SCOPE_PROJECT_PREFIX));
+        dbProjectId = projectId;
+        dbProjectType = project?.project_type || 'other';
+        storagePrefix += `projects/${dbProjectType}/${dbProjectId}/`;
+        pathWithinScope = effectiveTarget.split('/').slice(1).join('/');
+      } else {
+        storagePrefix += 'general/';
+        dbProjectType = 'general';
+        pathWithinScope = effectiveTarget === TOP_SCOPE_GENERAL ? '' : effectiveTarget.replace(TOP_SCOPE_GENERAL + '/', '').replace(TOP_SCOPE_GENERAL, '');
       }
-      
-      toast({
-        title: 'Success',
-        description: `Folder ${folderName} created successfully`,
-      });
-      
-      // Reload files to see the new folder
+
+      const finalFolderPathForDb = `${storagePrefix}${pathWithinScope ? pathWithinScope + '/' : ''}${sanitizedFolderName}`;
+      const storagePlaceholderPath = `${finalFolderPathForDb}/.keep`;
+
+      const { error: folderError } = await supabase.storage.from(FILES_BUCKET).upload(storagePlaceholderPath, new Blob(['']), { upsert: false });
+      if (folderError && !folderError.message.includes('Duplicate')) {
+        throw new Error(`Storage folder creation failed: ${folderError.message}`);
+      }
+      const { data: dbData, error: dbError } = await supabase.from('user_files').insert({
+        user_id: user.id,
+        project_id: dbProjectId,
+        project_type: dbProjectType,
+        file_path: finalFolderPathForDb,
+        file_name: sanitizedFolderName,
+        is_folder: true,
+        file_type: null,
+        file_size: null,
+      }).select().single();
+      if (dbError) {
+        if (dbError.message.includes('duplicate key value violates unique constraint')) {
+          console.log('Folder record already in DB:', finalFolderPathForDb);
+        } else {
+          if (!folderError || !folderError.message.includes('Duplicate')) {
+            try {
+              await supabase.storage.from(FILES_BUCKET).remove([storagePlaceholderPath]);
+            } catch (e) {
+              /* ignore */
+            }
+          }
+          throw new Error(`Folder DB record failed: ${dbError.message}`);
+        }
+      }
+      toast({ title: 'Success', description: `Folder ${sanitizedFolderName} created.` });
       await loadFiles();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error creating folder';
-      console.error('Error creating folder:', err);
-      setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive'
-      });
+      setError(err as Error);
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
-  }, [currentFolder, loadFiles, setError, setIsLoading, supabase, toast]);
-  
-  // Delete a file or folder
+  }, [currentFolder, files, toast, loadFiles]);
+
   const deleteFile = useCallback(async (file: FileObject) => {
     if (!file) return;
-    
     setIsLoading(true);
     setError(null);
-    
     try {
+      // 1. Delete from user_files table by its actual ID
+      const { error: dbDeleteError } = await supabase
+        .from('user_files')
+        .delete()
+        .eq('id', file.id); // file.id is user_files.id
+
+      if (dbDeleteError) {
+        // If RLS prevents delete or record not found, it might error here.
+        // PGRST116 is 'request did not satisfy' (e.g. RLS or record not found for .single())
+        // but for delete, it might just return count 0 if not found and RLS passes.
+        console.error('Error deleting file/folder metadata from DB:', dbDeleteError);
+        throw new Error(`DB delete failed: ${dbDeleteError.message}`);
+      }
+
+      // 2. Delete from storage using fullPath
       if (file.isFolder) {
-        // For folders, list and delete all contents recursively
-        const { data, error: listError } = await supabase.storage
-          .from(FILES_BUCKET)
-          .list(file.fullPath);
+        // For folders, list all DB entries under this folder path and remove them from storage.
+        // This is more robust than listing storage directly if user_files is source of truth.
+        // This requires children to have file_path starting with parent's file_path + '/'
+        const childrenFiles = files.filter(f => 
+          f.fullPath.startsWith(file.fullPath + '/') && 
+          f.user_id === file.user_id // Ensure same user, though RLS on API should cover
+        );
         
-        if (listError) {
-          throw new Error(`Failed to list folder contents: ${listError.message}`);
+        const storagePathsToRemove: string[] = childrenFiles.map(f => f.fullPath);
+        // Also add the .keep file for the folder itself if that convention is still used for empty folders in storage
+        storagePathsToRemove.push(`${file.fullPath}/.keep`); 
+        // Add the folder path itself for services that might delete empty prefixes
+        storagePathsToRemove.push(file.fullPath);
+
+        if (storagePathsToRemove.length > 0) {
+            const { error: storageError } = await supabase.storage.from(FILES_BUCKET).remove(storagePathsToRemove);
+            if (storageError) {
+                console.warn(`Storage deletion warning for folder contents of ${file.name}:`, storageError.message);
+                // Don't necessarily throw, as DB record is gone. Log and continue.
+            }
         }
-        
-        // Delete all files in the folder
-        for (const item of data) {
-          const itemPath = `${file.fullPath}/${item.name}`;
-          const { error: deleteItemError } = await supabase.storage
-            .from(FILES_BUCKET)
-            .remove([itemPath]);
-          
-          if (deleteItemError) {
-            console.error(`Failed to delete item ${itemPath}:`, deleteItemError);
-          }
+      } else {
+        // It's a file
+        const { error: storageError } = await supabase.storage.from(FILES_BUCKET).remove([file.fullPath]);
+        if (storageError && storageError.message !== 'The resource was not found') {
+          console.warn(`Storage deletion warning for file ${file.name}:`, storageError.message);
         }
       }
-      
-      // Delete the file or empty folder
-      const { error: deleteError } = await supabase.storage
-        .from(FILES_BUCKET)
-        .remove([file.fullPath]);
-      
-      if (deleteError) {
-        throw new Error(`Failed to delete ${file.isFolder ? 'folder' : 'file'}: ${deleteError.message}`);
-      }
-      
-      // If the deleted file was selected, deselect it
-      if (selectedFile && selectedFile.id === file.id) {
-        setSelectedFile(null);
-      }
-      
-      toast({
-        title: 'Success',
-        description: `${file.isFolder ? 'Folder' : 'File'} deleted successfully`,
-      });
-      
-      // Reload files
-      await loadFiles();
+
+      toast({ title: 'Success', description: `${file.isFolder ? 'Folder' : 'File'} '${file.name}' deleted.` });
+      await loadFiles(); // Refresh from source of truth
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error deleting item';
-      console.error('Error deleting file:', err);
-      setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive'
-      });
+      setError(err as Error);
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
-    // TODO: Consider if the corresponding `user_files` database record needs explicit deletion here.
-    // Currently, it relies on potential cascade deletes or other mechanisms. If orphaned records
-    // become an issue, add a call to delete the DB record after successful storage deletion.
-  }, [loadFiles, setError, setIsLoading, supabase, toast, selectedFile]);
-  
-  // Select a file
-  const selectFile = useCallback((file: FileObject | null) => {
-    setSelectedFile(file);
-  }, [setSelectedFile]);
-  
-  // Navigate into a folder (folderId is relative path within /general/)
-  const navigateToFolder = useCallback((relativeFolderId: string) => {
-    console.log('[FileContext] Navigating to relative folder:', relativeFolderId);
-    loadFiles(relativeFolderId);
-  }, [loadFiles]);
-  
-  // Navigate up one level (relative to /general/)
-  const navigateUp = useCallback(() => {
-    if (!currentFolder) {
-        console.log('[FileContext] Cannot navigate up from root general folder.');
-        return; // Already at the root of /general/
-    }
-    const parts = currentFolder.split('/');
-    const parentRelativeFolder = parts.slice(0, -1).join('/');
-    console.log('[FileContext] Navigating up to relative folder:', parentRelativeFolder);
-    loadFiles(parentRelativeFolder);
-  }, [currentFolder, loadFiles]);
-  
+  }, [files, toast, loadFiles]);
+
   return (
     <FileContext.Provider
       value={{
@@ -550,4 +540,4 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
       {children}
     </FileContext.Provider>
   );
-}; 
+};

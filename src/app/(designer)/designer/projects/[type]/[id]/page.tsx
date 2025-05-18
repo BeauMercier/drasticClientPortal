@@ -20,6 +20,7 @@ import { FileIcon, ImageIcon, DownloadIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import BusinessInfoGate from '@/features/bir/BusinessInfoGate'; // Ensure this import is present
+import { FILES_BUCKET } from '@/lib/api/storage'; // Import FILES_BUCKET
 
 // Project type names mapping
 const projectTypeNames = {
@@ -52,6 +53,9 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
   const [revisions, setRevisions] = useState<ProjectRevision[]>([]);
   const [filesSubTab, setFilesSubTab] = useState<'designer' | 'client'>('designer');
   
+  // State for combined project files (general + BIR)
+  const [allProjectFiles, setAllProjectFiles] = useState<ProjectFile[]>([]);
+
   const { id, type } = params; // Destructure params early
   const isWebDesign = type === 'web_design';
 
@@ -113,7 +117,8 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
         // Set initial status filter based on the project's status
         setStatusUpdate(projectData.status || '');
         
-        // Fetch project files
+        // Fetch general project files (this will be merged with BIR files later)
+        // This function now updates the 'files' state which is just one source.
         await fetchProjectFiles();
         
         // Fetch project notes
@@ -152,13 +157,12 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
     }
   };
 
-  // Function to fetch project files
+  // Function to fetch project files (general files from client-files bucket)
   const fetchProjectFiles = async (retryCount = 0) => {
     try {
-      console.log(`Fetching project files (attempt ${retryCount + 1})...`);
+      console.log(`Fetching general project files (attempt ${retryCount + 1})...`);
       const filesResponse = await fetch(`/api/projects/files?projectId=${id}&projectType=${type}`, {
         method: 'GET',
-        // Include credentials - same-origin is better for this use case
         credentials: 'same-origin',
         cache: 'no-store',
         headers: {
@@ -168,16 +172,25 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
       
       if (filesResponse.ok) {
         const filesData = await filesResponse.json();
-        console.log('Successfully fetched files:', filesData.length);
+        console.log('Successfully fetched general files:', filesData.length);
         
-        // Temporarily assign ownership to files
-        // In a real implementation, this would come from the database
-        const filesWithOwnership = filesData.map((file: ProjectFile, index: number) => ({
-          ...file,
-          uploaded_by: index % 3 === 0 ? 'client' : 'designer' // Mock data - every 3rd file is from client
+        // Map general files to ProjectFile structure, assume 'designer' for now if not specified by API
+        // The API currently does not return uploaded_by for these general files.
+        const generalFilesMapped = filesData.map((file: any, index: number) => ({
+          id: file.id || file.name, // Use name as fallback id if actual id is missing
+          name: file.name,
+          size: file.metadata?.size || 0,
+          type: file.metadata?.mimetype || 'application/octet-stream',
+          // Use 'id' (projectId) and 'type' (projectType) from params for the path
+          url: `${FILES_BUCKET}/${type}/${id}/${file.name}`, 
+          project_id: id,
+          upload_date: file.created_at || new Date().toISOString(),
+          // Mock uploaded_by for general files. This needs a proper backend solution.
+          // For now, let's assume non-BIR files fetched this way are designer uploads unless API says otherwise.
+          uploaded_by: file.uploaded_by || 'designer' 
         }));
         
-        setFiles(filesWithOwnership);
+        setFiles(generalFilesMapped); // Temporarily set to 'files' state for merging logic below
         return true;
       } else {
         // If there's an authentication error and we haven't exceeded retry attempts
@@ -243,6 +256,30 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
       return false;
     }
   };
+
+  // This effect merges general files (from 'files' state) and BIR files (from 'signedBirFiles')
+  // into 'allProjectFiles' state which the UI will use.
+  useEffect(() => {
+    const birFilesMapped: ProjectFile[] = (signedBirFiles || []).map(birFile => ({
+      id: birFile.id,
+      name: birFile.original_name,
+      size: birFile.size_bytes || 0,
+      type: birFile.mime_type || 'application/octet-stream',
+      // Use publicUrl if available (signed), otherwise construct a placeholder or indicate it needs signing
+      url: birFile.publicUrl || `bir-file://${birFile.storage_path}`,
+      project_id: id,
+      upload_date: birFile.uploaded_at || new Date().toISOString(),
+      uploaded_by: 'client', // BIR files are always client-uploaded
+    }));
+
+    console.log('[FileMergeEffect] General files to merge:', files);
+    console.log('[FileMergeEffect] BIR files to merge:', birFilesMapped);
+
+    // Simple concatenation merge. Add de-duplication if necessary based on a unique key (e.g., URL or name+path)
+    // For now, assuming file names/paths are unique enough across these two sources for this project.
+    setAllProjectFiles([...files, ...birFilesMapped]);
+
+  }, [files, signedBirFiles, id]); // Rerun when general files or BIR files change
 
   // MOVED HELPER FUNCTION HERE
   // Display formatted file size
@@ -808,9 +845,12 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
     }
   };
 
-  // Filter and sort files
+  // Filter and sort files - NOW USES allProjectFiles
   const filteredAndSortedFiles = () => {
-    let filtered = [...files];
+    console.log('[FilesTab] Full files array before filtering (allProjectFiles):', JSON.parse(JSON.stringify(allProjectFiles)));
+    console.log('[FilesTab] current filesSubTab:', filesSubTab);
+
+    let filtered = [...allProjectFiles]; // Use allProjectFiles
     
     // Filter by owner (designer or client)
     filtered = filtered.filter(file => 
@@ -818,6 +858,7 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
         ? file.uploaded_by === 'designer' 
         : file.uploaded_by === 'client'
     );
+    console.log('[FilesTab] Files after uploaded_by filter:', JSON.parse(JSON.stringify(filtered)));
     
     // Apply filter by file type
     if (fileTypeFilter !== 'all') {
@@ -864,7 +905,8 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
   // Get file type counts for displaying in filters
   const getFileTypeCounts = () => {
     // Filter files by current sub-tab first
-    const subTabFiles = files.filter(file => 
+    // THIS NOW USES allProjectFiles
+    const subTabFiles = allProjectFiles.filter(file => 
       filesSubTab === 'designer' 
         ? file.uploaded_by === 'designer' 
         : file.uploaded_by === 'client'
@@ -1059,8 +1101,8 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
               <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
                 <Tabs value={filesSubTab} onValueChange={(value) => setFilesSubTab(value as 'designer' | 'client')} className="w-auto">
                   <TabsList>
-                    <TabsTrigger value="designer">Designer Uploads ({getFileTypeCounts().all > 0 && files.filter(f=>f.uploaded_by === 'designer').length})</TabsTrigger>
-                    <TabsTrigger value="client">Client Uploads ({getFileTypeCounts().all > 0 && files.filter(f=>f.uploaded_by === 'client').length})</TabsTrigger>
+                    <TabsTrigger value="designer">Designer Uploads ({getFileTypeCounts().all > 0 && allProjectFiles.filter(f=>f.uploaded_by === 'designer').length})</TabsTrigger>
+                    <TabsTrigger value="client">Client Uploads ({getFileTypeCounts().all > 0 && allProjectFiles.filter(f=>f.uploaded_by === 'client').length})</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 <Button onClick={handleFileUpload} disabled={isSubmitting}>
@@ -1110,52 +1152,58 @@ export default function DesignerProjectDetailPage({ params }: { params: RoutePar
                 <p>No files found for the current filter.</p>
               ) : fileViewMode === 'list' ? (
                 <div className="space-y-2">
-                  {filteredAndSortedFiles().map((file) => (
-                    <Card key={file.id || file.url} className="flex items-center p-3">
-                      <div className="mr-3 shrink-0">{getFileIcon(file)}</div>
-                      <div className="flex-grow">
-                        <p className="font-medium truncate" title={file.name}>{file.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {formatFileSize(file.size || 0)} - Uploaded: {formatDate(file.upload_date)}
-                          {file.uploaded_by && ` by ${file.uploaded_by}`}
-                        </p>
-                      </div>
-                      <div className="ml-2 space-x-1 shrink-0">
-                        <Button variant="outline" size="sm" onClick={() => handleFileDownload(file.url, file.name)} disabled={isSubmitting}>
-                          <DownloadIcon className="h-4 w-4" />
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleFileDelete(file.url, file.name)} disabled={isSubmitting}>
-                          Delete
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
+                  {filteredAndSortedFiles().map((file) => {
+                    console.log(`[FilesTab] Rendering List Item: ${file.name}, Uploaded By: ${file.uploaded_by}`);
+                    return (
+                      <Card key={file.id || file.url} className="flex items-center p-3">
+                        <div className="mr-3 shrink-0">{getFileIcon(file)}</div>
+                        <div className="flex-grow">
+                          <p className="font-medium truncate" title={file.name}>{file.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(file.size || 0)} - Uploaded: {formatDate(file.upload_date)}
+                            {file.uploaded_by && ` by ${file.uploaded_by.charAt(0).toUpperCase() + file.uploaded_by.slice(1)}`}
+                          </p>
+                        </div>
+                        <div className="ml-2 space-x-1 shrink-0">
+                          <Button variant="outline" size="sm" onClick={() => handleFileDownload(file.url, file.name)} disabled={isSubmitting}>
+                            <DownloadIcon className="h-4 w-4" />
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleFileDelete(file.url, file.name)} disabled={isSubmitting}>
+                            Delete
+                          </Button>
+                        </div>
+                      </Card>
+                    );
+                  })}
                 </div>
               ) : ( // Gallery View
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {filteredAndSortedFiles().map((file) => (
-                    <Card key={file.id || file.url} className="group relative aspect-square flex flex-col items-center justify-center overflow-hidden">
-                      {isViewableImage(file) && file.url ? (
-                        <img src={file.url} alt={file.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="p-2 text-center">
-                          {getFileIcon(file)}
-                          <p className="mt-1 text-xs truncate" title={file.name}>{file.name}</p>
+                  {filteredAndSortedFiles().map((file) => {
+                    console.log(`[FilesTab] Rendering Gallery Item: ${file.name}, Uploaded By: ${file.uploaded_by}`);
+                    return (
+                      <Card key={file.id || file.url} className="group relative aspect-square flex flex-col items-center justify-center overflow-hidden">
+                        {isViewableImage(file) && file.url ? (
+                          <img src={file.url} alt={file.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="p-2 text-center">
+                            {getFileIcon(file)}
+                            <p className="mt-1 text-xs truncate" title={file.name}>{file.name}</p>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 p-2">
+                          <p className="text-white text-xs text-center truncate w-full mb-1" title={file.name}>{file.name}</p>
+                          <div className="flex space-x-1">
+                            <Button variant="outline" size="icon" className="bg-white/80 hover:bg-white" onClick={() => handleFileDownload(file.url, file.name)} disabled={isSubmitting}>
+                              <DownloadIcon className="h-4 w-4 text-gray-700" />
+                            </Button>
+                            <Button variant="destructive" size="icon" className="bg-red-500/80 hover:bg-red-500" onClick={() => handleFileDelete(file.url, file.name)} disabled={isSubmitting}>
+                              <span className="text-white">X</span>
+                            </Button>
+                          </div>
                         </div>
-                      )}
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 p-2">
-                        <p className="text-white text-xs text-center truncate w-full mb-1" title={file.name}>{file.name}</p>
-                        <div className="flex space-x-1">
-                          <Button variant="outline" size="icon" className="bg-white/80 hover:bg-white" onClick={() => handleFileDownload(file.url, file.name)} disabled={isSubmitting}>
-                            <DownloadIcon className="h-4 w-4 text-gray-700" />
-                          </Button>
-                          <Button variant="destructive" size="icon" className="bg-red-500/80 hover:bg-red-500" onClick={() => handleFileDelete(file.url, file.name)} disabled={isSubmitting}>
-                            <span className="text-white">X</span>
-                          </Button>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

@@ -45,13 +45,20 @@ const mapSupabaseSessionToLocal = (supabaseSession: SupabaseSession | null): { l
 
   // Extract role safely, defaulting to 'client'
   let userRole: UserRole = 'client';
-  const metaRole = supabaseUser.app_metadata?.role;
+  const appMetaRole = supabaseUser.app_metadata?.role;
+  const userMetaRole = supabaseUser.user_metadata?.role; // Check user_metadata as well
   const topLevelRole = supabaseUser.role;
-  if (metaRole && typeof metaRole === 'string' && ['admin', 'designer', 'client', 'partner'].includes(metaRole)) {
-    userRole = metaRole as UserRole;
+
+  console.log('[AuthContext] mapSupabaseSessionToLocal - Roles found: appMetaRole:', appMetaRole, 'userMetaRole:', userMetaRole, 'topLevelRole:', topLevelRole);
+
+  if (appMetaRole && typeof appMetaRole === 'string' && ['admin', 'designer', 'client', 'partner'].includes(appMetaRole)) {
+    userRole = appMetaRole as UserRole;
+  } else if (userMetaRole && typeof userMetaRole === 'string' && ['admin', 'designer', 'client', 'partner'].includes(userMetaRole)) {
+    userRole = userMetaRole as UserRole; // Use userMetaRole if appMetaRole is not valid
   } else if (topLevelRole && typeof topLevelRole === 'string' && ['admin', 'designer', 'client', 'partner'].includes(topLevelRole)) {
     userRole = topLevelRole as UserRole;
   }
+  console.log('[AuthContext] mapSupabaseSessionToLocal - Determined userRole:', userRole);
 
   // Construct the local User object
   const localUser: User = {

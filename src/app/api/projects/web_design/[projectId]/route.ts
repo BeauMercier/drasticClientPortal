@@ -131,7 +131,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     // Fetch assignment details separately
     const { data: assignmentData, error: assignmentError } = await adminClient
       .from('designer_projects')
-      .select('*, designer:designer_id (id, full_name, email)')
+      .select('*, designer:profiles (id, full_name, email)')
       .eq('project_id', projectId)
       .eq('project_type', projectType)
       .maybeSingle();

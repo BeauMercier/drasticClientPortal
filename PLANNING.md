@@ -34,7 +34,6 @@
                 - `business-info/page.tsx`: Handles `/client/my-profile/business-info`.
             - `projects/`: Handles `/client/projects` and sub-routes. The main category listing page (`page.tsx` within this directory) now dynamically links directly to a project's detail page if the client has only one project in that category; otherwise, it links to the category's project list page.
                 - `web-design/[id]/page.tsx`: Web design project detail page. Features a tabbed interface for Business Information Request (textual) and BIR-specific "Project Files".
-            - `files/page.tsx`: Handles `/client/files` (General user files via `FileContext`).
             - `billing/page.tsx`: Handles `/client/billing`.
     - `(designer)/`: Routes for designers. Uses `src/app/(designer)/layout.tsx` with `DashboardLayout` and `RoleSidebar`.
         - `designer/`: Specific designer pages (e.g., dashboard, tasks).
@@ -58,7 +57,6 @@
     - `bir/`: Module for Business Information Request feature (hooks, multi-step form, summary, gate, file upload step components).
 - `src/lib/`: Core utilities, API clients, type definitions.
     - `api/`: Supabase client setup and data fetching functions.
-        - Includes client-side helpers like `getUserProfile`, `updateUserProfile`, `uploadProfilePicture`, specific project getters (e.g., `getUserWebDesignProjects`, `getWebDesignProject`), and `getDesignerAssignedProjects`.
         - Added `getClientProjectsForCategories`: Fetches all project types (web, logo, social) for the currently authenticated client. Returns an object mapping project types to their counts and the ID of a single project if only one exists in that category. This is used by the client projects page to determine direct navigation.
     - `types/`: TypeScript type definitions.
     - `utils/`: Utility functions.
@@ -66,7 +64,7 @@
     - `config/`: Project-wide configurations.
       - `auth-config.ts`: Centralized mapping of `UserRole` to base redirect paths. Used by middleware and root page for role-based navigation.
 - `src/shared/`: Code shared across features/layers.
-    - `contexts/`: Shared React contexts (e.g., `UIContext`, `FileContext`).
+    - `contexts/`: Shared React contexts (e.g., `UIContext`, `AuthContext`).
     - `ui/`: Shared UI components (atoms, molecules).
 - `src/styles/`: Global styles.
 - `src/middleware.ts`: Handles authentication (cookie domain pinning, Supabase client init), route protection, and role-based redirects (using `auth-config.ts`).
@@ -114,9 +112,11 @@ Files are stored in a single Supabase storage bucket (`project-files`). Metadata
 *   **Profile Avatars:**
     *   Storage Path: `{user_id}/profile/{filename}` (within `project-files` bucket)
     *   Database Reference: `avatar_url` field in `public.profiles` table and also mirrored in `auth.users.user_metadata`. This URL is the full public URL to the avatar in Supabase Storage.
-*   **General User Files:** These are files uploaded by users directly (e.g., via the `/client/files` page) and are not tied to a specific project.
-    *   Storage Path: `{user_id}/general/{optional_subfolders}/{filename}`
-    *   Database Record: A row is created in `user_files` with `user_id` set, but `project_id` is `NULL` and `project_type` is `'general'`.
+*   **General User Files (Non-Project Specific):** 
+    *   These are files not tied to a specific project. The dedicated UI for managing these at `/client/files` (formerly using `FileContext`) has been removed.
+    *   However, the `user_files` table can still store records for such files, typically with `project_id` set to `NULL`.
+    *   Storage Path: `{user_id}/general/{optional_subfolders}/{filename}` (example path, actual uploads might use `users/{USER_ID}/files/{SANITIZED_FILENAME}` if created via other means not tied to a specific project UI).
+    *   Database Record: A row is created/can exist in `user_files` with `user_id` set, and `project_id` is `NULL`.
 *   **Project-Specific Files (General Context):** 
     *   These files are uploaded in the context of a particular project (e.g., assets for a Logo Design project).
     *   The primary UI for this is intended to be project detail pages (excluding Web Design, see below) or potentially a centralized file manager if `/client/files` is enhanced.
@@ -146,8 +146,6 @@ The RLS policies for `user_files` have been verified to correctly allow authenti
 
 Key API routes for core functionality:
 
-*   **/api/client/all-user-files/**
-    *   `GET`: Fetches all file and folder records from the `user_files` table for the currently authenticated client. Uses Bearer token authentication (bypassing cookie issues) and relies on RLS (`user_id = auth.uid()`) to ensure data security. This endpoint supports the unified file view on `/client/files`.
 *   **/api/admin/projects/**
     *   `GET`: Fetches a list of *all* projects (web, logo, social) for the admin dashboard. Adds a `type` field to each project object.
 *   **/api/admin/projects/[projectType]/[projectId]/**
@@ -201,30 +199,7 @@ Key API routes for core functionality:
 
 ## File Management Strategy (Original - Review and Consolidate/Remove Redundancy)
 
-- **General User Files (`src/app/(client)/client/files`, `src/shared/contexts/FileContext`)**:
-    - Handles all files uploaded by a user, stored under `<user_id>/...` in storage.
-    - Uses the `user_files` database table to track metadata.
-    - `user_files` table includes optional `project_id` and `project_type` for associating general uploads with projects.
-- **Project-Specific Uploads (e.g., Brand Assets)**:
-    - Previously mentioned for project detail pages like `/client/projects/web-design/[id]`. This page now handles files via BIR context (see note above).
-    - Other project types (logo, social graphics) might still use the `/api/projects/files/upload` endpoint directly on their detail pages.
-    - Files stored under `<projectType>/<projectId>/...` in storage (path construction for this may need review).
-    - Metadata stored in the `user_files` table (linking `user_id`, `project_id`, `project_type`, `file_path`).
-    - RLS on `user_files` controls visibility (user sees own, designer sees assigned project files, admin sees all).
-- **Revision Deliverables**:
-    - Handled via the `project_revisions` and `revision_files` tables.
-    - `revision_files` stores metadata for files specifically part of an official revision.
-    - Intended for designer submissions needing client approval.
-- **Business Information Request (BIR) Files**:
-    - Uploaded via the "Project Files" tab on web design project pages (`src/app/(client)/client/projects/web-design/[id]/page.tsx` using `FileUploadStep.tsx`).
-    - Uses a signed URL flow:
-        1. Client requests a signed URL from `/api/bir/create-upload-url`.
-        2. File is uploaded directly to the `bir-files` Supabase Storage bucket.
-        3. Client notifies `/api/bir/record-file` to create metadata entry in `bir_file` table.
-    - Files stored in a dedicated private Supabase Storage bucket: `bir-files`.
-    - Path: `{bir_id}/{uuid}.{ext}` within the `bir-files` bucket.
-    - Metadata stored in the `bir_file` table (linking to `business_information_requests.id`).
-    - Access controlled by RLS on `bir_file` and `storage.objects` for the `bir-files` bucket. Downloads via signed URLs.
+// The entire "File Management Strategy (Original - Review and Consolidate/Remove Redundancy)" section, which was here, has been removed as its content was outdated and a more concise, updated version exists under the main "## File Management" section.
 
 ## Feature: Business Information Request (BIR)
 

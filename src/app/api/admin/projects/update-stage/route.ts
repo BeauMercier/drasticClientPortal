@@ -115,23 +115,18 @@ export async function POST(request: NextRequest) {
       switch (newStage) {
         case 'discovery':
           updateData.discovery_date = stageDate;
-          updateData.status = 'pending';
           break;
         case 'concept-development': 
           updateData.concept_development_date = stageDate;
-          updateData.status = 'in_progress';
           break;
         case 'refinement':
           updateData.refinement_date = stageDate;
-          updateData.status = 'in_progress';
           break;
         case 'finalization':
           updateData.finalization_date = stageDate;
-          updateData.status = 'in_progress';
           break;
         case 'delivery':
           updateData.delivery_date = stageDate;
-          updateData.status = 'completed';
           break;
       }
       

@@ -223,12 +223,18 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
     const adminClient = createAdminClient();
 
+    console.log('>>> DEBUG ADMIN PUT: Project ID:', projectId);
+    console.log('>>> DEBUG ADMIN PUT: Data being sent to Supabase update:', JSON.stringify(dataToUpdate, null, 2));
+
     const { data, error } = await adminClient
       .from('web_design_projects')
       .update(dataToUpdate)
       .eq('id', projectId)
       .select()
       .single(); // Use select().single() to get the updated record back
+
+    console.log('>>> DEBUG ADMIN PUT: Supabase update response - data:', JSON.stringify(data, null, 2));
+    console.log('>>> DEBUG ADMIN PUT: Supabase update response - error:', JSON.stringify(error, null, 2));
 
     if (error) {
       console.error('Error updating web_design_project:', error);

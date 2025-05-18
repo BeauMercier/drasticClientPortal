@@ -1,3 +1,36 @@
+### Feature: Admin Project Files View (Admin Detailed Project Page)
+
+- **Goal:** Allow admins to see a detailed list of files associated with a project, including uploader information, original file name, and size. Initially, this will focus on displaying BIR-related files.
+- **Date:** [Current Date] - Placeholder, will be replaced by actual date
+- [x] **API Endpoint (`/api/admin/project-files/[projectType]/[projectId]`):**
+    - [x] Create a GET handler.
+    - [x] Implement admin authentication/authorization.
+    - [x] Fetch `client_id` and `bir_id` from `business_information_requests` based on `projectId`.
+    - [x] Fetch uploader's profile (full_name, email) from `profiles` table using `client_id`.
+    - [x] Fetch file details (`id`, `storage_path`, `mime_type`, `uploaded_at`, `original_name`, `size_bytes`) from `bir_file` table using `bir_id`.
+    - [x] Map fetched data to `AdminProjectFile` structure (including `uploader` object and mapping `uploaded_at` to `created_at`).
+    - [x] Handle cases where BIR/client/profile/files are not found.
+- [x] **Frontend Component (`src/app/(admin)/admin/projects/components/ProjectFileList.tsx`):**
+    - [x] Create the component to accept `projectId` and `projectType`.
+    - [x] Fetch data from the new API endpoint.
+    - [x] Update `AdminProjectFile` interface to include `original_name?: string | null` and `size_bytes?: number | null`.
+    - [x] Display files in a list format.
+    *   [x] Show `original_name` (fallback to parsed `storage_path`).
+    *   [x] Show uploader's full name or email (fallback to "Unknown User").
+    *   [x] Show formatted upload date (`created_at`).
+    *   [x] Show formatted file size (`size_bytes`).
+    *   [x] Provide a download link for each file.
+    - [x] Implement loading and empty states.
+- [x] **Integration:**
+    - [x] Add `ProjectFileList` component to the admin detailed project view page (`src/app/(admin)/admin/projects/view/[projectId]/page.tsx`).
+    - [x] Ensure `projectId` and `projectType` are correctly passed to `ProjectFileList`.
+- [x] **Testing & Refinement:**
+    - [x] Verify file list displays correctly with uploader name, original name, and size.
+    - [x] Test error handling and edge cases (e.g., project with no BIR, project with BIR but no files, missing client profile).
+- [x] **Documentation:**
+    - [x] Update `PLANNING.MD` with API route and component details.
+    - [x] Update `TASK.MD` with this task breakdown.
+
 ## Tasks
 
 ### April 2, 2024
@@ -144,7 +177,7 @@
 - [x] **File Upload - Summary Display:** Update `useBir` hook and `BirSummary.tsx` to fetch and display files with signed URLs.
 - [x] **File Upload - RLS & Storage Policies:** Create migration (`..._bir_file_rls.sql`) for `bir_file` RLS and `storage.objects` policies. (User to confirm applied)
 - [ ] **File Upload - Type Regeneration:** Regenerate Supabase types (`npx supabase gen types ...`) and remove placeholder types/casts. (User to confirm completion)
-- [ ] **File Upload - BIR File Deletion:** Implement delete functionality for uploaded BIR files in the "Project Files" tab (requires new API endpoint and client-side logic in `FileUploadStep.tsx`).
+- [x] **File Upload - BIR File Deletion:** Implemented API route `/api/bir/file/[fileId]` and updated client UI in `FileUploadStep.tsx` for deleting BIR files.
 
 - [ ] **Backend:** (Optional) Implement PATCH `/status` handler for admin/designer approval.
 - [ ] **Backend:** Add unit/integration tests for the new API routes (using Jest/Vitest).

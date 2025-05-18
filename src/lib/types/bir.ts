@@ -55,3 +55,6 @@ export type SignedBirFile = BirFileRow & {
    */
   error?: 'not_found' | 'generic' | string | undefined; 
 }; 
+
+// Type for the response from the DELETE /api/bir/file/[fileId] endpoint
+export type DeleteBirFileResponse = { success: true } | { error: string }; 

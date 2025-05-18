@@ -77,6 +77,21 @@
 - **Layout:** Standard layouts include a header and a sidebar, adjusting content margins based on sidebar state (`UIContext`).
   - **Header Stacking:** The main application header (`src/shared/ui/layout/Header.tsx`) is set to `z-50`. Components within the header that need to overlay other header content (e.g., `NotificationsMenu.tsx` dropdown, `z-60`) should use a higher z-index. This ensures header elements can correctly stack above page content and viewport-fixed overlays (like "Coming Soon" messages, typically `z-40` or lower).
 - **Tabs (`src/components/ui/tabs.tsx`):** This is a **custom implementation**, not the standard Radix-based `shadcn/ui` version. It has been refactored to support the `defaultValue` prop for setting the initial active tab in an uncontrolled manner by managing its own internal state. This was crucial for fixing an issue where tab content wouldn't render.
+- **Project Timeline (`src/components/projects/ProjectTimeline.tsx`):**
+    - **Purpose:** Renders a visual timeline for projects, indicating current, completed, and pending stages.
+    - **Visual Rules:** 
+        - Dots represent stages: completed (GREEN), current/active (BLUE), pending (GRAY).
+        - Connecting bars inherit the color of the stage (dot) they originate from.
+        - Example: `[completed]─green─[active]─blue─[pending]─gray─[pending]`
+    - **Status Algorithm:** 
+        - Based on `currentStageKey` and stage order. `project.current_stage` is the source of truth.
+        - Special case: The final stage, if active and has a completion date, shows as completed (all-green timeline).
+        - If `currentStageKey` is not found, all stages default to 'pending'.
+    - **Color Palette (Tailwind CSS - see component for exact classes):**
+        - Completed: `green-600/dark:green-500` (dot, label, bar); `text-white` (icon).
+        - Active: `blue-600/dark:blue-500` (dot border, icon, label, bar); `bg-blue-50` (dot bg).
+        - Pending: `gray-400/dark:gray-600` (dot border, bar with 50% opacity); `bg-gray-200/dark:bg-gray-700` (dot bg); `text-gray-500/dark:text-gray-400` (icon, label).
+    - **Layout:** Responsive design with an interleaved dot-bar structure for desktop and a stacked vertical layout for mobile.
 
 ## Style Guide
 
@@ -161,6 +176,8 @@ Key API routes for core functionality:
     *   `POST`: Generates a signed URL for direct client upload of a BIR file to Supabase Storage. Expects `birId`, `filename`, `mime`. Returns `uploadUrl` and `objectKey`.
 *   **/api/bir/record-file**
     *   `POST`: Records metadata of a BIR file in the `bir_file` table after successful direct upload to Supabase Storage. Expects `birId`, `objectKey`, `size`, `mime`, `originalName`, `fileType`.
+*   **/api/admin/project-files/[projectType]/[projectId]**
+    *   `GET`: Fetches a list of files associated with a specific project for the admin view. Currently, this primarily retrieves files from the `bir_file` table (linked via `business_information_requests`) for `web_design` projects. It includes uploader details (derived from the project's client) and file metadata like original name and size. Requires Admin role.
 
 ## UI Components (Duplicated Section - Consolidate Later if needed)
 
@@ -309,3 +326,27 @@ This section outlines significant recent changes and resolutions:
         *   The middleware logic for unauthenticated users would then attempt to redirect access to `/login` back to `/login`.
     *   **Fix:**
         *   `src/middleware.ts`: Modified the derivation of `authenticatedPathsPrefixes` to explicitly filter out `/login` (and any other designated public paths) from the list of paths requiring authentication. 
+
+## New Feature: Admin Project Files View
+
+This section outlines the new feature:
+
+### **Goal:**
+Provide an admin-specific view for listing project files, currently BIR files, for a specific project.
+
+### **Implementation Strategy:**
+
+1. **New API Route:**
+    * **/api/admin/project-files/[projectType]/[projectId]**
+    *   `GET`: Fetches a list of files associated with a specific project for the admin view. Currently, this primarily retrieves files from the `bir_file` table (linked via `business_information_requests`) for `web_design` projects. It includes uploader details (derived from the project's client) and file metadata like original name and size. Requires Admin role.
+
+2. **Frontend Component:**
+    * `src/app/(admin)/admin/projects/components/ProjectFileList.tsx`: Component used in the admin detailed project view (`src/app/(admin)/admin/projects/view/[projectId]/page.tsx`) to display a list of project-associated files fetched via the `/api/admin/project-files/...` endpoint. Shows file name, uploader, upload date, and size.
+
+### **Testing:**
+Implement unit tests (Vitest/Jest) for the new API route and frontend component.
+
+### **Documentation:**
+Update this `PLANNING.md` file as development progresses.
+
+**(New API route and frontend component are complete and verified).** 

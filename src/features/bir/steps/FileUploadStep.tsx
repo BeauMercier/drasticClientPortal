@@ -10,6 +10,7 @@ import { SignedBirFile } from '@/lib/types/bir'; // Ensure BirFileType is import
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { DownloadIcon, FileTextIcon, ImageIcon, Trash2Icon } from 'lucide-react'; // Assuming these are used
+import { useToast } from '@/components/ui/use-toast'; // Corrected path
 
 interface FileUploadStepProps {
   birId: string;
@@ -36,7 +37,7 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
   onUploadComplete, 
   readOnly = false, // Default to false
 }) => {
-  // TODO: Potentially manage loading states for individual uploaders or overall step
+  const { toast } = useToast(); // Initialize toast
 
   const handleUploadSuccess = () => {
     mutateBir(); // Call SWR mutate to revalidate/refetch BIR data (including files)
@@ -59,11 +60,43 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
     return <FileTextIcon className="h-5 w-5 text-gray-500 mr-2 flex-shrink-0" />;
   };
 
-  // TODO: Implement handleDeleteBirFile function
-  const handleDeleteBirFile = async (fileId: string, storagePath: string) => {
-    console.warn("Delete functionality for BIR file not yet implemented.", fileId, storagePath);
-    // This will require a new API endpoint: DELETE /api/bir/file/[fileId]?path=[storagePath]
-    // And then calling mutateBir()
+  const handleDeleteBirFile = async (file: SignedBirFile) => {
+    if (!window.confirm('Permanently delete this file?')) return;
+
+    try {
+      const res = await fetch(`/api/bir/file/${file.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const body = await res.json();
+        // Use toast for error
+        toast({
+          title: "Error Deleting File",
+          description: body?.error || 'Unknown error occurred.',
+          variant: "destructive",
+        });
+        throw new Error(body?.error || 'Unknown error');
+      }
+
+      // Use toast for success
+      toast({
+        title: "File Deleted",
+        description: `'${file.original_name}' has been successfully deleted.`,
+        variant: "default", // or "success" if you have one
+      });
+      await mutateBir(); // re-fetch list
+    } catch (err) {
+      console.error('Failed to delete file:', err);
+      // Fallback toast error if not already shown
+      if (!(err instanceof Error && err.message.includes('Unknown error'))) { // Avoid double toast if error was from res.json()
+        toast({
+          title: "Error",
+          description: "Failed to delete file. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (
@@ -120,8 +153,9 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
                       <Button 
                         variant="destructive" 
                         size="sm" 
-                        onClick={() => handleDeleteBirFile(file.id, file.storage_path)}
-                        disabled // Disabled for now
+                        onClick={() => handleDeleteBirFile(file)}
+                        title="Delete file"
+                        disabled={readOnly}
                       >
                         <Trash2Icon className="h-4 w-4 mr-1" /> Delete
                       </Button>

@@ -32,26 +32,74 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { projectType: string; projectId: string } }
 ) {
-  const { authorized, error } = await verifyAdminAccess();
+  const { authorized, error: authError } = await verifyAdminAccess();
   if (!authorized) {
-    return NextResponse.json({ message: error || 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ message: authError || 'Forbidden' }, { status: 403 });
   }
 
   const supabase = createAdminClient();
-  const { projectId } = params; // projectType is in params but not used by this DB query
+  const { projectId } = params;
 
-  const { data, error: fileErr } = await supabase
-    .from('project_files')
-    .select(
-      'id, storage_path, mime_type, created_at, uploader: uploader_id (id, full_name, email)'
-    )
+  // 1. Get the bir_id and client_id directly from business_information_requests
+  const { data: birRecord, error: birError } = await supabase
+    .from('business_information_requests')
+    .select('id, client_id') // Select bir_id (as id) and client_id
     .eq('project_id', projectId)
-    .order('created_at', { ascending: false });
+    .maybeSingle();
+
+  if (birError) {
+    // This console.error will now show the actual error if this query fails
+    console.error('Error fetching BIR record for project_id:', projectId, birError);
+    return NextResponse.json({ message: 'Error fetching business information for project.' }, { status: 500 });
+  }
+
+  if (!birRecord) {
+    return NextResponse.json([]); // No BIR, so no BIR files
+  }
+
+  const birId = birRecord.id;
+  const clientId = birRecord.client_id;
+
+  // 2. If we have a client_id, fetch their profile to use as uploader
+  let uploaderProfile: { id: string; full_name: string | null; email: string | null } | null = null;
+  if (clientId) {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('id', clientId)
+      .single();
+    if (profileError) {
+      console.warn('Error fetching uploader profile for client_id:', clientId, profileError);
+      // Continue without uploader info if profile fetch fails, or handle more strictly
+    } else {
+      uploaderProfile = profile;
+    }
+  }
+
+  // 3. Fetch files from bir_file associated with the birId
+  const { data: filesData, error: fileErr } = await supabase
+    .from('bir_file')
+    .select(
+      'id, storage_path, mime_type, uploaded_at, original_name, size_bytes'
+    )
+    .eq('bir_id', birId)
+    .order('uploaded_at', { ascending: false });
 
   if (fileErr) {
-    console.error('Admin project-files fetch error', fileErr);
+    console.error('Admin project-files (bir_file) fetch error:', fileErr);
     return NextResponse.json({ message: fileErr.message }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  // 4. Map to the expected AdminProjectFile structure
+  const responseData = filesData ? filesData.map(file => ({
+    id: file.id,
+    storage_path: file.storage_path,
+    mime_type: file.mime_type,
+    created_at: file.uploaded_at, 
+    uploader: uploaderProfile, // Assign the fetched profile
+    original_name: file.original_name,
+    size_bytes: file.size_bytes,
+  })) : [];
+
+  return NextResponse.json(responseData);
 } 

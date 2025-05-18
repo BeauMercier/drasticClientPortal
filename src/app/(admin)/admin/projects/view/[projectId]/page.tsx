@@ -49,6 +49,7 @@ export default function AdminDetailedProjectViewPage() {
 
   useEffect(() => {
     const loadProjectDetails = async () => {
+      console.log('[AdminDetailedProjectViewPage] Props for file list:', { pid: projectId, ptype: projectType });
       if (!projectId || !projectType || !isAuthenticated) {
         if (isAuthenticated === false && !authLoading) { // Only redirect if auth is resolved and not authenticated
             toast({ title: 'Authentication Required', description: 'Please log in to view project details.', variant: 'destructive' });
@@ -173,7 +174,7 @@ export default function AdminDetailedProjectViewPage() {
         <CardContent>
           <ProjectFileList
             projectId={project.id}
-            projectType={project.project_type} // Pass validated projectType
+            projectType={projectType as 'web_design' | 'logo_design' | 'social_graphics'}
           />
         </CardContent>
       </Card>

@@ -56,6 +56,8 @@ const fetcher = async (projectId: string): Promise<UseBirData> => {
           .from('bir-files')
           .createSignedUrl(file.storage_path, 60 * 60); // 1 hour expiry
 
+        console.log(`[useBir] For file ${file.storage_path}:`, { signedUrlData, signError });
+
         if (signError) {
           // Gracefully handle "Object not found" errors specifically
           if (signError.message && (signError.message.includes('No object exists') || signError.message.includes('Object not found'))) {

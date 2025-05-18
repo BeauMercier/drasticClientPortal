@@ -63,6 +63,16 @@ export default function BirFileUploader({
           body: file,
         });
 
+        // ADD DETAILED LOGGING FOR STEP 2 RESPONSE
+        console.log(`[BirFileUploader] Storage upload attempt for ${file.name}:`, {
+          url: uploadUrl,
+          status: uploadToStorageResponse.status,
+          statusText: uploadToStorageResponse.statusText,
+          ok: uploadToStorageResponse.ok,
+          // Attempt to get response body if not ok, for more details
+          bodyAttempt: !uploadToStorageResponse.ok ? await uploadToStorageResponse.text().catch(() => 'Could not read error body') : 'N/A'
+        });
+
         if (!uploadToStorageResponse.ok) {
           throw new Error(`Storage upload failed for ${file.name}: ${uploadToStorageResponse.statusText} (status: ${uploadToStorageResponse.status})`);
         }

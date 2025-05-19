@@ -26,7 +26,7 @@ const clientMenuItems = [
   // Note: If My Info and Business Info need separate sidebar links, uncomment and adjust paths:
   // { name: 'My Info', href: '/client/my-profile/my-info', icon: <UserIcon className="h-5 w-5" /> }, 
   // { name: 'Business Profile', href: '/client/my-profile/business-info', icon: <BuildingOfficeIcon className="h-5 w-5" /> },
-  { name: 'Files', href: '/client/files', icon: <DocumentTextIcon className="h-5 w-5" /> },
+  // { name: 'Files', href: '/client/files', icon: <DocumentTextIcon className="h-5 w-5" /> }, // Removed Files link
   // { name: 'Billing', href: '/client/billing', icon: <CreditCardIcon className="h-5 w-5" /> },
   // { name: 'Business Info', href: '/client/my-profile/business-info', icon: <BuildingOffice2Icon className="h-5 w-5" /> },
 ];

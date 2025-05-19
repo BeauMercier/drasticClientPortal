@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { getUserProfile } from '@/lib/api/client-api';
 import { Tables } from '@/lib/database.types';
+import { useAuthContext } from '@/features/auth/contexts/AuthContext';
 
 /**
  * @constant {StageConfig[]} stageConfigs
@@ -40,17 +41,17 @@ const stageConfigs: StageConfig[] = [
  * Fetches active projects and user profile information to dynamically render content.
  */
 export default function ClientDashboardPage() {
+  const { user: authUser, isLoading: authIsLoading, error: authError } = useAuthContext();
   const [activeProjects, setActiveProjects] = useState<ActiveClientProject[]>([]);
   const [userProfile, setUserProfile] = useState<Tables<'profiles'> | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [isLoadingProfileDetails, setIsLoadingProfileDetails] = useState(true);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchInitialData() {
-      setIsLoading(true);
-      setIsLoadingProfile(true);
-      setError(null);
+    async function fetchActiveProjects() {
+      setIsLoadingProjects(true);
+      setProjectsError(null);
       try {
         const projectsResponse = await fetch('/api/client/active-projects');
         if (!projectsResponse.ok) {
@@ -60,21 +61,35 @@ export default function ClientDashboardPage() {
         const projectsData: ActiveClientProject[] = await projectsResponse.json();
         console.log('[Dashboard] Raw projectsData from API:', JSON.stringify(projectsData, null, 2));
         setActiveProjects(projectsData);
-
-        const profileData = await getUserProfile();
-        setUserProfile(profileData);
-
       } catch (err) {
         const e = err as Error;
-        console.error("Dashboard fetch error:", e.message);
-        setError(e.message);
+        console.error("Dashboard projects fetch error:", e.message);
+        setProjectsError(e.message);
       } finally {
-        setIsLoading(false);
-        setIsLoadingProfile(false);
+        setIsLoadingProjects(false);
       }
     }
-    fetchInitialData();
-  }, []);
+
+    async function fetchDetailedProfile() {
+      if (authUser && !authIsLoading) {
+        setIsLoadingProfileDetails(true);
+        try {
+          const profileData = await getUserProfile();
+          setUserProfile(profileData);
+        } catch (err) {
+          console.error("Dashboard detailed profile fetch error:", (err as Error).message);
+        } finally {
+          setIsLoadingProfileDetails(false);
+        }
+      } else if (!authIsLoading) {
+        setIsLoadingProfileDetails(false);
+        setUserProfile(null);
+      }
+    }
+
+    fetchActiveProjects();
+    fetchDetailedProfile();
+  }, [authUser, authIsLoading]);
 
   /**
    * @const {Array<Object>} quickLinks
@@ -149,17 +164,19 @@ export default function ClientDashboardPage() {
   });
 
   const getFirstName = () => {
-    if (userProfile?.full_name) {
-      return userProfile.full_name.split(' ')[0];
+    if (authUser?.full_name) {
+      return authUser.full_name.split(' ')[0];
     }
-    return 'Client'; // Fallback if name not available
+    return 'Client'; // Fallback
   };
+
+  const mainContentIsLoading = isLoadingProjects || authIsLoading;
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Hi {isLoadingProfile ? '...' : getFirstName()}!
+          Hi {authIsLoading ? '...' : getFirstName()}!
         </h1>
         <p className="text-gray-600 dark:text-gray-400">Welcome back! Here's an overview of your projects and resources.</p>
       </header>
@@ -169,9 +186,9 @@ export default function ClientDashboardPage() {
         <h2 className="text-2xl font-semibold mb-6 text-gray-700 dark:text-gray-300 flex items-center">
           <BriefcaseIcon className="h-6 w-6 mr-2" /> Active Projects
         </h2>
-        {(isLoading && !activeProjects.length) && <p className="text-gray-600 dark:text-gray-400">Loading projects...</p>}
-        {error && !isLoading && <p className="text-red-500">Error loading projects: {error}</p>}
-        {!isLoading && !error && (
+        {mainContentIsLoading && activeProjects.length === 0 && <p className="text-gray-600 dark:text-gray-400">Loading projects...</p>}
+        {projectsError && !mainContentIsLoading && <p className="text-red-500">Error loading projects: {projectsError}</p>}
+        {!mainContentIsLoading && !projectsError && (
           <>
             {activeProjects.length === 0 && (
               <p className="text-gray-600 dark:text-gray-400">You have no active projects at the moment.</p>
@@ -242,8 +259,8 @@ export default function ClientDashboardPage() {
         <h2 className="text-2xl font-semibold mb-4 text-gray-700 dark:text-gray-300 flex items-center">
           <LinkIcon className="h-6 w-6 mr-2" /> Quick Links
         </h2>
-        {(isLoadingProfile) && <p className="text-gray-600 dark:text-gray-400">Loading links...</p>}
-        {!isLoadingProfile && (
+        {(isLoadingProfileDetails || authIsLoading) && <p className="text-gray-600 dark:text-gray-400">Loading links...</p>}
+        {!(isLoadingProfileDetails || authIsLoading) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {quickLinks.map((link) => (
               <Card key={link.title} className={`shadow-lg hover:shadow-xl transition-shadow duration-300 ${link.bgColor} ${link.disabled ? 'opacity-70' : ''}`}> 

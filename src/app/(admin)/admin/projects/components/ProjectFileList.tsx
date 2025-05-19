@@ -13,6 +13,7 @@ export interface AdminProjectFile {
   created_at: string;
   original_name?: string | null;
   size_bytes?: number | null;
+  download_url?: string | null;
   uploader: {
     id: string;
     full_name: string | null;
@@ -118,7 +119,7 @@ export default function ProjectFileList({
             className="flex-shrink-0"
           >
             <a
-              href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/project-files/${f.storage_path}`}
+              href={f.download_url || '#'}
               target="_blank"
               rel="noopener noreferrer"
             >

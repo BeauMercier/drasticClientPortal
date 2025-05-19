@@ -29,6 +29,7 @@
     - `(client)/`: Route group for client-facing sections. Uses `src/app/(client)/layout.tsx` with `ClientSidebar`.
         - `client/`: Defines the `/client` base path.
             - `page.tsx`: Client dashboard.
+                - Note: Uses `AuthContext` to display the initial welcome message with the client's name, aiming for faster perceived load times. Additional profile details for features like "Quick Links" may be fetched separately.
             - `my-profile/`: Handles `/client/my-profile`.
                 - `page.tsx`: Main profile page (consolidated My Info).
                 - `business-info/page.tsx`: Handles `/client/my-profile/business-info`.
@@ -49,6 +50,7 @@
 - `src/components/`: Reusable UI components.
     - `admin/AdminSidebar.tsx`: Dedicated sidebar for the admin section.
     - `client/ClientSidebar.tsx`: Dedicated sidebar for the client section (styled like AdminSidebar).
+        - Note: The "Files" navigation link has been removed from the client sidebar menu items.
     - `RoleSidebar.tsx`: Sidebar component used by Designers (dynamically shows menu based on role).
     - `layout/`: Layout-related components (e.g., `DashboardLayout`).
     - `ui/`: Base components. Includes a **custom Tabs component** (`src/components/ui/tabs.tsx`) which was refactored to support `defaultValue` prop for uncontrolled state.
@@ -178,7 +180,7 @@ Key API routes for core functionality:
 *   **/api/bir/record-file**
     *   `POST`: Records metadata of a BIR file in the `bir_file` table after successful direct upload to Supabase Storage. Expects `birId`, `objectKey`, `size`, `mime`, `originalName`, `fileType`.
 *   **/api/admin/project-files/[projectType]/[projectId]**
-    *   `GET`: Fetches a list of files associated with a specific project for the admin view. Currently, this primarily retrieves files from the `bir_file` table (linked via `business_information_requests`) for `web_design` projects. It includes uploader details (derived from the project's client) and file metadata like original name and size. Requires Admin role.
+    *   `GET`: Fetches a list of files associated with a specific project for the admin view. Currently, this primarily retrieves files from the `bir_file` table (linked via `business_information_requests`) for `web_design` projects. It includes uploader details (derived from the project's client) and file metadata like original name and size. **Crucially, it now generates a temporary signed `download_url` for each file, pointing to the `bir-files` (private) bucket.** Requires Admin role.
 
 ## UI Components (Duplicated Section - Consolidate Later if needed)
 
@@ -316,10 +318,10 @@ Provide an admin-specific view for listing project files, currently BIR files, f
 
 1. **New API Route:**
     * **/api/admin/project-files/[projectType]/[projectId]**
-    *   `GET`: Fetches a list of files associated with a specific project for the admin view. Currently, this primarily retrieves files from the `bir_file` table (linked via `business_information_requests`) for `web_design` projects. It includes uploader details (derived from the project's client) and file metadata like original name and size. Requires Admin role.
+    *   `GET`: Fetches a list of files associated with a specific project for the admin view. Currently, this primarily retrieves files from the `bir_file` table (linked via `business_information_requests`) for `web_design` projects. It includes uploader details (derived from the project's client) and file metadata like original name and size. **Crucially, it now generates a temporary signed `download_url` for each file, pointing to the `bir-files` (private) bucket.** Requires Admin role.
 
 2. **Frontend Component:**
-    * `src/app/(admin)/admin/projects/components/ProjectFileList.tsx`: Component used in the admin detailed project view (`src/app/(admin)/admin/projects/view/[projectId]/page.tsx`) to display a list of project-associated files fetched via the `/api/admin/project-files/...` endpoint. Shows file name, uploader, upload date, and size.
+    * `src/app/(admin)/admin/projects/components/ProjectFileList.tsx`: Component used in the admin detailed project view (`src/app/(admin)/admin/projects/view/[projectId]/page.tsx`) to display a list of project-associated files fetched via the `/api/admin/project-files/...` endpoint. Shows file name, uploader, upload date, and size. **Download links now use the `download_url` provided by the API, which is a signed URL for secure access.**
 
 ### **Testing:**
 Implement unit tests (Vitest/Jest) for the new API route and frontend component.

@@ -90,16 +90,44 @@ export async function GET(
     return NextResponse.json({ message: fileErr.message }, { status: 500 });
   }
 
-  // 4. Map to the expected AdminProjectFile structure
-  const responseData = filesData ? filesData.map(file => ({
-    id: file.id,
-    storage_path: file.storage_path,
-    mime_type: file.mime_type,
-    created_at: file.uploaded_at, 
-    uploader: uploaderProfile, // Assign the fetched profile
-    original_name: file.original_name,
-    size_bytes: file.size_bytes,
-  })) : [];
+  const ONE_HOUR = 60 * 60;
+
+  // 4. Map to the expected AdminProjectFile structure and generate signed URLs
+  const responseDataPromises = filesData ? filesData.map(async (file) => {
+    const { data: signedUrlData, error: signedUrlError } = await supabase
+      .storage
+      .from('bir-files') // Explicitly use 'bir-files' bucket
+      .createSignedUrl(file.storage_path, ONE_HOUR);
+
+    if (signedUrlError) {
+      console.error(`Error generating signed URL for ${file.storage_path}:`, signedUrlError);
+      // Decide how to handle: return file without URL, or skip, or error out?
+      // For now, returning without download_url or with null.
+      return {
+        id: file.id,
+        storage_path: file.storage_path,
+        mime_type: file.mime_type,
+        created_at: file.uploaded_at,
+        uploader: uploaderProfile,
+        original_name: file.original_name,
+        size_bytes: file.size_bytes,
+        download_url: null, // Or some error indicator
+      };
+    }
+    
+    return {
+      id: file.id,
+      storage_path: file.storage_path,
+      mime_type: file.mime_type,
+      created_at: file.uploaded_at,
+      uploader: uploaderProfile,
+      original_name: file.original_name,
+      size_bytes: file.size_bytes,
+      download_url: signedUrlData?.signedUrl,
+    };
+  }) : [];
+  
+  const responseData = await Promise.all(responseDataPromises);
 
   return NextResponse.json(responseData);
 } 

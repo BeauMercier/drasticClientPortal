@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { Button, Input, Card } from '../../../shared/ui';
 
@@ -10,7 +11,8 @@ interface UpdatePasswordFormProps {
 }
 
 export function UpdatePasswordForm({ onSuccess, redirectUrl }: UpdatePasswordFormProps) {
-  const { updatePassword, isLoading, error } = useAuth();
+  const { updatePassword, logout, isLoading, error } = useAuth();
+  const router = useRouter();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -35,16 +37,18 @@ export function UpdatePasswordForm({ onSuccess, redirectUrl }: UpdatePasswordFor
     const result = await updatePassword(password);
     
     if (result.success) {
-      setSuccessMessage('Password updated successfully');
+      setSuccessMessage('Password updated successfully. Redirecting...');
       
+      await logout();
+
       if (onSuccess) {
         setTimeout(() => {
           onSuccess();
-        }, 3000);
+        }, 2000);
       } else if (redirectUrl) {
         setTimeout(() => {
-          window.location.href = redirectUrl;
-        }, 3000);
+          router.replace(redirectUrl);
+        }, 2000);
       }
     }
   };
@@ -105,6 +109,7 @@ export function UpdatePasswordForm({ onSuccess, redirectUrl }: UpdatePasswordFor
               <a
                 className="inline-block align-baseline font-bold text-sm text-primary-600 hover:text-primary-800"
                 href={redirectUrl}
+                onClick={(e) => { e.preventDefault(); if (redirectUrl) router.push(redirectUrl); }}
               >
                 Cancel
               </a>

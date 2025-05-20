@@ -289,6 +289,26 @@ This section outlines significant recent changes and resolutions:
     *   **Fixes:**
         *   `src/middleware.ts`: Implemented early returns for static assets and public paths (e.g., `/img`, `/css`, `/login`, `/register`) to avoid unnecessary Supabase client initialization and session checks on these routes.
         *   `src/features/auth/contexts/AuthContext.tsx`: The `onAuthStateChange` listener was simplified to directly use the session information provided by the Supabase event. Extra `getUser()` calls, which were part of an earlier hypothesis for fixing avatar issues, were removed as they contributed to complexity and were not the root cause of the session hangs.
+*   **Supabase Password Reset Flow & Troubleshooting:**
+    *   **Frontend Implementation:**
+        1.  The user requests a password reset via a form (e.g., `PasswordResetForm.tsx`).
+        2.  The client calls `supabase.auth.resetPasswordForEmail(email, { redirectTo })`.
+            *   **`redirectTo` URL:** This URL (e.g., `https://portal.drasticdigital.com/update-password`) is where the user will be sent after clicking the link in the reset email. It's crucial this is a production-ready, stable URL. It was decided to hardcode this in `src/features/auth/api/index.ts` for consistency, rather than using `window.location.origin`.
+        3.  The `AuthContext` listens for the `PASSWORD_RECOVERY` event via `onAuthStateChange`.
+        4.  Upon detecting `PASSWORD_RECOVERY`, the context redirects the user to the update password page (e.g., `/update-password`). The URL hash (`#access_token=...`) is also cleaned up.
+        5.  The update password page (e.g., `UpdatePasswordForm.tsx`) allows the user to enter a new password.
+        6.  On submission, it calls `supabase.auth.updateUser({ password: newPassword })`.
+        7.  After a successful update, the user is typically signed out and redirected to the login page.
+    *   **Critical Supabase Dashboard Configurations:**
+        *   **URL Configuration (Authentication -> URL Configuration):**
+            *   `Site URL`: Must be set to the canonical URL of the application.
+            *   `Additional Redirect URLs`: **MUST** contain the exact `redirectTo` URL used in the `resetPasswordForEmail` call (e.g., `https://portal.drasticdigital.com/update-password`). Also include localhost versions (e.g., `http://localhost:3000/update-password`) for development. Mismatches here are a primary cause of 500 errors ("Unable to process request") from the `/auth/v1/recover` endpoint.
+        *   **Email Templates (Authentication -> Email Templates -> Reset Password):**
+            *   A corrupted or malformed "Reset Password" email template (due to invalid Liquid tags or HTML) is another common cause of 500 errors on the `/auth/v1/recover` endpoint.
+            *   **Troubleshooting Step:** Resetting this template to its default and saving is a key diagnostic and resolution step.
+    *   **Troubleshooting Notes:**
+        *   A 500 error with `{"code":"unexpected_failure","message":"Unable to process request"}` from `/auth/v1/recover`, especially when a `curl` test works, strongly points to issues with either the Supabase Redirect URL configuration or a broken email template.
+        *   The `content-length` of the `/auth/v1/recover` request can be a minor clue if it seems unexpectedly large, potentially indicating an issue with the request payload, though the Supabase JS client typically handles this correctly.
 
 ### Navigation & Redirect Logic
 *   **Incorrect Redirect from Root Path (`/`):**

@@ -438,3 +438,14 @@
 - Confirmed `FileContext.tsx` removal and update in `src/shared/contexts/index.ts`.
 - Confirmed changes in `src/lib/utils/getFileIcon.tsx` (removal of `FileObject` import, updated type signature).
 - The `PLANNING.MD` and `TASK.MD` documentation accurately reflect these removals.
+
+### [Date of Current Session] - Client Dashboard & Sidebar Enhancements
+- [x] **Optimized Client Dashboard Welcome Message (`src/app/(client)/client/page.tsx`):**
+    - Utilized `AuthContext` (`authUser.full_name`, `authIsLoading`) for faster initial display of the client's name, reducing flicker.
+    - Kept separate `useEffect` for fetching active projects and detailed profile information (for "Quick Links"), conditional on `authUser` availability.
+    - Introduced `isLoadingProjects` and `isLoadingProfileDetails` for decoupled loading states.
+- [x] **Removed "Files" Link from Client Sidebar (`src/components/client/ClientSidebar.tsx`):**
+    - Commented out the "Files" menu item in `clientMenuItems` array as a follow-up to the removal of the `/client/files` page.
+- [x] **Documentation Updated (`PLANNING.MD`):**
+    - Noted the use of `AuthContext` for the welcome message in `src/app/(client)/client/page.tsx` description.
+    - Noted the removal of the "Files" link in `src/components/client/ClientSidebar.tsx` description.

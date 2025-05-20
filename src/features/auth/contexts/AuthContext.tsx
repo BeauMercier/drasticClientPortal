@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Session,
   AuthContextValue,
@@ -104,6 +105,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState<boolean>(true); // Start loading
   const [error, setError] = useState<string | null>(null);
   const [envError, setEnvError] = useState<string | null>(null);
+  const router = useRouter();
 
   // Check for environment variables on component mount
   useEffect(() => {
@@ -141,6 +143,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
         (event: string, newSession: SupabaseSession | null) => {
           if (!isMounted) return;
           
+          console.log('[AuthContext] onAuthStateChange event:', event, 'newSession:', newSession ? "Exists" : "Null"); // Log event and session status
+
+          if (event === 'PASSWORD_RECOVERY') {
+            console.log('[AuthContext] PASSWORD_RECOVERY event detected. Redirecting to /update-password.');
+            router.replace('/update-password');
+            // Clean up hash after redirecting for password recovery
+            if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
+              console.log('[AuthContext] Cleaning up URL hash after password recovery.');
+              history.replaceState({}, document.title, window.location.pathname + window.location.search);
+            }
+            // We might not want to immediately setIsLoading(false) here,
+            // as the /update-password page will handle its own loading state.
+            // The session should already be set by Supabase client due to detectSessionInUrl.
+            // Let's still map the session to ensure context is up-to-date if needed on this brief stop.
+          }
+          
           try {
             const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
             setSession(localSession);
@@ -155,6 +173,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (!receivedInitialAuthEvent) {
             setIsLoading(false);
             receivedInitialAuthEvent = true;
+            // Also attempt to clean hash on initial load if present (e.g. if user lands directly with hash)
+            if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
+              console.log('[AuthContext] Cleaning up URL hash on initial load.');
+              history.replaceState({}, document.title, window.location.pathname + window.location.search);
+            }
           }
         }
       );
@@ -173,7 +196,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       return () => {};
     }
-  }, [envError]);
+  }, [envError, router]);
 
 
   // Login function

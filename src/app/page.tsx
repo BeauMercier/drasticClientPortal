@@ -39,7 +39,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Left Column */}
-      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-8 bg-[linear-gradient(to_bottom_right,theme(colors.black),theme(colors.blue.600),theme(colors.gray.500),theme(colors.red.600))] order-2 md:order-1">
+      <div className="w-full flex-1 md:w-1/2 flex flex-col items-center justify-center p-8 bg-[linear-gradient(to_bottom_right,theme(colors.black),theme(colors.blue.600),theme(colors.gray.500),theme(colors.red.600))] order-1 md:order-1">
         <Image 
             src="/images/logos/Asset 1.svg" 
             alt="Drastic Client Portal Logo" 
@@ -57,8 +57,8 @@ export default function Home() {
       </div>
 
       {/* Right Column */}
-      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-8 order-1 md:order-2">
-        <div className="text-center w-full max-w-xs">
+      <div className="w-full flex-1 md:w-1/2 flex flex-col items-center justify-center p-8 order-2 md:order-2">
+        <div className="text-center w-full max-w-xs pb-8">
             <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-6">Welcome to the Client Portal</h2>
             <Button 
               variant="primary" 

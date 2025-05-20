@@ -229,8 +229,17 @@ export async function logout(): Promise<AuthResult> {
  */
 export async function resetPassword(request: ResetPasswordRequest): Promise<AuthResult> {
   try {
+    // --- Use a consistent, production-oriented redirect URL ---
+    // Ensure this URL is whitelisted in your Supabase project's redirect URL settings.
+    const productionRedirectTo = 'https://portal.drasticdigital.com/update-password';
+    // For local development, you might want to use a different URL or make this configurable via env vars.
+    // For now, we prioritize the production URL that worked with curl.
+    // const redirectTo = process.env.NODE_ENV === 'development' 
+    //   ? `http://localhost:3000/update-password` 
+    //   : productionRedirectTo;
+
     const { error } = await supabase.auth.resetPasswordForEmail(request.email, {
-      redirectTo: `${window.location.origin}/update-password`,
+      redirectTo: productionRedirectTo, 
     });
 
     if (error) {

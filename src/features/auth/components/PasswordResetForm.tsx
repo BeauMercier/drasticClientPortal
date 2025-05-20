@@ -14,29 +14,39 @@ export function PasswordResetForm({ onSuccess, redirectUrl }: PasswordResetFormP
   const { resetPassword, isLoading, error } = useAuth();
   const [email, setEmail] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     setSuccessMessage(null);
 
     const data: ResetPasswordRequest = {
       email
     };
     
-    const result = await resetPassword(data);
-    
-    if (result.success) {
-      setSuccessMessage('Check your email for the password reset link');
+    try {
+      const result = await resetPassword(data);
       
-      if (onSuccess) {
-        setTimeout(() => {
-          onSuccess();
-        }, 3000);
-      } else if (redirectUrl) {
-        setTimeout(() => {
-          window.location.href = redirectUrl;
-        }, 3000);
+      if (result.success) {
+        setSuccessMessage('Check your email for the password reset link');
+        
+        if (onSuccess) {
+          setTimeout(() => {
+            onSuccess();
+          }, 3000);
+        } else if (redirectUrl) {
+          setTimeout(() => {
+            window.location.href = redirectUrl;
+          }, 3000);
+        }
       }
+    } catch (submissionError) {
+      console.error("PasswordResetForm submission error:", submissionError);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -67,6 +77,7 @@ export function PasswordResetForm({ onSuccess, redirectUrl }: PasswordResetFormP
               label="Email"
               placeholder="email@example.com"
               required
+              disabled={isSubmitting || isLoading}
             />
           </div>
           
@@ -74,8 +85,8 @@ export function PasswordResetForm({ onSuccess, redirectUrl }: PasswordResetFormP
             <Button
               type="submit"
               variant="primary"
-              disabled={isLoading}
-              isLoading={isLoading}
+              disabled={isSubmitting || isLoading}
+              isLoading={isSubmitting || isLoading}
             >
               Send Reset Link
             </Button>

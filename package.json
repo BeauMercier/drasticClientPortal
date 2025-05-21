@@ -6,15 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx --cache --fix",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --cache --fix",
     "prepare": "husky",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "docs": "typedoc --tsconfig ./tsconfig.json --options tsconfig.typedoc.json",
     "docs:watch": "typedoc --tsconfig ./tsconfig.json --options tsconfig.typedoc.json --watch",
     "depcheck": "depcheck --specials=eslint,babel,vite,vitest,next",
-    "prune:check": "ts-prune -p tsconfig.json --ignore \"src/generated/**\"",
-    "prune:ci": "ts-prune -p tsconfig.json --error --ignore \"src/generated/**\""
+    "prune:check": "ts-prune -p tsconfig.json --ignore \"^src/generated/\"",
+    "prune:ci": "ts-prune -p tsconfig.json --error --ignore \"^src/generated/\"",
+    "typecheck": "tsc --noEmit",
+    "typecheck:staged": "tsc --noEmit --incremental false"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

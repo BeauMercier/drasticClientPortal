@@ -21,7 +21,7 @@ console.log('[middleware.ts] Checking environment variables at middleware start:
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { getUserProfile } from '@/lib/api/client-api';
 import { Tables } from '@/lib/database.types';
 import { useAuthContext } from '@/features/auth/contexts/AuthContext';
+import Image from 'next/image';
 
 /**
  * @constant {StageConfig[]} stageConfigs
@@ -59,11 +60,9 @@ export default function ClientDashboardPage() {
           throw new Error(errorData.error || 'Failed to fetch active projects');
         }
         const projectsData: ActiveClientProject[] = await projectsResponse.json();
-        console.log('[Dashboard] Raw projectsData from API:', JSON.stringify(projectsData, null, 2));
         setActiveProjects(projectsData);
       } catch (err) {
         const e = err as Error;
-        console.error("Dashboard projects fetch error:", e.message);
         setProjectsError(e.message);
       } finally {
         setIsLoadingProjects(false);
@@ -77,7 +76,6 @@ export default function ClientDashboardPage() {
           const profileData = await getUserProfile();
           setUserProfile(profileData);
         } catch (err) {
-          console.error("Dashboard detailed profile fetch error:", (err as Error).message);
         } finally {
           setIsLoadingProfileDetails(false);
         }
@@ -196,7 +194,6 @@ export default function ClientDashboardPage() {
             {activeProjects.length === 1 && activeProjects[0] && (() => {
               const project = activeProjects[0];
               const projectLinkHref = `/client/projects/${project.project_type}/${project.id}`;
-              console.log(`[Dashboard] Single project link href: ${projectLinkHref}`);
               return (
                 <Card className="shadow-lg">
                   <CardHeader>
@@ -225,7 +222,6 @@ export default function ClientDashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {activeProjects.map((project) => {
                   const projectLinkHref = `/client/projects/${project.project_type}/${project.id}`;
-                  console.log(`[Dashboard] Multi-project link href for ${project.id}: ${projectLinkHref}`);
                   return (
                     <Card key={project.id} className="shadow-md hover:shadow-lg transition-shadow">
                       <CardHeader>
@@ -237,7 +233,15 @@ export default function ClientDashboardPage() {
                           Current Stage: <span className="font-semibold">{project.current_stage ? project.current_stage.replace('-', ' ') : 'N/A'}</span>
                         </p>
                         {project.thumbnail_url && (
-                          <img src={project.thumbnail_url} alt={project.title} className="rounded-md aspect-video object-cover my-2" />
+                          <div className="relative rounded-md aspect-video overflow-hidden my-2">
+                            <Image 
+                              src={project.thumbnail_url} 
+                              alt={project.title ?? 'Project thumbnail'} 
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            />
+                          </div>
                         )}
                       </CardContent>
                       <CardFooter className="flex justify-end">

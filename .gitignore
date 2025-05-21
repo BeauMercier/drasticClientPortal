@@ -55,6 +55,8 @@ Thumbs.db
 # Optional: Cache directories
 .swc/
 .turbo
+.eslintcache
+tsconfig.tsbuildinfo
 
 .cursor/
 

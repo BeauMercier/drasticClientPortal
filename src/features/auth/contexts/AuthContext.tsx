@@ -28,7 +28,11 @@ import { getEnv, validateEnv } from '@/lib/env';
 import { handleRefreshTokenError } from '@/lib/supabase/auth-helpers';
 
 // --- Helper Function to Map Supabase Session/User to Local Types ---
-const mapSupabaseSessionToLocal = (supabaseSession: SupabaseSession | null): { localSession: Session | null, localUser: User | null } => {
+const mapSupabaseSessionToLocal = (
+  supabaseSession: SupabaseSession | null,
+  currentUser: User | null,
+  event: string | null
+): { localSession: Session | null, localUser: User | null } => {
   if (!supabaseSession || !supabaseSession.user) {
     console.log('[AuthContext] mapSupabaseSessionToLocal: Supabase session or user is null.');
     return { localSession: null, localUser: null };
@@ -61,13 +65,28 @@ const mapSupabaseSessionToLocal = (supabaseSession: SupabaseSession | null): { l
   }
   console.log('[AuthContext] mapSupabaseSessionToLocal - Determined userRole:', userRole);
 
+  let resolvedAvatarUrl = supabaseUser.user_metadata?.avatar_url;
+
+  if (event === 'USER_UPDATED') {
+    if (currentUser?.avatar_url && !supabaseUser.user_metadata?.avatar_url) {
+      console.warn(`[AuthContext] USER_UPDATED event: supabaseUser.user_metadata.avatar_url is missing, but currentUser.avatar_url (${currentUser.avatar_url}) exists. Retaining currentUser.avatar_url.`);
+      resolvedAvatarUrl = currentUser.avatar_url;
+    } else if (currentUser?.avatar_url && supabaseUser.user_metadata?.avatar_url && currentUser.avatar_url !== supabaseUser.user_metadata.avatar_url) {
+      console.log(`[AuthContext] USER_UPDATED event: avatar_url changed from ${currentUser.avatar_url} to ${supabaseUser.user_metadata.avatar_url}. Using new one from event.`);
+      // resolvedAvatarUrl already has the new one from supabaseUser
+    } else if (!currentUser?.avatar_url && supabaseUser.user_metadata?.avatar_url) {
+      console.log(`[AuthContext] USER_UPDATED event: currentUser had no avatar, new event has ${supabaseUser.user_metadata.avatar_url}. Using new one.`);
+      // resolvedAvatarUrl already has the new one from supabaseUser
+    }
+  }
+
   // Construct the local User object
   const localUser: User = {
     id: supabaseUser.id,
     email: supabaseUser.email, // Known string
     role: userRole,
     full_name: supabaseUser.user_metadata?.full_name || undefined,
-    avatar_url: supabaseUser.user_metadata?.avatar_url || undefined,
+    avatar_url: resolvedAvatarUrl || undefined,
     metadata: { ...supabaseUser.app_metadata, ...supabaseUser.user_metadata },
   };
 
@@ -160,7 +179,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
           
           try {
-            const { localSession, localUser } = mapSupabaseSessionToLocal(newSession);
+            const { localSession, localUser } = mapSupabaseSessionToLocal(newSession, user, event);
             setSession(localSession);
             setUser(localUser);
           } catch (mapError) {
@@ -212,7 +231,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       try {
           const supabaseSession = result.session as SupabaseSession; 
-          const { localSession, localUser } = mapSupabaseSessionToLocal(supabaseSession);
+          const { localSession, localUser } = mapSupabaseSessionToLocal(supabaseSession, user, null);
           setSession(localSession);
           setUser(localUser);
           setIsLoading(false);

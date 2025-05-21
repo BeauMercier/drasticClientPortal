@@ -447,5 +447,13 @@
 - [x] **Removed "Files" Link from Client Sidebar (`src/components/client/ClientSidebar.tsx`):**
     - Commented out the "Files" menu item in `clientMenuItems` array as a follow-up to the removal of the `/client/files` page.
 - [x] **Documentation Updated (`PLANNING.MD`):**
-    - Noted the use of `AuthContext` for the welcome message in `src/app/(client)/client/page.tsx` description.
-    - Noted the removal of the "Files" link in `src/components/client/ClientSidebar.tsx` description.
+    - [x] Noted the use of `AuthContext` for the welcome message in `src/app/(client)/client/page.tsx` description.
+    - [x] Noted the removal of the "Files" link in `src/components/client/ClientSidebar.tsx` description.
+
+### [Current Date] - Homepage Mobile Layout Fixes
+- [x] **Corrected section order on mobile view (`src/app/page.tsx`):**
+    - Modified flexbox `order-*` classes to ensure the main branding section appears above the sign-in section on mobile.
+- [x] **Ensured equal height (50/50 split) for sections on mobile view (`src/app/page.tsx`):**
+    - Added `flex-1` to both main section divs to make them expand equally when stacked vertically.
+- [x] **Improved spacing for bottom section content on mobile view (`src/app/page.tsx`):**
+    - Added `pb-8` to the inner content `div` of the sign-in section to prevent the "Contact Support" button from being too close to the screen bottom.

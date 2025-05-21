@@ -10,18 +10,19 @@ The API functionality is organized into several modules:
 
 These modules can be imported in both client and server components:
 
-- **`client.ts`**: Provides client-side Supabase client initialization
-- **`server.ts`**: Provides service role client functionality that's safe for client import
-- **`storage.ts`**: Storage functionality for file operations
-- **`client-api.ts`**: Client-side API functions for data operations
-- **`admin.ts`**: Admin functionality that's safe for client import
+- **`client.ts`**: Provides client-side Supabase client initialization using `createBrowserClient` from `@supabase/ssr`. Exports `createClient()` for general use and `createAdminClient()` which is a browser client with a shorter admin-specific cookie timeout.
+- **`storage.ts`**: Provides a `StorageService` class with methods for file operations (upload, download, list, delete, etc.) interacting with Supabase Storage.
+- **`client-api.ts`**: Client-side API functions for data operations.
 
 ### Server-Only Modules
 
 These modules can ONLY be used in server components or API routes:
 
-- **`server-utils.ts`**: Contains server-only functionality using `next/headers`
-- **`server-business-api.ts`**: Server-side business profile operations
+- **`server.ts`**: Provides server-side Supabase client initialization using the Service Role Key. Exports `createServiceRoleClient()` for general service role access and `createAdminClient()` which is also a service role client, potentially with additional configurations like custom headers.
+- **`server-utils.ts`**: Contains server-only functionality using `next/headers` (e.g., `createApiClient` for API routes, `requireAuth`).
+- **`admin.ts`**: Admin data access helper functions (e.g., `listUsers`, `createUser`). These functions internally use the service role client and are intended for use in server-side API routes.
+- **`server-business-api.ts`**: Server-side helper functions for business profile operations (e.g., `getBusinessProfileById`). These functions use either the service role client or the API client (`createApiClient`) and are intended for server-side/API route use.
+- **`bir.ts`**: Server-side data access helpers for Business Information Request (BIR) text data (e.g., `fetchBirByProject`, `upsertBir`).
 
 ## Import Patterns
 
@@ -30,8 +31,7 @@ These modules can ONLY be used in server components or API routes:
 ```typescript
 // Import from client-safe modules
 import { createClient } from '@/lib/api/client';
-import { createServiceRoleClient } from '@/lib/api/server';
-import { FILES_BUCKET } from '@/lib/api/storage';
+// import { FILES_BUCKET } from '@/lib/api/storage'; // Example if storage constants are exported
 ```
 
 ### For Server Components and API Routes
@@ -39,56 +39,56 @@ import { FILES_BUCKET } from '@/lib/api/storage';
 ```typescript
 // Server-only imports
 import { createApiClient, requireAuth } from '@/lib/api/server-utils';
-
-// Client-safe imports also work in server components
-import { createServiceRoleClient } from '@/lib/api/server';
+import { createServiceRoleClient, createAdminClient as createServerAdminClient } from '@/lib/api/server'; // Alias admin client for clarity
 
 // Specific data access helpers (can be used server-side)
-import { fetchSomeAdminData } from '@/lib/api/admin';
+import { listUsers } from '@/lib/api/admin'; // Example for admin helpers
 import { fetchBirByProject } from '@/lib/api/bir'; // Example for BIR feature
 ```
 
 ## Data Access Helper Pattern
 
-For interacting with specific database tables or logical data domains (like Projects, Users, Files, Business Information Requests), we create dedicated helper files within `src/lib/api/`:
+For interacting with specific database tables or logical data domains (like Projects, Users, Files, Business Information Requests), we create dedicated helper files within `src/lib/api/` (e.g., `src/lib/api/admin.ts`, `src/lib/api/bir.ts`, `src/lib/api/server-business-api.ts`).
 
-- **Example:** `src/lib/api/admin.ts`, `src/lib/api/bir.ts`
-- **Purpose:** Encapsulate Supabase client calls (`createClient` or `createServiceRoleClient` depending on needs) and specific queries/mutations related to that data domain.
+- **Purpose:** Encapsulate Supabase client calls (`createApiClient` for RLS-respecting user context, or `createServiceRoleClient` for admin/privileged operations) and specific queries/mutations related to that data domain.
 - **Usage:** These helper functions are typically called from API routes (`src/app/api/...`) or server components.
 - **Benefits:** Centralizes data logic, promotes reusability, separates data access concerns from API route handling.
 
 ```typescript
 // Example: src/lib/api/bir.ts
-import { createClient } from '@/lib/supabase/server'; // Use server client for RLS
+import { createApiClient } from '@/lib/api/server-utils'; // Or createServiceRoleClient if needed
 import { birInsertSchema } from '@/lib/validation/bir';
 
 export async function fetchBirByProject(projectId: string) {
-  const supabase = createClient(); // RLS is enforced
+  const supabase = createApiClient(); // RLS is enforced if using createApiClient
   // ... Supabase query ...
 }
 
 export async function upsertBir(payload: unknown) {
   const parsed = birInsertSchema.parse(payload);
-  const supabase = createClient();
+  const supabase = createApiClient(); // RLS is enforced
   // ... Supabase upsert ...
 }
 ```
 
 ## API Routes Pattern
 
-API routes in `src/app/api/...` handle incoming HTTP requests, perform authentication/authorization, validate input (often using Zod schemas), call the relevant data access helper functions, and return JSON responses.
+API routes in `src/app/api/...` handle incoming HTTP requests, perform authentication/authorization (often using `requireAuth` from `server-utils.ts`), validate input (often using Zod schemas), call the relevant data access helper functions, and return JSON responses.
 
 **Example Routes:** `/api/admin/users`, `/api/projects/files/upload`, `/api/bir`
 
 ```typescript
 // Example: src/app/api/bir/route.ts
 import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/api/auth-helpers'; // Assuming this exists
+import { requireAuth } from '@/lib/api/server-utils'; // Corrected path
 import { fetchBirByProject, upsertBir } from '@/lib/api/bir'; // Use helpers
 import { birInsertSchema } from '@/lib/validation/bir'; // Use validation
 
 export async function GET(req: Request) {
-  const { user } = await requireAuth(req);
+  const { user, error: authError } = await requireAuth();
+  if (authError || !user) {
+    return NextResponse.json({ error: authError || 'Authentication required' }, { status: 401 });
+  }
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get('projectId');
   // ... validation ...
@@ -101,7 +101,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { user } = await requireAuth(req);
+  const { user, error: authError } = await requireAuth();
+  if (authError || !user) {
+    return NextResponse.json({ error: authError || 'Authentication required' }, { status: 401 });
+  }
   const body = await req.json();
   try {
     // Use Zod schema directly or within the helper
@@ -114,15 +117,27 @@ export async function POST(req: Request) {
 }
 ```
 
+### Signed URL Upload Flow for BIR Files
+
+A specific pattern is used for Business Information Request (BIR) file uploads to handle potentially large files and offload work from the server:
+
+1.  **Client Requests Signed URL:** The client makes a `POST` request to `/api/bir/create-upload-url`, providing metadata like `birId`, `filename`, and `mimeType`.
+2.  **Server Generates Signed URL:** This API route uses the Supabase service role client to generate a short-lived, pre-signed URL that grants temporary write access to a specific path in the private `bir-files` Supabase Storage bucket.
+3.  **Client Uploads Directly to Storage:** The client receives the signed URL and uploads the file directly to Supabase Storage using an HTTP PUT request to that URL.
+4.  **Client Records File Metadata:** After a successful upload to storage, the client makes a `POST` request to `/api/bir/record-file`, sending the `birId`, `objectKey` (from the signed URL response or derived), `size`, `mimeType`, `originalName`, and `fileType`.
+5.  **Server Records Metadata:** This API route creates an entry in the `bir_file` database table, linking the uploaded file to the BIR.
+
+This pattern avoids proxying the file through the Next.js server, improving performance and scalability for file uploads.
+
 ## Common Issues
 
 ### "You're importing a component that needs next/headers" Error
 
-This error occurs when server-only code is imported in a client component. To fix:
+This error occurs when server-only code (especially functions from `server-utils.ts` that use `cookies()` or `headers()` from `next/headers`) is imported and executed in a client component. To fix:
 
-1. Check if you're importing from `server-utils.ts` in a client component
-2. Replace with imports from client-safe modules
-3. If server functionality is needed, make an API call to a route that uses the server code
+1. Ensure you're not importing from `server-utils.ts` or other server-only modules in a client component.
+2. Replace with imports from client-safe modules if equivalent functionality exists.
+3. If server functionality is needed, make an API call from the client component to an API route that uses the server code.
 
 ### Admin Operations
 
@@ -133,16 +148,16 @@ Admin operations should typically be performed through API routes using the serv
 import { createServiceRoleClient } from '@/lib/api/server';
 
 // Create admin client
-const adminClient = createServiceRoleClient();
+const adminSupabase = createServiceRoleClient(); // Renamed for clarity
 
 // Perform admin operation
-const { data, error } = await adminClient.from('table').select('*');
+const { data, error } = await adminSupabase.from('table').select('*');
 ```
 
 ## Best Practices
 
-1. Always use the most specific import for your needs
-2. Prefer client-side functions in client components when possible
-3. Create API routes for operations that require server-only functionality
-4. Use proper error handling in both client and server code
-5. Document any new API modules or functions you create 
+1. Always use the most specific import for your needs (client vs. server clients).
+2. Prefer client-side API helper functions (`client-api.ts`) in client components when possible for RLS-enforced data fetching.
+3. Create API routes for operations that require server-only functionality, elevated privileges (service role), or to encapsulate complex business logic.
+4. Use proper error handling in both client and server code.
+5. Document any new API modules or significant functions you create. 

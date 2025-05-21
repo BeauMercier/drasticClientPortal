@@ -18,7 +18,7 @@
     "@typescript-eslint/no-unsafe-call": "warn",
     "@typescript-eslint/no-unsafe-assignment": "warn",
     "react-hooks/exhaustive-deps": "warn",
-    "@next/next/no-img-element": "warn",
+    "@next/next/no-img-element": "error",
     "react/no-unescaped-entities": "warn"
   },
   "overrides": [

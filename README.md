@@ -9,11 +9,11 @@ A comprehensive client portal built with Next.js, TypeScript, Tailwind CSS, and 
 - **Designer Workload Dashboard**: View and manage designer workloads and project assignments
 - **User Management**: Admin interface for creating and managing users
 - **Responsive UI**: Modern UI built with Tailwind CSS and shadcn/ui components
+- **Admin Project Files View**: Admin interface to view files associated with a project, initially focusing on BIR-related files.
 - **File Management**: 
     - General user files and project-specific files (non-BIR) via Supabase Storage (`project-files` bucket), with metadata in `user_files` table and RLS.
-    - Client-facing file browser (`/client/files`) defaults to an icon/gallery view, shows image previews, and has a clean breadcrumb navigation.
-- **Business Information Request (BIR)**: (Web Design Projects Only) An integrated form for clients to submit required business details directly within their web design project workspace, replacing external tools.
-   - Includes file uploads for BIR-specific documents (e.g., logos, style guides) stored in a separate private Supabase Storage bucket (`bir-files`) with metadata in `bir_file` table, all controlled by RLS.
+- **Business Information Request (BIR)**: (Web Design Projects Only) An integrated, multi-step form for clients to submit required business details directly within their web design project (via dedicated tabs).
+   - Includes file uploads for BIR-specific documents (e.g., logos, style guides) stored in a separate private Supabase Storage bucket (`bir-files`) with metadata in `bir_file` table, all controlled by RLS using a signed URL flow.
 - **Enhanced Project Timeline**:
     - **Clear status colours:** current (blue), completed (green), pending (gray).
     - **Accurate progression:** driven by `current_stage`.
@@ -23,7 +23,7 @@ A comprehensive client portal built with Next.js, TypeScript, Tailwind CSS, and 
 
 - **Client Dashboard Enhancements**:
     - **Active Projects Section**: Displays ongoing client projects. If one project is active, a detailed timeline is shown. If multiple are active, they are displayed as interactive cards.
-    - **Quick Links Section**: Provides easy access to common areas like "Website Dashboard", "Lead Dashboard", "Project Files", and "Support". Links and their presentation are theme-aware (light/dark mode).
+    - **Quick Links Section**: Provides easy access to common areas like "Website Dashboard", "Lead Dashboard", and "Support". Links and their presentation are theme-aware (light/dark mode).
     - **Dynamic Header**: Welcomes the client by their first name.
     - **Improved Layout**: "Quick Links" are positioned below "Active Projects" for better information flow.
 
@@ -68,6 +68,7 @@ npm start
 ## Project Structure
 
 The project follows a standard Next.js App Router structure with key directories organized as follows:
+(For details on utility directories like `debug-env/`, `management/`, `lib/supabase/`, and `lib/db/`, please refer to the "Directory Structure" section in `PLANNING.md`.)
 
 ```
 /src
@@ -80,7 +81,6 @@ The project follows a standard Next.js App Router structure with key directories
         page.tsx  # Client Dashboard (/client)
         /my-profile/ # Profile page (/client/my-profile)
         /projects/ # Project pages (/client/projects) - Contains sub-routes like /web-design, /logo-design
-        /files/   # Files page (/client/files)
         /billing/ # Billing page (/client/billing)
       layout.tsx  # Client layout (uses ClientSidebar)
     /(designer)/  # Route group for designer pages
@@ -117,14 +117,14 @@ The project follows a standard Next.js App Router structure with key directories
     /api/         # Centralized API logic (Supabase interactions)
       client-api.ts # Functions for client-side use (respect RLS)
       admin.ts      # Functions for administrative tasks (bypass RLS)
-      storage.ts    # File storage operations (interacts with user_files, revision_files)
+      storage.ts    # Provides a StorageService class for interacting with Supabase Storage (upload, download, list files, etc.) and defines storage-related constants like bucket names.
       server.ts     # Server-side Supabase client initialization
       server-utils.ts # Server-only helpers (authentication, client creation)
-      API_ARCHITECTURE.md # Detailed explanation of API structure
+      API_ARCHITECTURE.MD # Detailed explanation of API structure
       bir.ts        # Helper functions for BIR data operations
-    /types/       # Centralized TypeScript types (including ProjectFile, RevisionFile)
-    bir.ts        # Types and enums for the BIR feature
-    utils.ts      # General utility functions
+    /types/       # Centralized TypeScript types (e.g., Project, User, BIR related types)
+    /utils/       # General utility functions
+    /config/      # Project-wide configurations (e.g., auth-config.ts)
     ...
 
   /features/     # Modules for specific application features (e.g., auth)
@@ -146,14 +146,15 @@ The project follows a standard Next.js App Router structure with key directories
 ## API Endpoints & Logic
 
 - **API Routes (`src/app/api/`)**: These act as the entry points for frontend requests. They handle request validation, authentication checks (often using helpers from `src/lib/api/server-utils.ts`), and then delegate the core business logic.
-- **Core API Logic (`src/lib/api/`)**: This directory contains the main implementation for interacting with Supabase (database, auth, storage). It's structured to separate client-safe and server-only code, ensuring security and preventing build errors. **Refer to `src/lib/api/API_ARCHITECTURE.md` for a detailed explanation of this structure.** Key modules include:
+- **Core API Logic (`src/lib/api/`)**: This directory contains the main implementation for interacting with Supabase (database, auth, storage). It's structured to separate client-safe and server-only code, ensuring security and preventing build errors. **Refer to `src/lib/api/API_ARCHITECTURE.MD` for a detailed explanation of this structure.** Key modules include:
   - `client-api.ts`: Functions intended for client-side use (respect RLS).
   - `admin.ts`: Functions for administrative tasks (bypass RLS using service role).
-  - `storage.ts`: Constants related to Supabase storage buckets (e.g., FILES_BUCKET).
+  - `storage.ts`: Provides a `StorageService` class for interacting with Supabase Storage and defines storage-related constants.
   - `client.ts` / `server.ts` / `server-utils.ts`: Supabase client initialization and server-side utilities.
 
 Key API routes include:
 *   `/api/admin/...`: Routes for administrative tasks (fetching all projects, users, assigning designers).
+*   `/api/admin/project-files/[projectType]/[projectId]`: Fetches BIR files for a specific project for admin view.
 *   `/api/projects/[projectType]/[projectId]`: Fetching project details (client/designer view).
 *   `/api/projects/files/upload`: Handling project-specific file uploads (non-BIR).
 *   `/api/user-files/[userFileId]`: Deleting user files.
@@ -170,7 +171,7 @@ The application uses Supabase with the following main tables:
 - `profiles` - User profiles with roles
 - `projects` - Project information
 - `web_design_projects`, `logo_design_projects`, `social_graphics_projects` - Specific project type tables
-- `project_assignments` - Tracks which designer is assigned to which project
+- `designer_projects` - Tracks which designer is assigned to which project
 - `project_revisions`, `revision_files` - For project revision deliverables.
 - `user_files` - Metadata for general user files and non-BIR project files.
 - `business_information_requests` - Stores the main data for BIR.

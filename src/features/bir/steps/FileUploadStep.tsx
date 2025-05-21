@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { DownloadIcon, FileTextIcon, ImageIcon, Trash2Icon, ListIcon, GridIcon } from 'lucide-react'; // Assuming these are used
 import { useToast } from '@/components/ui/use-toast'; // Corrected path
+import Image from 'next/image';
 
 interface FileUploadStepProps {
   birId: string;
@@ -193,10 +194,12 @@ const FileUploadStep: React.FC<FileUploadStepProps> = ({
                   <Card key={file.id} className="group relative flex flex-col justify-between overflow-hidden rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200">
                     <div className="aspect-square w-full bg-muted flex items-center justify-center overflow-hidden">
                       {file.mime_type?.startsWith('image/') && file.publicUrl ? (
-                        <img 
+                        <Image 
                           src={file.publicUrl} 
                           alt={file.original_name ?? 'Preview'} 
                           className="object-cover w-full h-full"
+                          width={200}
+                          height={200}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground">

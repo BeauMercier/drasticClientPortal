@@ -1,0 +1,39 @@
+name: Check API Route Documentation
+
+on:
+  push:
+    branches:
+      - main # Or your default branch
+    paths:
+      - 'src/app/api/**'
+      - 'docs/api.md'
+      - 'scripts/check-routes.ts'
+      - '.github/workflows/check-api-docs.yml'
+  pull_request:
+    paths:
+      - 'src/app/api/**'
+      - 'docs/api.md'
+      - 'scripts/check-routes.ts'
+      - '.github/workflows/check-api-docs.yml'
+
+jobs:
+  check_api_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Match your project's Node.js version
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run API Route Check
+        run: pnpm exec ts-node scripts/check-routes.ts 

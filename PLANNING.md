@@ -2,7 +2,18 @@
 
 ## Goals
 
-- [ ] Define primary project goals.
+- **Enhance Codebase Health & Maintainability:**
+    - Continue to identify and remove dead/unnecessary code.
+    - Refactor complex components/modules for better clarity and modularity.
+    - Ensure adherence to project standards (linting, formatting, Naming Conventions).
+    - Maintain up-to-date and accurate project documentation (`README.MD`, `PLANNING.MD`, `API_ARCHITECTURE.MD`, `TASK.MD`).
+- **Improve Developer Experience (DX):**
+    - Streamline build and test processes.
+    - Ensure clear and comprehensive documentation for onboarding and feature development.
+    - Improve tooling and automation where possible.
+- **Complete and Refine Key Features:**
+    - Finalize the Business Information Request (BIR) feature, including all planned refinements and testing.
+    - Complete the Project Timeline V2, including accessibility, tests, and deprecation of old schema elements.
 
 ## Architecture
 
@@ -46,7 +57,12 @@
                 - `upload/route.ts`: (DEPRECATED) Was previously for BIR file uploads, now superseded by signed URL flow.
                 - `create-upload-url/route.ts`: Handles POST to generate a signed URL for direct client-to-storage BIR file uploads.
                 - `record-file/route.ts`: Handles POST to record BIR file metadata in `bir_file` table after successful client-to-storage upload.
+        - `admin/`, `client/`, `user-files/`, `auth/`, `files/`: Other API route groups.
+        - `env-debug/`: Internal troubleshooting API endpoints.
+        - `business-profile/`: API routes related to business profiles (potentially for future use or specific admin tasks).
         - Other standard auth routes (`login`, `register`, etc.).
+    - `debug-env/`: Internal troubleshooting pages/routes.
+    - `management/`: Legacy admin pages, slated for removal once the v2 admin dashboard features are complete.
 - `src/components/`: Reusable UI components.
     - `admin/AdminSidebar.tsx`: Dedicated sidebar for the admin section.
     - `client/ClientSidebar.tsx`: Dedicated sidebar for the client section (styled like AdminSidebar).
@@ -58,11 +74,13 @@
 - `src/features/`: Feature-specific modules (e.g., `auth`).
     - `bir/`: Module for Business Information Request feature (hooks, multi-step form, summary, gate, file upload step components).
 - `src/lib/`: Core utilities, API clients, type definitions.
-    - `api/`: Supabase client setup and data fetching functions.
+    - `api/`: Supabase client setup and data fetching functions, representing the general API layer.
         - Added `getClientProjectsForCategories`: Fetches all project types (web, logo, social) for the currently authenticated client. Returns an object mapping project types to their counts and the ID of a single project if only one exists in that category. This is used by the client projects page to determine direct navigation.
+        - `bir.ts`: API helper functions for BIR data operations.
+    - `supabase/`: Low-level Supabase client configurations and specific helper utilities, kept separate from the general `lib/api/` layer.
+    - `db/`: Low-level database interaction helpers (e.g., specific queries, enums, or constants not fitting into the ORM/API layer directly), kept separate from the general `lib/api/` layer.
     - `types/`: TypeScript type definitions.
     - `utils/`: Utility functions.
-    - `bir.ts`: API helper functions for BIR data operations.
     - `config/`: Project-wide configurations.
       - `auth-config.ts`: Centralized mapping of `UserRole` to base redirect paths. Used by middleware and root page for role-based navigation.
 - `src/shared/`: Code shared across features/layers.
@@ -142,7 +160,7 @@ Files are stored in a single Supabase storage bucket (`project-files`). Metadata
 Access to both storage objects and the corresponding `user_files` and `bir_file` database records is controlled primarily by Supabase Row Level Security (RLS) policies. These policies ensure users can only access their own files or files related to projects they are assigned to (if they are designers). Admins have broader access.
 The RLS policies for `user_files` have been verified to correctly allow authenticated clients to select their own files (both general and project-specific) via the `user_id = auth.uid()` condition, which is fundamental for the `/api/client/all-user-files` endpoint.
 
-**The definitive RLS policies for all tables, including `user_files` and `bir_file`, can be found in the `Full_Schema.sql` file in the workspace root or respective migration files.** This file provides a complete snapshot of the database schema, including RLS, functions, and triggers, whereas `supabase/migrations/` may contain incremental changes.
+**The definitive RLS policies for all tables, including `user_files` and `bir_file`, are defined in the Supabase migration files located in the `supabase/migrations/` directory. These migrations represent the incremental and authoritative changes to the database schema and security policies.**
 
 ## API Routes
 
@@ -181,23 +199,6 @@ Key API routes for core functionality:
     *   `POST`: Records metadata of a BIR file in the `bir_file` table after successful direct upload to Supabase Storage. Expects `birId`, `objectKey`, `size`, `mime`, `originalName`, `fileType`.
 *   **/api/admin/project-files/[projectType]/[projectId]**
     *   `GET`: Fetches a list of files associated with a specific project for the admin view. Currently, this primarily retrieves files from the `bir_file` table (linked via `business_information_requests`) for `web_design` projects. It includes uploader details (derived from the project's client) and file metadata like original name and size. **Crucially, it now generates a temporary signed `download_url` for each file, pointing to the `bir-files` (private) bucket.** Requires Admin role.
-
-## UI Components (Duplicated Section - Consolidate Later if needed)
-
-- **Sidebar:** Separate sidebars are implemented for Admin (`AdminSidebar`) and Client (`ClientSidebar`). Designers use a shared `RoleSidebar`.
-- **Layout:** Standard layouts include a header and a sidebar, adjusting content margins based on sidebar state (`UIContext`).
-
-## Style Guide (Duplicated Section - Consolidate Later if needed)
-
-- Follow PEP8 for Python (if any backend code is added).
-- Use TypeScript for frontend code.
-- Format code using Prettier/eslint configured for the project.
-- Use path aliases (`@/components`, `@/lib`, etc.) for imports.
-
-## Constraints (Duplicated Section - Consolidate Later if needed)
-
-- Keep file length under 500 lines where possible.
-- Create tests for new features (Setup needed).
 
 ## File Management Strategy (Original - Review and Consolidate/Remove Redundancy)
 

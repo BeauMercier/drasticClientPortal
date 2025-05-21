@@ -32,12 +32,11 @@ function mockBirHook(override: Partial<ReturnType<typeof useBir>>) {
 
 describe('BusinessInfoGate', () => {
   beforeEach(() => {
-    vi.useFakeTimers(); // keeps findByText / waitFor deterministic
+    // vi.clearAllMocks(); // <-- REMOVE THIS as it's in afterEach
   });
 
   afterEach(() => {
     vi.clearAllMocks();
-    vi.useRealTimers();
   });
 
   // --------------------- 0. DEFAULT (NEW BIR) ---------------------------

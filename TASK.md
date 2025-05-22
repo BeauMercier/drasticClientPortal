@@ -77,90 +77,54 @@
 - TODO: Implement `reloadProjectData` function fully in `src/app/(client)/client/projects/web-design/[id]/page.tsx` (currently logs only, ensure it reloads BIR data for tabs).
 - TODO: Investigate usage of API route /api/projects/[projectId]/user-files/. Determine if it's still actively used after removal of /client/files page, or if its functionality is superseded by other BIR/admin file APIs. Document or deprecate accordingly.
 
-### [Date of Current Session] - Auth & Redirect Fixes
-
-- [x] **Fixed Image Previews in Gallery:** Corrected the logic in `src/components/FileList/index.tsx` to ensure actual image previews are loaded and displayed in gallery mode, not just placeholders.
-
 ### UI Component Enhancements
 
-### [New Date - e.g., April 4, 2024] - Avatar Investigation
-
-- [x] **Investigate and Resolve Profile Avatar Display/Save Issue**
-    - **Current Understanding of Issue:**
-- [x] **File Upload - RLS & Storage Policies:** Create migration (`..._bir_file_rls.sql`) for `bir_file` RLS and `storage.objects` policies. (User to confirm applied)
-- [x] **File Upload - Type Regeneration:** (Types generated, manual code review for placeholders may be needed if issues arise)
-- [x] **File Upload - BIR File Deletion:** Implemented API route `/api/bir/file/[fileId]` and updated client UI in `FileUploadStep.tsx` for deleting BIR files.
-
-### [Current Date - May 17, 2024] - Client Timeline UI Enhancement
-
-- [x] **Enhance Client-Facing Project Timeline Visuals**
-    - **Goal:** Improve the visual distinction of current and completed stages on the client timeline.
-    - **Requirements:**
-        - Current stage icon: Blue.
-        - Completed stage icons: Green.
-        - Connecting bar:
-            - Filled green for segments between completed stages.
-            - Filled blue for the segment leading up to the current stage.
-            - Unfilled/gray for segments after the current stage.
-    - **Affected Component(s):** Identify and refactor the client-facing project timeline component (likely within `src/app/(client)/client/projects/...` or a shared component it uses).
-    - **Tasks:**
-        - [x] Locate the relevant client-side timeline component.
-        - [x] Update JSX and styling (Tailwind CSS/`clsx`) to implement the new color scheme for icons and the connecting bar based on stage status (completed, current, pending).
-        - [x] Ensure responsiveness and dark mode compatibility.
-        - [x] Test with various project types and stage progressions.
-
-### Feature: Business Information Request (BIR) - (Client & Designer Forms, Admin View)
+### Feature: Business Information Request (BIR) - Remaining Tasks
 
 - **Goal:** Create a comprehensive multi-step form for clients to submit business information, allow designers to view this information, and enable admins to manage/review it.
-- **Status:** Ongoing refinements. Core functionality for client submission and designer view is in place. Admin view of submitted files is implemented.
-- **Key Components:**
-    - `MultiStepBirForm.tsx` (Client-facing form)
-    - `BirReadOnlyView.tsx` (Designer view)
-    - `src/app/(admin)/admin/projects/components/ProjectFileList.tsx` (Admin view of files)
-- **Data:** Stored in `business_information_requests` and `bir_file` tables.
+- **Status:** Ongoing refinements. Core functionality is in place.
 
-**Overall BIR Feature Checklist:**
-- [x] **Data Model & Migrations:**
-    - [x] `business_information_requests` table (Supabase schema).
-    - [x] `bir_file` table for uploads (Supabase schema).
-    - [x] RLS policies for both tables (client write/read own, designer read assigned, admin full access).
-- [x] **Client-Side Form (`MultiStepBirForm.tsx`):**
-    - [x] Multi-step navigation (tabs/sections).
-    - [x] Input fields for all BIR questions (as per `PLANNING.MD`).
-        - [x] Includes "Other Social Links" text area.
-    - [x] Form validation (Yup).
-    - [x] Submission logic (`POST /api/bir`).
-    - [x] File Upload Functionality (within relevant steps):
-        - [x] Component: `BirFileUploader.tsx` (uses `src/lib/api/storage.ts` for signed URLs).
-        - [x] API: `POST /api/bir/files/upload-url` (generates signed URL).
-        - [x] API: `POST /api/bir/files/confirm-upload` (creates `bir_file` record).
-        - [x] UI for selecting, uploading, and displaying uploaded files.
-        - [x] Error handling for uploads.
-        - [x] Type Regeneration: (Types generated, manual code review for placeholders may be needed if issues arise)
-    - [x] Loading/success/error states.
-    - [x] Save & Continue Later functionality (if applicable, or ensure clarity on submission process).
-- [ ] **Designer View (`BirReadOnlyView.tsx`):**
-    - [x] Fetch BIR data for a given project (`GET /api/designer/bir/[projectId]`).
-    - [x] Display all submitted information in a read-only format.
-    - [x] Display uploaded files with download links.
+**Remaining BIR TODOs:**
+- **Designer View (`BirReadOnlyView.tsx`):**
     - [ ] Placeholder for "Other Social Links" if not already displayed.
-- [x] **Admin View (File List):**
-    - [x] Integrated into `src/app/(admin)/admin/projects/view/[projectId]/page.tsx` via `ProjectFileList.tsx`.
-    - [x] Fetches and displays files from `bir_file` linked to the project.
-- [ ] **API Endpoints:**
-    - [x] `POST /api/bir` (Client: submit/update BIR).
-    - [x] `GET /api/bir/[projectId]` (Client: get own BIR data - might be implicitly handled by page load).
-    - [x] `POST /api/bir/files/upload-url` (Client: get signed URL).
-    - [x] `POST /api/bir/files/confirm-upload` (Client: confirm upload, create DB record).
-    - [x] `GET /api/designer/bir/[projectId]` (Designer: get BIR data for assigned project).
-    - [x] `GET /api/admin/project-files/[projectType]/[projectId]` (Admin: get BIR files - already covered by Admin Project Files View).
-- [ ] **Refinements & TODOs:**
-    - [ ] Consider if `NEXT_PUBLIC_ENABLE_BIR` feature flag is still needed or if BIR is always on. (User confirmed not implemented, task can be removed or marked as not applicable).
-    - [x] Cleanup: Remove old `BirForm.tsx` (confirmed done).
-    - [x] Cleanup: Remove general file handling from `
+- **Refinements & TODOs:**
+    - TODO: Thoroughly test the new signed URL BIR file upload flow on Vercel (various file types, sizes, edge cases).
 
 1.  **`README.MD` Update:**
     *   [x] Review Feature List:
 2.  **`PLANNING.MD` Update:**
     *   [x] Review Project Goals: Ensure they align with current project direction.
     *   [x] Review Architecture Section:
+
+### Feature: Notifications & Client Onboarding System
+- **Goal:** Implement a robust notifications system to alert users to important events and guide new clients through essential onboarding steps.
+- **Status:** Planning complete. Refer to `NOTIFICATIONS_PLAN.MD` for detailed technical implementation steps.
+- **Date:** [Current Date - Will be replaced by actual start date]
+
+**Implementation Tasks (High-Level - See `NOTIFICATIONS_PLAN.MD` for details):**
+1.  [ ] **Database Layer & Initial Triggers (Consolidated):**
+    *   [ ] Create and apply the consolidated SQL migration file (`YYYYMMDDHHMMSS_create_notifications_system.sql`). This covers:
+        *   `notifications` table schema and indexes.
+        *   RLS policies for `notifications`.
+        *   Helper functions (`mark_notification_read`, `mark_all_notifications_read`).
+        *   SQL trigger for new client welcome & profile completion notifications.
+2.  [ ] **Server-Side Triggers / Edge Functions (Additional):**
+    *   [ ] Implement Edge Function for project stage update notifications (Detailed user-provided guide now in `NOTIFICATIONS_PLAN.MD`, section 2-b. Ready for execution).
+    *   [ ] *Consider other events that should trigger notifications (e.g., BIR submission due soon, new message from designer - to be detailed in `NOTIFICATIONS_PLAN.MD` or subsequent tasks).*
+3.  [ ] **Next.js API Routes (`src/app/api/notifications/`):
+    *   [ ] `GET /` - List notifications for the authenticated user (with pagination).
+    *   [ ] `POST /[id]/read` - Mark a specific notification as read.
+    *   [ ] `POST /read-all` - Mark all unread notifications as read.
+4.  [ ] **React Hook & Components (Frontend):**
+    *   [ ] Create `useNotifications` hook (fetching, state management, realtime integration - optional initial).
+    *   [ ] Implement/Update `NotificationsMenu.tsx` (header bell icon, dropdown list).
+5.  [ ] **UI Cues for Soft Walkthrough (Client Onboarding):**
+    *   [ ] Add dynamic badges to sidebar navigation items (e.g., for pending profile actions).
+    *   [ ] Create a "Getting Started" panel/card on the client dashboard for new user action items.
+6.  [ ] **(Optional) Realtime Integration:**
+    *   [ ] Enhance `useNotifications` hook with Supabase Realtime for instant notification updates.
+7.  [ ] **QA & Testing:**
+    *   [ ] Thoroughly test the entire notification flow (creation, display, interaction, deep-linking).
+    *   [ ] Test onboarding cues for new client users.
+8.  [ ] **(Optional) Guided Tour Library:**
+    *   [ ] Evaluate the need for a full guided tour (e.g., `react-joyride`) post-MVP launch of notifications. Implement if deemed necessary for user experience.

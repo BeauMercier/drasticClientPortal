@@ -14,7 +14,7 @@ import {
 // Client-specific menu items using the icons from AdminSidebar for consistency where applicable
 const clientMenuItems = [
   { name: 'Dashboard', href: '/client', icon: <HomeIcon className="h-5 w-5" /> },
-  // { name: 'Projects', href: '/client/projects', icon: <FolderIcon className="h-5 w-5" /> }, // Added Projects link
+  { name: 'Projects', href: '/client/projects', icon: <FolderIcon className="h-5 w-5" /> }, // Added Projects link
   // { name: 'Business Profile', href: '/client/business-info', icon: <BuildingOfficeIcon className="h-5 w-5" /> }, // Old path
   { name: 'My Profile', href: '/client/my-profile', icon: <UserIcon className="h-5 w-5" /> }, // Link to the main profile page
   // Note: If My Info and Business Info need separate sidebar links, uncomment and adjust paths:

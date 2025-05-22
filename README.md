@@ -80,6 +80,9 @@ The project follows a standard Next.js App Router structure with key directories
       /client/    # Defines /client base path
         page.tsx  # Client Dashboard (/client)
         /my-profile/ # Profile page (/client/my-profile)
+            page.tsx # Main profile page
+            my-info/page.tsx # User's personal information page
+            business-info/page.tsx # User's business information page
         /projects/ # Project pages (/client/projects) - Contains sub-routes like /web-design, /logo-design
         /billing/ # Billing page (/client/billing)
       layout.tsx  # Client layout (uses ClientSidebar)
@@ -125,6 +128,7 @@ The project follows a standard Next.js App Router structure with key directories
     /types/       # Centralized TypeScript types (e.g., Project, User, BIR related types)
     /utils/       # General utility functions
     /config/      # Project-wide configurations (e.g., auth-config.ts)
+    /db/          # SQL schema files, migration definitions, and utility scripts for database setup.
     ...
 
   /features/     # Modules for specific application features (e.g., auth)
@@ -160,7 +164,7 @@ Key API routes include:
 *   `/api/user-files/[userFileId]`: Deleting user files.
 *   `/api/files/url`: Generating download URLs for files.
 *   `/api/bir`: Handling Business Information Request text data (GET by projectId, POST for create/upsert, PATCH for updates).
-*   `/api/bir/upload`: (DEPRECATED) Previously handled BIR file uploads. Superseded by:
+*   `/api/bir/upload/route.ts`: (DEPRECATED) Previously handled BIR file uploads. Superseded by signed URL flow.
 *   `/api/bir/create-upload-url`: POST to generate a signed URL for direct client upload of a BIR file.
 *   `/api/bir/record-file`: POST to record metadata of a BIR file after direct upload.
 
@@ -179,9 +183,4 @@ The application uses Supabase with the following main tables:
 
 ## Recent Stability Improvements
 
-Recent updates have resolved several critical issues related to authentication and navigation:
-*   **Page loading hangs and "Auth session missing!" errors** caused by cross-domain cookie problems on Vercel preview deployments have been fixed by pinning cookies to the parent domain (`.drasticdigital.com`) and optimizing Supabase client initialization in the middleware.
-*   **Incorrect redirects from the root path (`/`)** for authenticated users have been corrected. Users are now directed to their role-specific dashboards as defined in `src/lib/config/auth-config.ts`.
-*   **A redirect loop to `/login`** for unauthenticated users has been fixed by ensuring `/login` is not treated as a protected route by the middleware.
-
-These changes contribute to a more stable and reliable user experience.
+Key architectural decisions and resolutions to significant past stability issues (e.g., authentication, session management, navigation) are detailed in `docs/PROJECT_HISTORY.md`. These have contributed to a more stable and reliable user experience.

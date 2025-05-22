@@ -1,11 +1,11 @@
 export const runtime = 'nodejs';     // 👈 forces Vercel to use a Node lambda
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+// import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+// import { cookies } from 'next/headers';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
-import { Database } from '@/lib/database.types';
+// import { Database } from '@/lib/database.types';
 import { BirFileType } from '@/lib/types/bir'; // Import shared enum
 import { createApiClient, requireAuth } from '@/lib/api/server-utils'; // Updated import
 

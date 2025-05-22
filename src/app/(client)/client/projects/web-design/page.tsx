@@ -36,7 +36,7 @@ export default function WebDesignProjectsPage() {
         setError(null);
 
         const projectsData = await getUserWebDesignProjects();
-        console.log('Web Design Projects:', projectsData);
+        // console.log('Web Design Projects:', projectsData);
         
         // Filter out placeholder projects or handle them specially
         const activeProjects = projectsData.filter(project => !project.is_placeholder);
@@ -47,9 +47,9 @@ export default function WebDesignProjectsPage() {
           // We only have placeholder projects - all projects are placeholders
           setProjects(projectsData);
         }
-      } catch (err) {
-        console.error('Error loading web design projects:', err);
-        setError('Failed to load your projects. Please try again later.');
+      } catch (err: any) {
+        // console.error('Error loading web design projects:', err);
+        setError(err.message || "Failed to load projects");
         setProjects([]);
       } finally {
         setIsLoading(false);

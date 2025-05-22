@@ -37,7 +37,7 @@ export default function AdminDetailedProjectViewPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { isLoading: authLoading, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
   const projectId = Array.isArray(params.projectId) ? params.projectId[0] : params.projectId;

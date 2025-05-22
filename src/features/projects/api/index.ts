@@ -11,11 +11,11 @@ import {
   ProjectCreateParams, 
   UpdateProjectData,
   ProjectListParams,
-  ProjectStatus
+  // ProjectStatus
 } from '../types';
 import { supabase } from '@/lib/api';
-import type { PostgrestSingleResponse, PostgrestResponse } from '@supabase/supabase-js';
-import { TableRow, Tables } from '@/lib/api/schema';
+// import type { PostgrestSingleResponse, PostgrestResponse } from '@supabase/supabase-js';
+// import { TableRow, Tables } from '@/lib/api/schema';
 
 /**
  * Get a list of projects
@@ -30,7 +30,7 @@ export async function getProjects(params?: ProjectListParams): Promise<Project[]
     }
     
     // Default to the current user's projects if no owner specified
-    const userId = (params?.client_id || user.id);
+    // const userId = (params?.client_id || user.id);
     
     // Start the base query
     let query = supabase
@@ -249,7 +249,7 @@ export async function updateProject(
     if (clientId !== undefined) updateData.client_id = clientId;
     if (metadata !== undefined) updateData.metadata = metadata;
     
-    const { data: updatedData, error } = await supabase
+    const { data: _updatedData, error } = await supabase
       .from('projects')
       .update(updateData)
       .eq('id', projectId);

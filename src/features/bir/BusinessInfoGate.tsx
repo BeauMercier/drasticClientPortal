@@ -8,7 +8,7 @@ import MultiStepBirForm from './MultiStepBirForm'; // New multi-step form
 import BirSummary, { BirSummaryProps } from './BirSummary'; // Corrected import path if needed, type is now exported
 import { Skeleton } from '@/components/ui/skeleton'; // For loading state
 import { KeyedMutator } from 'swr'; // Added for KeyedMutator type
-import { Button } from '@/components/ui/button'; // Added Button import
+// import { Button } from '@/components/ui/button'; // Added Button import
 import { BirStatusBanner } from './components/BirStatusBanner';
 
 interface BusinessInfoGateProps {

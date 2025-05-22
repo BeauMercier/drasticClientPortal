@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     const adminClient = createAdminClient();
     
     // Check if user already exists by email
-    const { data, error: searchError } = await adminClient.auth.admin.listUsers({
+    const { data, error: _searchError } = await adminClient.auth.admin.listUsers({
       perPage: 1
     });
     

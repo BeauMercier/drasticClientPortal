@@ -7,20 +7,14 @@ import { useUI } from '@/shared/contexts/UIContext';
 import { 
   HomeIcon, // For Dashboard
   UserIcon, // For My Info
-  BuildingOfficeIcon, // For Business Info
-  DocumentTextIcon, // For Files
-  CreditCardIcon, // For Billing
-  CogIcon, // For Settings
   FolderIcon, // Added for Projects
-  Cog6ToothIcon, // Keep this one
-  BuildingOffice2Icon, // Keep this one
   // UserIcon can be removed if not used elsewhere after the sidebar link removal
 } from '@heroicons/react/24/outline';
 
 // Client-specific menu items using the icons from AdminSidebar for consistency where applicable
 const clientMenuItems = [
   { name: 'Dashboard', href: '/client', icon: <HomeIcon className="h-5 w-5" /> },
-  { name: 'Projects', href: '/client/projects', icon: <FolderIcon className="h-5 w-5" /> }, // Added Projects link
+  // { name: 'Projects', href: '/client/projects', icon: <FolderIcon className="h-5 w-5" /> }, // Added Projects link
   // { name: 'Business Profile', href: '/client/business-info', icon: <BuildingOfficeIcon className="h-5 w-5" /> }, // Old path
   { name: 'My Profile', href: '/client/my-profile', icon: <UserIcon className="h-5 w-5" /> }, // Link to the main profile page
   // Note: If My Info and Business Info need separate sidebar links, uncomment and adjust paths:
@@ -31,9 +25,9 @@ const clientMenuItems = [
   // { name: 'Business Info', href: '/client/my-profile/business-info', icon: <BuildingOffice2Icon className="h-5 w-5" /> },
 ];
 
-const secondaryNavigation = [
-  // { name: 'Settings', href: '/client/settings', icon: <CogIcon className="h-5 w-5" /> }, // Removed deprecated settings link
-];
+// const secondaryNavigation = [
+//   // { name: 'Settings', href: '/client/settings', icon: <CogIcon className="h-5 w-5" /> }, // Removed deprecated settings link
+// ];
 
 export default function ClientSidebar() { // Renamed component
   const { sidebarExpanded, toggleSidebar } = useUI();

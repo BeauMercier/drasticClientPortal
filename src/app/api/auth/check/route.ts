@@ -1,4 +1,4 @@
-import { createApiClient, requireAuth } from '@/lib/api/server-utils';
+import { requireAuth } from '@/lib/api/server-utils';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';

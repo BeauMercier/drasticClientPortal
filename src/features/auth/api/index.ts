@@ -20,7 +20,6 @@ import type { Session as SupabaseSession } from '@supabase/supabase-js';
 
 // Import session timeout utilities
 import { applySessionTimeout } from '../../../lib/supabase/auth-timeout';
-import { getEnv } from '@/lib/env';
 
 // Simple cache for session data to prevent excessive API calls
 interface SessionCache {

@@ -3,6 +3,7 @@ import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/features/auth';
+import Image from 'next/image';
 
 type UserProfileMenuProps = {
   userAvatarUrl?: string | null;
@@ -32,11 +33,13 @@ export default function UserProfileMenu({ userAvatarUrl, onLogout }: UserProfile
         aria-label="User profile"
       >
         {userAvatarUrl ? (
-          <div className="h-10 w-10 rounded-full overflow-hidden shadow-md">
-            <img 
+          <div className="relative h-10 w-10 rounded-full overflow-hidden shadow-md">
+            <Image 
               src={userAvatarUrl} 
               alt="Profile" 
-              className="h-full w-full object-cover"
+              fill
+              className="object-cover"
+              sizes="40px"
             />
           </div>
         ) : (
@@ -52,11 +55,13 @@ export default function UserProfileMenu({ userAvatarUrl, onLogout }: UserProfile
             <div className="flex items-center">
               <div className="flex-shrink-0 mr-3">
                 {userAvatarUrl ? (
-                  <div className="h-10 w-10 rounded-full overflow-hidden">
-                    <img 
+                  <div className="relative h-10 w-10 rounded-full overflow-hidden">
+                    <Image 
                       src={userAvatarUrl} 
                       alt="Profile" 
-                      className="h-full w-full object-cover"
+                      fill
+                      className="object-cover"
+                      sizes="40px"
                     />
                   </div>
                 ) : (

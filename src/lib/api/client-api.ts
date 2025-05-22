@@ -8,10 +8,10 @@
 import { createClient } from './client';
 import { 
   ProjectRevision, 
-  RevisionFile, 
+  // RevisionFile, 
   ProjectTypeForRevision, 
   RevisionStatus,
-  MockupType,
+  // MockupType,
   ProjectNote,
   ProjectType
 } from '@/lib/types/project';
@@ -107,7 +107,8 @@ export const uploadProfilePicture = async (file: File) => {
   const filePath = `${userForPath.id}/profile/${fileName}`;
   
   // Upload the file
-  const { data: uploadData, error: uploadError } = await supabase
+  // const { data: uploadData, error: uploadError } = await supabase
+  const { error: uploadError } = await supabase
     .storage
     .from(FILES_BUCKET)
     .upload(filePath, file, {

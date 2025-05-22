@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
  * 
  * Retrieves the current user's business profile
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Check authentication
     const authResult = await requireAuth();

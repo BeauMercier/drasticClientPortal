@@ -5,7 +5,8 @@
  */
 
 import { BaseEntity } from './common';
-import { Tables, Enums } from './dbHelpers';
+// import { Tables, Enums } from './dbHelpers';
+import { Tables } from './dbHelpers';
 
 /**
  * User profile type based on the database schema

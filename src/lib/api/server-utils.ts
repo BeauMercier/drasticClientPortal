@@ -6,7 +6,8 @@
  * DO NOT IMPORT THIS FILE IN CLIENT COMPONENTS.
  */
 
-import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+// import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { SupabaseClient, User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 // Remove unused import if createServerComponentClient is not used
 // import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'; 
@@ -71,17 +72,17 @@ export function createApiClient(): SupabaseClient {
         set(name: string, value: string, options: any) {
           try {
              cookieStore.set({ name, value, ...options });
-          } catch (error) {
+          } catch (_error) {
             // Errors can occur in read-only scenarios like server components
             // The `set` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.
           }
         },
-        remove(name: string, options: any) {
+        remove(name: string, _options: any) {
            try {
-             cookieStore.set({ name, value: '', ...options });
-           } catch (error) {
+             cookieStore.set({ name, value: '', ..._options });
+           } catch (_error) {
             // Errors can occur in read-only scenarios like server components
             // The `remove` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
@@ -101,17 +102,17 @@ export function createApiClient(): SupabaseClient {
  * @returns {Promise<{ authenticated: boolean; user: User | null; error: string | null }>} 
  *          An object indicating authentication status, the user object if authenticated, or an error message.
  */
-export async function requireAuth(): Promise<{ authenticated: boolean; user: User | null; error: string | null }> {
+export async function requireAuth(options: { redirectTo?: string } = {}): Promise<{ authenticated: boolean; user: User | null; error: string | null }> {
   console.log('[api/server-utils.ts - requireAuth] Attempting to authenticate API request...');
   const supabase = createApiClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const { data: { user }, error: _error } = await supabase.auth.getUser();
   
-  if (error || !user) {
-    console.warn('[api/server-utils.ts - requireAuth] Authentication FAILED:', { error: error?.message, userExists: !!user });
+  if (_error || !user) {
+    console.warn('[api/server-utils.ts - requireAuth] Authentication FAILED:', { error: _error?.message, userExists: !!user });
     return { 
       authenticated: false, 
       user: null, 
-      error: error?.message || 'Authentication required' 
+      error: _error?.message || 'Authentication required' 
     };
   }
   

@@ -19,7 +19,7 @@ import { useUI } from '@/shared/contexts/UIContext';
 
 export default function Header() {
   const { user } = useAuth();
-  const { toggleSidebar, sidebarExpanded } = useUI();
+  const { toggleSidebar } = useUI();
   const pathname = usePathname();
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);

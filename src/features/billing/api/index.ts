@@ -9,24 +9,91 @@ import {
   InvoiceListParams,
   Customer,
   PaymentMethod,
-  BillingResult
+  BillingResult,
+  InvoiceItem,
+  Subscription
 } from '../types';
 
 // Import Supabase client from the correct location
 import { supabase } from '@/lib/api';
+import { Database } from '@/lib/database.types';
+
+// Helper types based on database.types.ts and observed usage
+type BillingInvoiceSupabaseRow = Database['public']['Tables']['billing_invoices']['Row'];
+
+// Represents the structure of individual items within the 'invoice_items' array
+// from Supabase, matching properties accessed in the original mapping.
+interface SupabaseInvoiceItem {
+  id: string;
+  description: string | null;
+  amount: number;
+  quantity: number;
+  period_start: string | null;
+  period_end: string | null;
+  // Add other properties if they exist on the joined invoice_items
+}
+
+// Represents a row from 'billing_invoices' enriched with joined 'invoice_items'
+// and any other fields implied by original code (like pdf_url).
+type EnrichedBillingInvoiceFromSupabase = BillingInvoiceSupabaseRow & {
+  invoice_items: SupabaseInvoiceItem[];
+  pdf_url?: string | null; // Original code used item.pdf_url. Not in BillingInvoiceSupabaseRow.
+};
+
+// Helper type for the raw row from a 'customers' table/view (assuming it exists and is like profiles)
+// and including joined payment_methods and subscriptions which might be any[] from Supabase perspective initially.
+// The billing_address is assumed to be a JSON object or null in the database.
+type SupabaseCustomerViewRow = Omit<Database['public']['Tables']['profiles']['Row'], 'address' | 'city' | 'state' | 'zip' | 'country'> & {
+  // Assuming these fields come directly from the 'customers' source if it's different from 'profiles' table
+  name?: string | null; // profiles.full_name might be the source
+  email?: string | null; // profiles.email is the source
+  // Explicitly define billing_address structure if it's a JSONB column
+  billing_address?: {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+  } | null;
+  payment_methods?: any[] | null; // Actual type from DB for joined data is unknown here
+  subscriptions?: any[] | null;   // Actual type from DB for joined data is unknown here
+};
+
+// Helper types for items within joined arrays, based on current mapping logic
+interface SupabasePaymentMethod {
+  id: string;
+  type: string | null;
+  card_brand?: string | null;
+  last_four?: string | null;
+  expiry_month?: number | null;
+  expiry_year?: number | null;
+  is_default?: boolean | null;
+}
+
+interface SupabaseSubscription {
+  id: string;
+  customer_id: string | null; // Assuming this refers to the main customer/user ID
+  plan_id: string | null;
+  status: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean | null;
+  created_at: string | null;
+}
 
 /**
  * Get a list of invoices for the current user
  */
 export async function getInvoices(params?: InvoiceListParams): Promise<BillingResult<Invoice[]>> {
   try {
-    const { limit = 10, customerId, status, startDate, endDate } = params || {};
+    const { limit = 10, customerId, status: _status, startDate: _startDate, endDate: _endDate } = params || {};
     
     // Get the user's invoices from Supabase
     const { data, error } = await supabase
-      .from('invoices')
+      .from('billing_invoices')
       .select('*, invoice_items(*)')
-      .eq('customer_id', customerId)
+      .eq('user_id', customerId)
       .order('created_at', { ascending: false })
       .limit(limit);
     
@@ -37,27 +104,38 @@ export async function getInvoices(params?: InvoiceListParams): Promise<BillingRe
       };
     }
     
+    // If data is null (e.g. RLS or no records), return empty success.
+    if (!data) {
+        return {
+            success: true,
+            data: []
+        };
+    }
+    
     // Transform the data to match our types
-    const invoices = data.map((item: any) => ({
+    // Cast `data` to our expected enriched type
+    const supabaseData = data as EnrichedBillingInvoiceFromSupabase[];
+
+    const invoices: Invoice[] = supabaseData.map((item): Invoice => ({
       id: item.id,
-      customer_id: item.customer_id,
-      invoice_number: item.invoice_number,
+      customer_id: item.user_id!, // Assuming user_id from DB is non-null and maps to customer_id
+      invoice_number: item.invoice_number ?? undefined,
       amount: item.amount,
-      currency: item.currency,
-      status: item.status,
-      due_date: item.due_date,
-      paid_at: item.paid_at,
-      created_at: item.created_at,
-      pdf_url: item.pdf_url,
-      invoice_items: item.invoice_items.map((lineItem: any) => ({
+      currency: item.currency ?? 'usd', // Defaulting null currency to 'usd', review if appropriate
+      status: item.status ?? 'draft', // Defaulting null status to 'draft', review if appropriate
+      due_date: item.due_date, // DB is string, App is string | undefined - compatible
+      paid_at: item.paid_at ?? undefined,
+      created_at: item.created_at ?? new Date(0).toISOString(), // Defaulting null created_at to epoch, review!
+      pdf_url: item.pdf_url ?? undefined, 
+      invoice_items: item.invoice_items.map((lineItem: SupabaseInvoiceItem): InvoiceItem => ({
         id: lineItem.id,
-        description: lineItem.description,
+        description: lineItem.description ?? '',
         amount: lineItem.amount,
         quantity: lineItem.quantity,
-        period_start: lineItem.period_start,
-        period_end: lineItem.period_end
+        period_start: lineItem.period_start ?? undefined,
+        period_end: lineItem.period_end ?? undefined
       }))
-    })) as Invoice[];
+    }));
     
     return {
       success: true,
@@ -79,7 +157,7 @@ export async function getInvoice(invoiceId: string): Promise<BillingResult<Invoi
   try {
     // Get the invoice from Supabase
     const { data, error } = await supabase
-      .from('invoices')
+      .from('billing_invoices')
       .select('*, invoice_items(*)')
       .eq('id', invoiceId)
       .limit(1)
@@ -91,26 +169,37 @@ export async function getInvoice(invoiceId: string): Promise<BillingResult<Invoi
         error: error.message
       };
     }
+
+    // If data is null (e.g. RLS, not found, or other issue), return an error.
+    if (!data) {
+        return {
+            success: false,
+            error: 'Invoice not found or access denied.'
+        };
+    }
     
+    // Cast `data` to our expected enriched type
+    const supabaseInvoice = data as EnrichedBillingInvoiceFromSupabase;
+
     // Transform the data to match our types
     const invoice: Invoice = {
-      id: data.id,
-      customer_id: data.customer_id,
-      invoice_number: data.invoice_number,
-      amount: data.amount,
-      currency: data.currency,
-      status: data.status,
-      due_date: data.due_date,
-      paid_at: data.paid_at,
-      created_at: data.created_at,
-      pdf_url: data.pdf_url,
-      invoice_items: data.invoice_items.map((lineItem: any) => ({
+      id: supabaseInvoice.id,
+      customer_id: supabaseInvoice.user_id!, // Assuming user_id maps to customer_id and is non-null
+      invoice_number: supabaseInvoice.invoice_number ?? undefined,
+      amount: supabaseInvoice.amount,
+      currency: supabaseInvoice.currency ?? 'usd', // Defaulting null, review
+      status: supabaseInvoice.status ?? 'draft', // Defaulting null, review
+      due_date: supabaseInvoice.due_date, // DB is string, App is string | undefined
+      paid_at: supabaseInvoice.paid_at ?? undefined,
+      created_at: supabaseInvoice.created_at ?? new Date(0).toISOString(), // Defaulting null, review
+      pdf_url: supabaseInvoice.pdf_url ?? undefined,
+      invoice_items: supabaseInvoice.invoice_items.map((lineItem: SupabaseInvoiceItem): InvoiceItem => ({
         id: lineItem.id,
-        description: lineItem.description,
+        description: lineItem.description ?? '',
         amount: lineItem.amount,
         quantity: lineItem.quantity,
-        period_start: lineItem.period_start,
-        period_end: lineItem.period_end
+        period_start: lineItem.period_start ?? undefined,
+        period_end: lineItem.period_end ?? undefined
       }))
     };
     
@@ -133,8 +222,10 @@ export async function getInvoice(invoiceId: string): Promise<BillingResult<Invoi
 export async function getCustomer(customerId: string): Promise<BillingResult<Customer>> {
   try {
     // Get the customer from Supabase
+    // IMPORTANT: Assuming 'customers' is a valid table or view name.
+    // If not, this needs to be changed (e.g., to 'profiles').
     const { data, error } = await supabase
-      .from('customers')
+      .from('customers') 
       .select('*, payment_methods(*), subscriptions(*)')
       .eq('id', customerId)
       .limit(1)
@@ -146,41 +237,53 @@ export async function getCustomer(customerId: string): Promise<BillingResult<Cus
         error: error.message
       };
     }
+
+    if (!data) {
+      return {
+        success: false,
+        error: 'Customer not found or access denied.'
+      };
+    }
     
+    const dbCustomer = data as SupabaseCustomerViewRow;
+
+    // Find the default payment method more safely
+    const defaultPmData = dbCustomer.payment_methods?.find((pm: any): pm is SupabasePaymentMethod => pm && pm.is_default === true);
+
     // Transform the data to match our types
     const customer: Customer = {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      billing_address: data.billing_address ? {
-        line1: data.billing_address.line1,
-        line2: data.billing_address.line2,
-        city: data.billing_address.city,
-        state: data.billing_address.state,
-        postal_code: data.billing_address.postal_code,
-        country: data.billing_address.country
+      id: dbCustomer.id, // id is non-null in profiles table, assuming same for customers view/table
+      name: dbCustomer.name ?? dbCustomer.full_name ?? 'N/A', // Use name or full_name
+      email: dbCustomer.email ?? 'N/A',
+      billing_address: dbCustomer.billing_address ? {
+        line1: dbCustomer.billing_address.line1 ?? undefined,
+        line2: dbCustomer.billing_address.line2 ?? undefined,
+        city: dbCustomer.billing_address.city ?? undefined,
+        state: dbCustomer.billing_address.state ?? undefined,
+        postal_code: dbCustomer.billing_address.postal_code ?? undefined,
+        country: dbCustomer.billing_address.country ?? undefined,
       } : undefined,
-      payment_methods: data.payment_methods?.find((pm: any) => pm.is_default) ? [
+      payment_methods: defaultPmData ? [
         {
-          id: data.payment_methods.find((pm: any) => pm.is_default).id,
-          type: data.payment_methods.find((pm: any) => pm.is_default).type,
-          card_brand: data.payment_methods.find((pm: any) => pm.is_default).card_brand,
-          last_four: data.payment_methods.find((pm: any) => pm.is_default).last_four,
-          expiry_month: data.payment_methods.find((pm: any) => pm.is_default).expiry_month,
-          expiry_year: data.payment_methods.find((pm: any) => pm.is_default).expiry_year,
+          id: defaultPmData.id,
+          type: defaultPmData.type ?? 'unknown',
+          card_brand: defaultPmData.card_brand ?? undefined,
+          last_four: defaultPmData.last_four ?? undefined,
+          expiry_month: defaultPmData.expiry_month ?? undefined,
+          expiry_year: defaultPmData.expiry_year ?? undefined,
           is_default: true
         }
       ] : undefined,
-      subscriptions: data.subscriptions.map((sub: any) => ({
+      subscriptions: (dbCustomer.subscriptions as SupabaseSubscription[] | null)?.map((sub): Subscription => ({
         id: sub.id,
-        customer_id: sub.customer_id,
-        plan_id: sub.plan_id,
-        status: sub.status,
-        current_period_start: sub.current_period_start,
-        current_period_end: sub.current_period_end,
-        cancel_at_period_end: sub.cancel_at_period_end,
-        created_at: sub.created_at
-      }))
+        customer_id: sub.customer_id ?? dbCustomer.id, // Fallback to main customer id if null
+        plan_id: sub.plan_id ?? 'unknown_plan',
+        status: sub.status ?? 'unknown',
+        current_period_start: sub.current_period_start ?? new Date(0).toISOString(),
+        current_period_end: sub.current_period_end ?? new Date(0).toISOString(),
+        cancel_at_period_end: sub.cancel_at_period_end ?? false,
+        created_at: sub.created_at ?? new Date(0).toISOString(),
+      })) ?? undefined, // If subscriptions array is null/undefined, result is undefined
     };
     
     return {

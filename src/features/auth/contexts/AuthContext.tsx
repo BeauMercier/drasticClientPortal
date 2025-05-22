@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Session,
@@ -24,8 +24,8 @@ import {
 } from '../api';
 import supabase from '@/lib/api/client';
 import { Session as SupabaseSession, User as SupabaseUser } from '@supabase/supabase-js';
-import { getEnv, validateEnv } from '@/lib/env';
-import { handleRefreshTokenError } from '@/lib/supabase/auth-helpers';
+import { validateEnv } from '@/lib/env';
+// import { handleRefreshTokenError } from '@/lib/supabase/auth-helpers';
 
 // --- Helper Function to Map Supabase Session/User to Local Types ---
 const mapSupabaseSessionToLocal = (

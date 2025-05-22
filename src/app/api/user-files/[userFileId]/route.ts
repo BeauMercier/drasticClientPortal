@@ -17,7 +17,7 @@ export async function DELETE(
         { status: 401 }
       );
     }
-    const userId = authResult.user.id;
+    const _userId = authResult.user.id;
 
     // 2. Get userFileId from route parameters
     const { userFileId } = params;

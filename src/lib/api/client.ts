@@ -16,7 +16,8 @@
  */
 
 import { createBrowserClient } from '@supabase/ssr';
-import { createClient as supabaseCreateClient, SupabaseClient } from '@supabase/supabase-js';
+// import { createClient as supabaseCreateClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { getEnv } from '@/lib/env';
 
 // Session timeout configuration based on environment variables

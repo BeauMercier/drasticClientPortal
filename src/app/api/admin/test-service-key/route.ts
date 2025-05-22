@@ -39,7 +39,7 @@ async function verifyAdminAccess() {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     // Verify admin access
     const { authorized, error } = await verifyAdminAccess();
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
     
     // Test 2: Try to access auth config (doesn't require full admin)
     try {
-      const { data: authSettings, error: authError } = await adminClient
+      const { data: _authSettings, error: authError } = await adminClient
         .auth
         .getUser('non-existent-id-just-testing-api');
         

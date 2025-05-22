@@ -9,7 +9,8 @@ import { createClient } from './client';
 import { createServiceRoleClient } from './server';
 import { SupabaseClient } from '@supabase/supabase-js';
 // Import Supabase storage types
-import type { FileObject, Bucket } from '@supabase/storage-js'; 
+// import type { FileObject, Bucket } from '@supabase/storage-js'; 
+import type { FileObject } from '@supabase/storage-js'; 
 
 // Default bucket for file storage
 export const FILES_BUCKET = 'client-files';

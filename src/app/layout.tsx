@@ -7,7 +7,7 @@ import { reportEnvValidation } from '@/lib/env';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import EnvFallback from '@/components/EnvFallback';
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+// import { Inter } from "next/font/google";
 
 // Validate environment variables during server rendering
 if (typeof window === 'undefined') {

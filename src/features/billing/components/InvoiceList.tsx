@@ -6,27 +6,18 @@ import React from 'react';
 import { useEffect } from 'react';
 import { useBilling } from '../hooks/useBilling';
 import { Invoice } from '../types';
-import { Button, Card } from '../../../shared/ui';
-import type { MouseEvent } from 'react';
+import { Card } from '../../../shared/ui';
 
 export interface InvoiceListProps {
   invoices: Invoice[];
 }
 
 export const InvoiceList: React.FC<InvoiceListProps> = ({ invoices }) => {
-  const { isLoading, error, fetchInvoices, downloadInvoicePdf } = useBilling();
+  const { isLoading, error, fetchInvoices } = useBilling();
 
   useEffect(() => {
     fetchInvoices({ limit: invoices.length });
   }, [fetchInvoices, invoices.length]);
-
-  const handleDownload = async (invoice: Invoice, e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    const pdfUrl = await downloadInvoicePdf(invoice);
-    if (pdfUrl) {
-      window.open(pdfUrl, '_blank');
-    }
-  };
 
   if (isLoading && invoices.length === 0) {
     return (

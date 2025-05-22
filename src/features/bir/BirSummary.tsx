@@ -1,8 +1,7 @@
-import { BirRow, BirFileRow, SignedBirFile } from '@/lib/types/bir';
+import { BirRow, SignedBirFile } from '@/lib/types/bir';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -11,15 +10,15 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TableHeader,
   TableRow,
 } from '@/components/ui/table';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import { BirAnswersData } from '@/lib/validation/bir';
 import { format } from 'date-fns';
-import { FileIcon, ImageIcon, DownloadIcon } from 'lucide-react'; // Import icons
+import { FileIcon, DownloadIcon } from 'lucide-react'; // Import icons
 import { cn } from '@/lib/utils'; // Assuming cn utility is available
 import { Skeleton } from '@/components/ui/skeleton';
+import Image from 'next/image'; // Added import
 
 export interface BirSummaryProps {
   bir: BirRow;
@@ -134,8 +133,8 @@ export default function BirSummary({ bir, signedFiles }: BirSummaryProps) {
           {signedFiles === null && (
             // Skeleton for when signedFiles is null (still loading/processing or error state)
             <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-2 border rounded bg-muted/50">
+              {[...Array(3)].map((_, _i) => (
+                <div key={_i} className="flex items-center gap-3 p-2 border rounded bg-muted/50">
                   <Skeleton className="h-10 w-10 rounded" />
                   <div className="flex-grow min-w-0">
                     <Skeleton className="h-4 w-3/4 mb-1" />
@@ -150,9 +149,15 @@ export default function BirSummary({ bir, signedFiles }: BirSummaryProps) {
             <ul className="space-y-3">
               {signedFiles.map((file) => (
                 <li key={file.id} className="flex items-center gap-3 p-2 border rounded bg-muted/50">
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 h-10 w-10 relative">
                     {file.publicUrl && file.mime_type.startsWith('image/') ? (
-                      <img src={file.publicUrl} alt={file.original_name} className="h-10 w-10 object-cover rounded" />
+                      <Image 
+                        src={file.publicUrl} 
+                        alt={file.original_name} 
+                        fill
+                        className="object-cover rounded"
+                        sizes="40px"
+                      />
                     ) : (
                       <FileIcon className="h-8 w-8 text-muted-foreground" />
                     )}

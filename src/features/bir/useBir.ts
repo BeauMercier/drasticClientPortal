@@ -1,7 +1,7 @@
 import useSWR from 'swr';
 import { createClient } from '@/lib/api/client';
 import { BirRow, BirFileRow, SignedBirFile } from '@/lib/types/bir'; // Use updated types
-import { Database } from '@/lib/database.types';
+// import { Database } from '@/lib/database.types';
 
 // Type for the data returned by the hook
 export interface UseBirData {

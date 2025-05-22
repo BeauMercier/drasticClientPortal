@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
  * POST handler for server-side logout
  * This ensures cookies are properly cleared
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   // Create a Supabase client
   const cookieStore = cookies();
   

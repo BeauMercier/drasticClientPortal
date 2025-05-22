@@ -37,7 +37,7 @@ export default function SocialGraphicsProjectsPage() {
         setError(null);
 
         const projectsData = await getUserSocialGraphicsProjects();
-        console.log('Social Graphics Projects:', projectsData);
+        // console.log('Social Graphics Projects:', projectsData);
         
         // Filter out placeholder projects or handle them specially
         const activeProjects = projectsData.filter(project => !project.is_placeholder);
@@ -48,9 +48,9 @@ export default function SocialGraphicsProjectsPage() {
           // We only have placeholder projects - all projects are placeholders
           setProjects(projectsData);
         }
-      } catch (err) {
-        console.error('Error loading social graphics projects:', err);
-        setError('Failed to load your projects. Please try again later.');
+      } catch (err: any) {
+        // console.error('Error loading social graphics projects:', err);
+        setError(err.message || "Failed to load projects");
         setProjects([]);
       } finally {
         setIsLoading(false);

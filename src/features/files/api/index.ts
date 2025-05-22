@@ -6,7 +6,7 @@
 
 import { FileType, FileOperationResult } from '../types';
 import { supabase } from '@/lib/api';
-import { FileUploadOptions, FolderCreationOptions } from '../types';
+// import { FileUploadOptions, FolderCreationOptions } from '../types';
 
 // Helper function to adapt storage service file object to our FileType
 function adaptFileObject(file: Record<string, unknown>): FileType {

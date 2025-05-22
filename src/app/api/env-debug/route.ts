@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createApiClient } from '@/lib/api/server-utils';
+// import { createApiClient } from '@/lib/api/server-utils';
 
 export const dynamic = 'force-dynamic';
 

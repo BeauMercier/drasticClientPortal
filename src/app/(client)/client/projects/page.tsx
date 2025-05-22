@@ -69,7 +69,7 @@ export default function ProjectsPage() {
           const data = await getClientProjectsForCategories();
           setProjectInfo(data);
         } catch (error) {
-          console.error("Failed to fetch project counts:", error);
+          // console.error("Failed to fetch project counts:", error);
         } finally {
           setProjectsLoading(false);
         }

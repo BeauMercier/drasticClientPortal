@@ -6,33 +6,33 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { 
-  getInvoices, 
-  getInvoice, 
-  getCustomer, 
-  downloadInvoice, 
-  updatePaymentMethod 
+  // getInvoices, 
+  // getInvoice, 
+  // getCustomer, 
+  // downloadInvoice, 
+  // updatePaymentMethod 
 } from '../api';
 import { 
   Invoice, 
-  InvoiceListParams, 
-  Customer, 
-  PaymentMethod 
+  // InvoiceListParams, 
+  // Customer, 
+  // PaymentMethod 
 } from '../types';
 import { supabase } from '@/lib/api';
 
-interface BillingHookState {
-  invoices: Invoice[];
-  currentInvoice: Invoice | null;
-  customer: Customer | null;
-  isLoading: boolean;
-  error: string | null;
-}
+// interface BillingHookState {
+//   invoices: Invoice[];
+//   currentInvoice: Invoice | null;
+//   customer: Customer | null;
+//   isLoading: boolean;
+//   error: string | null;
+// }
 
 // Mock user for development
-const mockUser = {
-  id: 'user_123456',
-  email: 'user@example.com'
-};
+// const mockUser = {
+//   id: 'user_123456',
+//   email: 'user@example.com'
+// };
 
 interface UseBillingReturn {
   invoices: Invoice[];

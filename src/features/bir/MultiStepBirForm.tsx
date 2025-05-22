@@ -6,8 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { KeyedMutator } from 'swr';
 import { clsx } from 'clsx';
-import { XMarkIcon } from "@heroicons/react/24/outline";
-import { CheckCircle2 } from "lucide-react";
+// import { XMarkIcon } from "@heroicons/react/24/outline";
+// import { CheckCircle2 } from "lucide-react";
 
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -22,7 +22,7 @@ import {
   BirInsertDTO,
   FormValues as BirFormValues, // Renaming to avoid conflict if MultiStepBirForm has its own FormValues
 } from '@/lib/validation/bir';
-import { birStepsConfig, BirStep, StepProps } from './birStepConfig';
+import { birStepsConfig, StepProps } from './birStepConfig';
 // Import FileUploadStep when it's created
 // import FileUploadStep from './steps/FileUploadStep';
 
@@ -234,7 +234,7 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     return (
       <div className="space-y-6 p-4 border rounded-lg shadow-sm bg-card text-card-foreground">
         <div className="mb-10 flex items-start justify-center space-x-6 sm:space-x-10 overflow-x-auto pb-4 pt-2">
-          {textualSteps.map((step, index) => (
+          {textualSteps.map((step) => (
             <div key={step.id} className="flex flex-col items-center w-28 sm:w-32">
               <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-sm sm:text-base font-bold transition-all duration-300 ease-in-out border-2 bg-green-500 text-white border-green-600">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 sm:w-5 sm:h-5"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" /></svg>

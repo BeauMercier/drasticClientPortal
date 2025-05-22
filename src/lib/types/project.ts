@@ -5,7 +5,8 @@
  */
 
 import { BaseEntity } from './common';
-import { Tables, ProjectRow, ProjectTableName, Enums } from './dbHelpers';
+// import { Tables, ProjectRow, ProjectTableName, Enums } from './dbHelpers';
+import { Tables, Enums } from './dbHelpers';
 
 // Project status types
 export type ProjectStatus = 'draft' | 'in_progress' | 'review' | 'completed' | 'archived';
@@ -94,7 +95,7 @@ export interface WebDesignProject extends Tables<'web_design_projects'> {
   description: string | null;
   status: ProjectStatus;
   project_type: 'web_design';
-  current_stage: ProjectStage | null;
+  current_stage: ProjectStage;
   site_type: string | null;
   domain_name: string | null;
   hosting_provider: string | null;

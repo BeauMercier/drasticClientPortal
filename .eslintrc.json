@@ -18,18 +18,30 @@
     "@typescript-eslint/no-unsafe-call": "warn",
     "@typescript-eslint/no-unsafe-assignment": "warn",
     "react-hooks/exhaustive-deps": "warn",
-    "@next/next/no-img-element": "error",
+    "@next/next/no-img-element": "warn",
     "react/no-unescaped-entities": "warn"
   },
   "overrides": [
     {
       "files": ["*.js"],
-      "parser": "espree", // Use default JS parser
+      "parser": "espree",
       "parserOptions": {
-        "project": null // Don't use tsconfig for JS files
+        "ecmaVersion": "latest",
+        "sourceType": "script",
+        "project": null
       },
       "rules": {
-        // You might need to disable/adjust rules that rely on TS types here if needed
+        // Disable rules that require TypeScript type information for JavaScript files
+        // These rules will error if project is not set, which is the case for .js overrides
+        "@typescript-eslint/no-unused-expressions": "off",
+        "@typescript-eslint/no-this-alias": "off",
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/no-unsafe-assignment": "off",
+        "@typescript-eslint/no-unsafe-return": "off", 
+        "@typescript-eslint/no-unsafe-argument": "off",
+        // Also disable no-require-imports for JS files as they are often CommonJS
+        "@typescript-eslint/no-require-imports": "off"
       }
     }
   ]

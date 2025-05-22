@@ -6,7 +6,7 @@ import Header from './Header';
 import { useUI } from '../../contexts/UIContext';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { sidebarExpanded, currentTheme } = useUI();
+  const { currentTheme } = useUI();
   const [mounted, setMounted] = useState(false);
 
   // Apply theme when it changes

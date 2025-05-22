@@ -169,7 +169,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     // Update profile if provided
     if (Object.keys(updates).length > 0) {
       // Remove auth-only fields
-      const { email, password, ...profileUpdates } = updates;
+      const { email: _email, password: _password, ...profileUpdates } = updates;
       
       // Add updated timestamp
       profileUpdates.updated_at = new Date().toISOString();

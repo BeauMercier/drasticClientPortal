@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Image from 'next/image';
 
 export default function MyProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -99,7 +100,6 @@ export default function MyProfilePage() {
           }
         }
       } catch (error) {
-        console.error('Failed to load profile:', error);
         setError('Failed to load profile information. Please try again later.');
         toast({
           title: "Error",
@@ -181,7 +181,6 @@ export default function MyProfilePage() {
              throw new Error("Photo upload did not return a URL.");
           }
         } catch (photoError) {
-          console.error("Error uploading profile photo:", photoError);
           toast({
             title: "Error",
             description: "Failed to upload profile photo. Please try again.",
@@ -227,7 +226,6 @@ export default function MyProfilePage() {
       setIsEditing(false);
       setProfilePhoto(null);
     } catch (error) {
-      console.error('Failed to update profile:', error);
       const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred during update.";
       setError(`Failed to update profile: ${errorMessage}`);
       toast({
@@ -270,10 +268,12 @@ export default function MyProfilePage() {
                 className="relative bg-gray-200 dark:bg-gray-700 rounded-full h-20 w-20 flex items-center justify-center cursor-pointer group overflow-hidden mx-auto border-2 border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400"
               >
                 {profilePhotoUrl ? (
-                  <img 
+                  <Image 
                     src={profilePhotoUrl} 
                     alt="Profile Preview" 
-                    className="h-full w-full object-cover rounded-full"
+                    fill
+                    className="object-cover rounded-full"
+                    sizes="80px"
                   />
                 ) : (
                   <UserIcon className="h-10 w-10 text-gray-500 dark:text-gray-400" />

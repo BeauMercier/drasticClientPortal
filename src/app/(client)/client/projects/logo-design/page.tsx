@@ -37,7 +37,7 @@ export default function LogoDesignProjectsPage() {
         setError(null);
 
         const projectsData = await getUserLogoDesignProjects();
-        console.log('Logo Design Projects:', projectsData);
+        // console.log('Logo Design Projects:', projectsData);
         
         // Filter out placeholder projects or handle them specially
         const activeProjects = projectsData.filter(project => !project.is_placeholder);
@@ -48,9 +48,9 @@ export default function LogoDesignProjectsPage() {
           // We only have placeholder projects - all projects are placeholders
           setProjects(projectsData);
         }
-      } catch (err) {
-        console.error('Error loading logo design projects:', err);
-        setError('Failed to load your projects. Please try again later.');
+      } catch (err: any) {
+        // console.error('Error loading logo design projects:', err);
+        setError(err.message || "Failed to load projects");
         setProjects([]);
       } finally {
         setIsLoading(false);

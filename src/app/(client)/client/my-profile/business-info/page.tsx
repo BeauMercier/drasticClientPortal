@@ -109,7 +109,7 @@ export default function BusinessInfoPage() {
         setSaturdayClosed(profile?.saturday_closed !== false);
         setSundayClosed(profile?.sunday_closed !== false);
       } catch (error) {
-        console.error('Error fetching business profile:', error);
+        // console.error('Error fetching business profile:', error);
         setError('Failed to load business information. Please try again later.');
         toast({
           title: "Error",
@@ -190,7 +190,7 @@ export default function BusinessInfoPage() {
         description: "Business profile updated successfully.",
       });
     } catch (error) {
-      console.error('Failed to update business profile:', error);
+      // console.error('Failed to update business profile:', error);
       setError('Failed to update business profile. Please try again.');
       toast({
         title: "Error",
@@ -234,6 +234,17 @@ export default function BusinessInfoPage() {
     )
   );
   
+  // TEMPORARY Test Button Logic
+  const handleTestSave = () => {
+    handleSaveChanges();
+  };
+
+  const getButtonText = () => {
+    if (isSaving) return "Saving...";
+    if (isEditing) return "Save Changes";
+    return "Edit Information";
+  };
+  
   return (
     <main className="p-6 space-y-6">
       {/* Error display */}
@@ -255,10 +266,7 @@ export default function BusinessInfoPage() {
             {isEditing && (
               <button
                 type="button"
-                onClick={() => {
-                  console.log('Test Save button clicked - directly calling handleSaveChanges');
-                  handleSaveChanges();
-                }}
+                onClick={handleTestSave}
                 disabled={isLoading || isSaving}
                 className="inline-flex items-center px-2 py-1 rounded-md text-sm font-medium bg-green-600 text-white hover:bg-green-700"
               >
@@ -268,14 +276,9 @@ export default function BusinessInfoPage() {
             <button
               type="button"
               onClick={() => {
-                console.log('Main button clicked, isEditing:', isEditing);
-                console.log('Button disabled:', isLoading || isSaving);
-                
                 if (isEditing) {
-                  console.log('Calling handleSaveChanges');
                   handleSaveChanges();
                 } else {
-                  console.log('Calling handleToggleEdit');
                   handleToggleEdit();
                 }
               }}

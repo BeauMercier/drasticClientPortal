@@ -39,7 +39,7 @@ const PROJECT_STAGES: StageConfig[] = [
 ];
 
 export default function WebDesignProjectDetails() {
-  console.log("Attempting to load WebDesignProjectDetails page...");
+  // console.log("Attempting to load WebDesignProjectDetails page...");
   const { id: routeId } = useParams();
   const projectId = Array.isArray(routeId) ? routeId[0] : routeId;
 
@@ -60,12 +60,12 @@ export default function WebDesignProjectDetails() {
   const reloadProjectData = async () => {
     if (!projectId) return;
 
-    console.log("Reloading project and BIR data...");
+    // console.log("Reloading project and BIR data...");
     try {
       await mutateProject();
       await mutateBir();
     } catch (err) {
-      console.error('Error reloading project data:', err);
+      // console.error('Error reloading project data:', err);
       toast({ title: "Error", description: "Failed to reload project details.", variant: "destructive" });
     }
   };
@@ -99,14 +99,14 @@ export default function WebDesignProjectDetails() {
   }
 
   // TEMPORARY DEBUG LOG
-  console.log('[Project debug]', {
-    current_stage: project.current_stage,
-    discovery_date: project.discovery_date,
-    concept_development_date: project.concept_development_date,
-    refinement_date: project.refinement_date,
-    finalization_date: project.finalization_date,
-    delivery_date: project.delivery_date,
-  });
+  // console.log('[Project debug]', {
+  //   current_stage: project.current_stage,
+  //   discovery_date: project.discovery_date,
+  //   concept_development_date: project.concept_development_date,
+  //   refinement_date: project.refinement_date,
+  //   finalization_date: project.finalization_date,
+  //   delivery_date: project.delivery_date,
+  // });
 
   // Create stageDates mapping for the new ProjectTimeline component
   const stageDates: Record<ProjectStage, string | null> = {

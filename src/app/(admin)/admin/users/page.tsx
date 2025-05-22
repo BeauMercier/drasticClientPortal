@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Close as DialogPrimitiveClose } from "@radix-ui/react-dialog";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +20,6 @@ import {
   DialogFooter, 
   DialogHeader, 
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { 
   Select, 
@@ -32,8 +30,8 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, PlusCircle, Search, X, Edit, Trash2, MoreHorizontal, UserCog, Download, Eye } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2, PlusCircle, Search, X, Trash2, MoreHorizontal, UserCog, Eye } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -102,14 +102,14 @@
 - **Date:** [Current Date - Will be replaced by actual start date]
 
 **Implementation Tasks (High-Level - See `NOTIFICATIONS_PLAN.MD` for details):**
-1.  [ ] **Database Layer & Initial Triggers (Consolidated):**
-    *   [ ] Create and apply the consolidated SQL migration file (`YYYYMMDDHHMMSS_create_notifications_system.sql`). This covers:
+1.  [x] **Database Layer & Initial Triggers (Consolidated):**
+    *   [x] Create and apply the consolidated SQL migration file (`YYYYMMDDHHMMSS_create_notifications_system.sql`). This covers:
         *   `notifications` table schema and indexes.
         *   RLS policies for `notifications`.
         *   Helper functions (`mark_notification_read`, `mark_all_notifications_read`).
         *   SQL trigger for new client welcome & profile completion notifications.
-2.  [ ] **Server-Side Triggers / Edge Functions (Additional):**
-    *   [ ] Implement Edge Function for project stage update notifications (Detailed user-provided guide now in `NOTIFICATIONS_PLAN.MD`, section 2-b. Ready for execution).
+2.  [x] **Server-Side Triggers / Edge Functions (Additional):**
+    *   [x] Implement Edge Function for project stage update notifications (Detailed user-provided guide now in `NOTIFICATIONS_PLAN.MD`, section 2-b. Ready for execution).
     *   [ ] *Consider other events that should trigger notifications (e.g., BIR submission due soon, new message from designer - to be detailed in `NOTIFICATIONS_PLAN.MD` or subsequent tasks).*
 3.  [ ] **Next.js API Routes (`src/app/api/notifications/`):
     *   [ ] `GET /` - List notifications for the authenticated user (with pagination).

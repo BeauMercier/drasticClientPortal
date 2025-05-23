@@ -1,12 +1,15 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { type NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { nextCookies } from '@/lib/supabase/cookieAdapter'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: nextCookies() }
+  )
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {

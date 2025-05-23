@@ -1,5 +1,6 @@
 import useSWR, { KeyedMutator } from 'swr'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+// import { createClientComponentClient } from '@supabase/auth-helpers-nextjs' // Removed this import
+import supabase from '@/lib/api/client' // Added import for the shared SSR-based client
 import { useEffect } from 'react'
 import { useAuth } from '@/features/auth'
 
@@ -25,6 +26,7 @@ interface UseNotificationsReturn {
   mutateNotifications: KeyedMutator<{ data: Notification[], count: number }>;
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  hasActionableNotification: (linkPath: string) => boolean;
 }
 
 const fetcher = async (url: string) => {
@@ -34,7 +36,7 @@ const fetcher = async (url: string) => {
 }
 
 export function useNotifications(): UseNotificationsReturn {
-  const supabase = createClientComponentClient()
+  // const supabase = createClientComponentClient() // This line is removed, supabase is now the imported shared client
   const { user } = useAuth() // Get user from AuthContext
 
   const { data, error, isLoading, mutate } = useSWR<{ data: Notification[], count: number }>(
@@ -48,6 +50,13 @@ export function useNotifications(): UseNotificationsReturn {
 
   const notifications = data?.data
   const unreadCount = notifications?.filter(n => n.status === 'unread').length ?? 0
+
+  const hasActionableNotification = (linkPath: string): boolean => {
+    if (!notifications) return false;
+    return notifications.some(
+      n => n.status === 'unread' && n.type === 'action_required' && n.link === linkPath
+    );
+  };
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -145,5 +154,6 @@ export function useNotifications(): UseNotificationsReturn {
     mutateNotifications: mutate,
     markAsRead,
     markAllAsRead,
+    hasActionableNotification,
   }
 } 

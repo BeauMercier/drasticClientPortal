@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useUI } from '@/shared/contexts/UIContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import { 
   HomeIcon, // For Dashboard
   UserIcon, // For My Info
@@ -32,6 +33,7 @@ const clientMenuItems = [
 export default function ClientSidebar() { // Renamed component
   const { sidebarExpanded, toggleSidebar } = useUI();
   const pathname = usePathname();
+  const { hasActionableNotification } = useNotifications();
 
   return (
     // Fixed positioning and full viewport height - EXACTLY like AdminSidebar
@@ -81,6 +83,7 @@ export default function ClientSidebar() { // Renamed component
           {clientMenuItems.map((item) => { // Use clientMenuItems
             // Updated isActive logic for client base path
             const isActive = pathname === item.href || (item.href !== '/client' && pathname.startsWith(item.href));
+            const showProfileBadge = item.href === '/client/my-profile' && hasActionableNotification('/client/my-profile/my-info');
             return (
               <li key={item.name}>
                 <Link
@@ -102,6 +105,12 @@ export default function ClientSidebar() { // Renamed component
                   
                   {sidebarExpanded && (
                     <span className="ml-3 whitespace-nowrap">{item.name}</span>
+                  )}
+                  {showProfileBadge && sidebarExpanded && (
+                    <span className="ml-auto inline-block h-2 w-2 rounded-full bg-red-500"></span>
+                  )}
+                  {showProfileBadge && !sidebarExpanded && (
+                     <span className="absolute top-1 right-1 inline-block h-2 w-2 rounded-full bg-red-500"></span>
                   )}
                 </Link>
               </li>

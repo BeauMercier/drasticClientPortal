@@ -23,6 +23,7 @@
 - **Styling:** Tailwind CSS
 - **UI Components:** shadcn/ui (some custom, see notes below)
 - **Authentication:** Supabase
+    - Note: Server-side authentication in Next.js API routes (e.g., for notifications) has been standardized to use `@supabase/ssr` (specifically `createServerClient` with a `cookies()` adapter) to ensure consistent session handling with the client-side, replacing earlier use of `@supabase/auth-helpers-nextjs` in some areas.
 - **State Management:** React Context API (e.g., `UIContext`, `AuthContext`)
 - **Database:** Supabase (Database, Auth, Storage)
 

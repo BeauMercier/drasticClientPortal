@@ -17,6 +17,8 @@ import { getUserProfile } from '@/lib/api/client-api';
 import { Tables } from '@/lib/database.types';
 import { useAuthContext } from '@/features/auth/contexts/AuthContext';
 import Image from 'next/image';
+import { useNotifications, Notification } from '@/hooks/useNotifications';
+import GettingStartedPanel from '@/components/client/GettingStartedPanel';
 
 /**
  * @constant {StageConfig[]} stageConfigs
@@ -48,6 +50,8 @@ export default function ClientDashboardPage() {
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isLoadingProfileDetails, setIsLoadingProfileDetails] = useState(true);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+
+  const { notifications, isLoading: isLoadingNotifications } = useNotifications();
 
   useEffect(() => {
     async function fetchActiveProjects() {
@@ -168,7 +172,8 @@ export default function ClientDashboardPage() {
     return 'Client'; // Fallback
   };
 
-  const mainContentIsLoading = isLoadingProjects || authIsLoading;
+  const mainContentIsLoading = isLoadingProjects || authIsLoading || isLoadingNotifications;
+  const actionableNotifications = notifications?.filter(n => n.type === 'action_required' && n.status === 'unread') || [];
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
@@ -178,6 +183,11 @@ export default function ClientDashboardPage() {
         </h1>
         <p className="text-gray-600 dark:text-gray-400">Welcome back! Here's an overview of your projects and resources.</p>
       </header>
+
+      {/* Getting Started Panel */}
+      {!isLoadingNotifications && actionableNotifications.length > 0 && (
+        <GettingStartedPanel actionableNotifications={actionableNotifications} />
+      )}
 
       {/* Active Projects Section */}
       <section>

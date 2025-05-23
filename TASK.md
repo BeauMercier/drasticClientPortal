@@ -98,7 +98,7 @@
 
 ### Feature: Notifications & Client Onboarding System
 - **Goal:** Implement a robust notifications system to alert users to important events and guide new clients through essential onboarding steps.
-- **Status:** Planning complete. Refer to `NOTIFICATIONS_PLAN.MD` for detailed technical implementation steps.
+- **Status:** Core functionality implemented, ongoing refinements and testing. Refer to `NOTIFICATIONS_PLAN.MD` for detailed technical implementation steps and `docs/PROJECT_HISTORY.md` for detailed troubleshooting history.
 - **Date:** [Current Date - Will be replaced by actual start date]
 
 **Implementation Tasks (High-Level - See `NOTIFICATIONS_PLAN.MD` for details):**
@@ -108,23 +108,47 @@
         *   RLS policies for `notifications`.
         *   Helper functions (`mark_notification_read`, `mark_all_notifications_read`).
         *   SQL trigger for new client welcome & profile completion notifications.
+    *   Note: Migration file `YYYYMMDDHHMMSS_create_notifications_system.sql` still needs to be generated from the live schema and committed to `supabase/migrations/`.
 2.  [x] **Server-Side Triggers / Edge Functions (Additional):**
-    *   [x] Implement Edge Function for project stage update notifications (Detailed user-provided guide now in `NOTIFICATIONS_PLAN.MD`, section 2-b. Ready for execution).
+    *   [x] Implement Edge Function `notify-project-stage` for project stage update notifications.
     *   [ ] *Consider other events that should trigger notifications (e.g., BIR submission due soon, new message from designer - to be detailed in `NOTIFICATIONS_PLAN.MD` or subsequent tasks).*
-3.  [x] **Next.js API Routes (`src/app/api/notifications/`):
+3.  [x] **Next.js API Routes (`src/app/api/notifications/`):**
     *   [x] `GET /` - List notifications for the authenticated user (with pagination).
     *   [x] `POST /[id]/read` - Mark a specific notification as read.
     *   [x] `POST /read-all` - Mark all unread notifications as read.
 4.  [x] **React Hook & Components (Frontend):**
-    *   [x] Create `useNotifications` hook (fetching, state management, realtime integration - optional initial).
+    *   [x] Create `useNotifications` hook (fetching, SWR, state management).
     *   [x] Implement/Update `NotificationsMenu.tsx` (header bell icon, dropdown list).
-5.  [ ] **UI Cues for Soft Walkthrough (Client Onboarding):**
-    *   [ ] Add dynamic badges to sidebar navigation items (e.g., for pending profile actions).
-    *   [ ] Create a "Getting Started" panel/card on the client dashboard for new user action items.
-6.  [ ] **(Optional) Realtime Integration:**
-    *   [x] Enhance `useNotifications` hook with Supabase Realtime for instant notification updates.
+5.  [x] **UI Cues for Soft Walkthrough (Client Onboarding):**
+    *   [x] Add dynamic badges to sidebar navigation items (e.g., for pending profile actions via `useNotifications.hasActionableNotification`).
+    *   [x] Create a "Getting Started" panel/card on the client dashboard for new user action items (e.g., `GettingStartedPanel.tsx`).
+6.  [x] **(Optional) Realtime Integration:**
+    *   [x] Enhance `useNotifications` hook with Supabase Realtime for instant new notification updates (INSERT events).
 7.  [ ] **QA & Testing:**
-    *   [ ] Thoroughly test the entire notification flow (creation, display, interaction, deep-linking).
+    *   [ ] Thoroughly test the entire notification flow (creation, display, interaction, deep-linking across various notification types).
     *   [ ] Test onboarding cues for new client users.
+    *   [ ] Verify all notification types deep-link to the correct pages.
+    *   [ ] Test dark mode UI for `NotificationsMenu` thoroughly after global CSS override fix.
 8.  [ ] **(Optional) Guided Tour Library:**
     *   [ ] Evaluate the need for a full guided tour (e.g., `react-joyride`) post-MVP launch of notifications. Implement if deemed necessary for user experience.
+
+**Troubleshooting & Refinements ([Current Date]):**
+*   [x] **API Authentication (401 Errors):**
+    *   Identified multiple Supabase client instances (client-side vs. API routes).
+    *   Standardized client-side Supabase client usage in `Header.tsx` (via `useAuth`) and `useNotifications.ts` (via shared `@/lib/api/client.ts`).
+    *   Resolved cookie strategy mismatch by migrating notification API routes (`/api/notifications/**`) from `@supabase/auth-helpers-nextjs` (expecting `sb-access-token`) to `@supabase/ssr` (using `supabase-auth-token` format via `createServerClient` and `nextCookies()` adapter from `src/lib/supabase/cookieAdapter.ts`). This fixed 401 errors.
+*   [x] **Edge Function `notify-project-stage`:**
+    *   Resolved initial 401s by ensuring webhook secret consistency (function secret vs. DB webhook header) and function redeployment after secret changes.
+    *   Corrected payload parsing: Changed from `record.client_id` to `record.user_id`.
+    *   Addressed issue where function exited early if `newStage === oldStage`; ensured genuine stage changes trigger notifications.
+    *   Updated link generation logic to include `projectType` (derived from `body.table`) resulting in links like `/client/projects/[projectType]/[id]` to fix 404 errors.
+*   [x] **UI - `NotificationsMenu.tsx`:**
+    *   Addressed dark mode hover issue where text became illegible. Applied `dark:` variants for hover background and text colors.
+    *   Applied a temporary workaround (`<style jsx global>`) to further address hover style issues caused by a global CSS override.
+    *   **TODO**: Remove temporary `<style jsx global>` workaround from `NotificationsMenu.tsx` once the conflicting global CSS rule (`.dark .bg-gray-50 { background-color: #000 !important; }`) is removed or refactored in the project's main stylesheets.
+*   [ ] **Realtime Updates for Status Changes:**
+    *   Consider enhancing `useNotifications` hook's Realtime subscription to also listen for `UPDATE` events on the `notifications` table (e.g., for `status` changes from 'unread' to 'read' initiated from other tabs/devices). Currently relies on SWR polling/revalidation for this.
+
+### Discovered During Work
+
+- [ ] **Database Migration for Notifications**: Generate and commit the SQL migration file for the `notifications` table, related RLS policies, and helper functions (`mark_notification_read`, `mark_all_notifications_read`, `notify_new_client` trigger) to `supabase/migrations/`. The schema currently exists live but is not tracked in version-controlled migrations.

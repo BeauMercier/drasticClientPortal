@@ -206,100 +206,111 @@ This creates `supabase/functions/notify-project-stage/index.ts`.
 Replace the generated boilerplate in `supabase/functions/notify-project-stage/index.ts` with:
 ```typescript
 // supabase/functions/notify-project-stage/index.ts
-// deno-lint-ignore-file no-explicit-any
-import { serve } from 'https://deno.land/x/sift@0.6.0/mod.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.5'
+// Follow this setup guide to integrate the Deno language server with your editor:
+// https://deno.land/manual/getting_started/setup_your_environment
+// This enables autocomplete, go to definition, etc.
 
-serve(async (req) => {
-  try {
-    // Supabase sends old & new rows as JSON
-    const payload = await req.json() as {
-      record: any
-      old_record: any
+/* eslint-disable no-console */
+/*  deno-lint-ignore-file no-explicit-any */
+
+/*
+  Edge-runtime typings (keeps Deno/VS Code happy)
+  https://jsr.io/@supabase/functions-js
+*/
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+
+// @deno-types="https://esm.sh/@supabase/supabase-js@2.42.3/dist/module/index.d.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.3";
+
+/*
+  Env vars expected (set via `supabase secrets set …`)
+
+  SUPABASE_URL
+  SUPABASE_SERVICE_ROLE_KEY
+  PROJECT_STAGE_WEBHOOK_SECRET   // optional but strongly recommended
+*/
+
+Deno.serve(async (req) => {
+  console.log("--- notify-project-stage INVOKED (v2) ---"); // Entry log with version
+
+  // ── 1. Optional shared-secret verification ───────────────────────────────
+  const SIGNING_SECRET = Deno.env.get("PROJECT_STAGE_WEBHOOK_SECRET");
+  if (SIGNING_SECRET) {
+    const incomingSecret = req.headers.get("x-webhook-secret");
+    if (incomingSecret !== SIGNING_SECRET) {
+      console.error("Webhook secret mismatch!");
+      return new Response("unauthorised", { status: 401 });
     }
-
-    const { record, old_record } = payload
-
-    // Safety checks
-    if (!record) return new Response('No record supplied', { status: 400 })
-    if (record.stage === old_record?.stage)
-      return new Response('Stage unchanged; no-op', { status: 200 })
-
-    // Init service-role client (has bypass RLS)
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
-
-    // Insert notification for the project's client
-    const { error } = await supabase.from('notifications').insert({
-      user_id: record.client_id, // Ensure this is the user_id from profiles table
-      title: `Project "${record.name}" moved to ${record.stage}`, // Adjust record.name if your column is different
-      message: 'Click to view the latest deliverables.',
-      link: `/client/projects/${record.id}`, // Adjust record.id if PK is different, and path if structure varies
-      type: 'info',
-      trigger_event: 'project_stage_updated'
-    })
-
-    if (error) throw error
-
-    return new Response('Notification inserted', { status: 200 })
-  } catch (err) {
-    console.error(err)
-    return new Response(String(err), { status: 500 })
+    console.log("Webhook secret VERIFIED.");
   }
-})
-```
-*Self-correction: Adjusted `record.name` to use `record.name` or `record.title` as per the previous version of the Edge Function code in this plan, and ensured `record.client_id` and `record.id` are mentioned as potentially needing adjustment to match the actual schema of the `projects` table.*
-The Edge function code in the user's latest message uses `record.name`. I will ensure the `NOTIFICATIONS_PLAN.MD` reflects the user's *latest* provided code for the Edge Function.
 
-```typescript
-// supabase/functions/notify-project-stage/index.ts
-// deno-lint-ignore-file no-explicit-any
-import { serve } from 'https://deno.land/x/sift@0.6.0/mod.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.5'
-
-serve(async (req) => {
+  // ── 2. Parse payload and derive information ─────────────────────────────
+  let body: any;
   try {
-    // Supabase sends old & new rows as JSON
-    const payload = await req.json() as {
-      record: any
-      old_record: any
-    }
-
-    const { record, old_record } = payload
-
-    // Safety checks
-    if (!record) return new Response('No record supplied', { status: 400 })
-    if (record.stage === old_record?.stage)
-      return new Response('Stage unchanged; no-op', { status: 200 })
-
-    // Init service-role client (has bypass RLS)
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
-
-    // Insert notification for the project's client
-    // Ensure record.client_id, record.name, record.stage, and record.id match your 'projects' table schema.
-    const { error } = await supabase.from('notifications').insert({
-      user_id: record.client_id,
-      title: `Project "${record.name}" moved to ${record.stage}`,
-      message: 'Click to view the latest deliverables.',
-      link: `/client/projects/${record.id}`,
-      type: 'info',
-      trigger_event: 'project_stage_updated'
-    })
-
-    if (error) throw error
-
-    return new Response('Notification inserted', { status: 200 })
-  } catch (err) {
-    console.error(err)
-    return new Response(String(err), { status: 500 })
+    body = await req.json();
+  } catch (e) {
+    console.error("Failed to parse JSON payload:", e);
+    return new Response("invalid json payload", { status: 400 });
   }
-})
+
+  if (!body.record || !body.table) {
+    console.error("Payload missing 'record' or 'table' field.");
+    return new Response("invalid payload structure", { status: 400 });
+  }
+
+  const newStage = body.record.current_stage ?? body.record.stage;
+  const oldStage = body.old_record?.current_stage ?? body.old_record?.stage;
+
+  if (newStage === oldStage) {
+    console.log("Stage unchanged. Exiting with 200 OK.");
+    return new Response("stage unchanged", { status: 200 });
+  }
+  
+  const projectTitle = body.record.title ?? body.record.name ?? "Project";
+  const userId = body.record.user_id; // Ensure this is the correct field for user ID in your projects table payload
+
+  if (!userId) {
+    console.error("Missing user_id in record (expected body.record.user_id).");
+    return new Response("missing user_id", { status: 400 });
+  }
+
+  // Derive projectType from the table name (e.g., "web_design_projects" -> "web-design")
+  const projectType = (body.table as string)
+    .replace('_projects', '')
+    .replaceAll('_', '-');
+
+  // Build the link
+  const link = `/client/projects/${projectType}/${body.record.id}`;
+  console.log('🚀 new notification link:', link); // For verification
+
+  // ── 3. Init service-role client  ──────────────────────────────────────────
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
+  // ── 4. Insert notification  ───────────────────────────────────────────────
+  const { error } = await supabase.from('notifications').insert({
+    user_id: userId,
+    type: 'info',
+    trigger_event: 'project_stage_updated',
+    title: `${projectType.replace('-', ' ')} stage updated`, 
+    message: `Your project "${projectTitle}" moved to ${newStage}.`,
+    link: link
+  });
+
+  if (error) {
+    console.error('⛔️ notification insert failed:', error);
+    return new Response('db error: ' + error.message, { status: 500 });
+  }
+
+  console.info(
+    `✅ notification sent → user ${userId} (project ${body.record.id}, type ${projectType}, stage ${newStage})`
+  );
+  return new Response('ok', { status: 200 });
+});
 ```
+*Self-correction: The previous version of the Edge Function code in this plan has been replaced with the latest working version. This version correctly derives `projectType` from `body.table` (e.g., `web_design_projects` becomes `web-design`) and constructs the link as `/client/projects/[projectType]/[projectId]`. It also includes improved logging.*
 
 **STEP 3 ‑ Add Environment Variables**
 Create/update `supabase/functions/.env`:
@@ -349,32 +360,29 @@ Note the returned HTTPS endpoint (e.g., `https://<ref>.functions.supabase.co/not
 **STEP 6 ‑ Test End-to-End**
 In the Supabase SQL editor:
 ```sql
--- Ensure a project row exists, then:
-update public.projects
-   set stage = 'SomeNewStage' -- Replace with an actual stage value
+-- Ensure a project row exists that your webhook is listening to (e.g., in web_design_projects), then:
+update public.web_design_projects -- Or your specific project table
+   set current_stage = 'SomeNewStageValue' -- Replace with an actual NEW stage value
  where id = '<your-project-id>'; -- Replace with an actual project ID
 
 -- Then query:
 select *
   from public.notifications
- where user_id = (select client_id from public.projects where id = '<your-project-id>') -- Replace project ID
+ where user_id = (select user_id from public.web_design_projects where id = '<your-project-id>') -- Adjust table and client_id/user_id field
  order by created_at desc
  limit 5;
 ```
-You should see a fresh "Project "XYZ" moved to SomeNewStage" notification.
-
-**STEP 7 ‑ Verify Front-End**
-(This step is performed after the frontend API routes and UI components are implemented - see sections 3 & 4 of this plan.)
-*   Run the app, log in as the client associated with the test project.
-*   Confirm the bell icon shows an unread notification.
-*   Clicking the notification navigates to the correct project page (e.g., `/client/projects/<id>`).
-*   Verify the notification status flips from unread to read after interaction (via API call).
+You should see a fresh notification. Check its `link` field.
 
 **TROUBLESHOOTING TIPS**
-*   **No notification inserted?** Check Edge Function logs: `supabase functions logs notify-project-stage --project-ref <ref>`
+*   **No notification inserted or 404 links?** 
+    *   Check Edge Function logs: `supabase functions logs notify-project-stage --project-ref <ref>`. Look for `--- notify-project-stage INVOKED (v2) ---` and `🚀 new notification link: ...`.
+    *   Ensure the latest version of the function is deployed (Supabase Dashboard > Edge Functions > notify-project-stage > Deployments).
+    *   Ensure the database webhook is pointing to the latest deployment (try editing and re-saving the webhook in Supabase Dashboard > Database > Webhooks).
+    *   Verify the webhook payload (`body` in the function) contains `body.table` (e.g., "web_design_projects") and `body.record.id` and `body.record.user_id`.
 *   **500 error in logs?** Verify `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets are correctly set for the function.
-*   **Webhook not firing or function not invoked?** Double-check the Webhook URL in the Supabase Dashboard and ensure the "Events" are correctly set to `UPDATE` on the `projects` table.
-*   **Stage updates firing notifications even if stage value didn't change?** Ensure the `if (record.stage === old_record?.stage)` guard is present and correct in the Edge Function.
+*   **Webhook not firing or function not invoked?** Double-check the Webhook URL in the Supabase Dashboard and ensure the "Events" are correctly set to `UPDATE` on the correct projects table.
+*   **Stage updates firing notifications even if stage value didn't change?** Ensure the `if (newStage === oldStage)` guard is present and correct in the Edge Function.
 
 This detailed guide from the user effectively replaces the previous placeholder for implementing the "project stage updated" notification.
 
@@ -382,15 +390,18 @@ This detailed guide from the user effectively replaces the previous placeholder 
 ## 3. NEXT.JS API ROUTES
 ────────────────────────────────────────
 
+**Note on Authentication:** These API routes have been updated to use `createServerClient` from `@supabase/ssr` along with a `nextCookies()` adapter (e.g., from `src/lib/supabase/cookieAdapter.ts`) instead of the originally planned `createRouteHandlerClient` from `@supabase/auth-helpers-nextjs`. This change was made to resolve authentication issues related to cookie handling differences between the client-side SSR Supabase client and the API route handlers.
+
 Directory: `src/app/api/notifications/`
 
 ### 3-a GET – list (with simple cursor pagination)
 
 File: `src/app/api/notifications/route.ts`
 ```typescript
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr' // Updated import
 import { type NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+// import { cookies } from 'next/headers' // nextCookies() adapter handles this
+import { nextCookies } from '@/lib/supabase/cookieAdapter' // Assuming this path
 
 export const dynamic = 'force-dynamic' // Ensures the route is not cached
 
@@ -399,8 +410,12 @@ export async function GET(req: NextRequest) {
   const rangeFrom = Number(url.searchParams.get('from') || 0)
   const rangeTo   = Number(url.searchParams.get('to')   || 19)   // default 20 rows
 
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+  // const cookieStore = cookies() // Replaced by nextCookies()
+  const supabase = createServerClient( // Updated client creation
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: nextCookies() }
+  )
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -410,7 +425,7 @@ export async function GET(req: NextRequest) {
   const { data, error, count } = await supabase
         .from('notifications')
         .select('*', { count: 'exact' })
-        .eq('user_id', user.id) // Ensure only fetching for the authenticated user
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .range(rangeFrom, rangeTo)
 
@@ -418,8 +433,7 @@ export async function GET(req: NextRequest) {
     console.error('Error fetching notifications:', error)
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
-  // Consider returning count for pagination UI
-  return NextResponse.json({ data, count })
+  return NextResponse.json({ data, count }) // Return count for pagination
 }
 ```
 
@@ -427,9 +441,10 @@ export async function GET(req: NextRequest) {
 
 File: `src/app/api/notifications/[id]/read/route.ts`
 ```typescript
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr' // Updated import
 import { type NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+// import { cookies } from 'next/headers'
+import { nextCookies } from '@/lib/supabase/cookieAdapter' // Assuming this path
 
 export const dynamic = 'force-dynamic'
 
@@ -437,16 +452,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!params.id) {
     return NextResponse.json({ error: 'Notification ID is required' }, { status: 400 })
   }
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+  // const cookieStore = cookies()
+  const supabase = createServerClient( // Updated client creation
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: nextCookies() }
+  )
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Important: Ensure the user calling this owns the notification.
-  // The RLS policy on public.notifications and the DB function mark_notification_read should handle this.
   const { error } = await supabase.rpc('mark_notification_read', { _nid: params.id })
 
   if (error) {
@@ -461,22 +478,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
 File: `src/app/api/notifications/read-all/route.ts`
 ```typescript
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr' // Updated import
 import { type NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+// import { cookies } from 'next/headers'
+import { nextCookies } from '@/lib/supabase/cookieAdapter' // Assuming this path
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+  // const cookieStore = cookies()
+  const supabase = createServerClient( // Updated client creation
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: nextCookies() }
+  )
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // The RLS policy on public.notifications and the DB function mark_all_notifications_read should handle this.
   const { error } = await supabase.rpc('mark_all_notifications_read')
 
   if (error) {
@@ -496,9 +517,10 @@ export async function POST(req: NextRequest) {
 File: `src/hooks/useNotifications.ts` (or `src/features/notifications/hooks/useNotifications.ts`)
 ```typescript
 import useSWR, { KeyedMutator } from 'swr'
-import { createClientComponentClient, User } from '@supabase/auth-helpers-nextjs'
-import { useEffect } from 'react'
-import { useAuth } from '@/features/auth/contexts/AuthContext' // Assuming you have AuthContext
+// import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'; // Replaced
+import supabase from '@/lib/api/client'; // Use the shared SSR-compatible client
+import { useEffect } from 'react';
+import { useAuth } from '@/features/auth'; // Assuming useAuth provides the user
 
 // Define your Notification type based on the table structure
 export interface Notification {
@@ -519,55 +541,125 @@ interface UseNotificationsReturn {
   unreadCount: number;
   error: any;
   isLoading: boolean;
-  mutateNotifications: KeyedMutator<Notification[]>;
+  mutateNotifications: KeyedMutator<{ data: Notification[], count: number }>; // SWR data includes count
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  hasActionableNotification: (linkPath: string) => boolean; // Added for UI cues
 }
 
-const fetcher = async (url: string, supabaseClient: any) => {
-  const { data, error } = await supabaseClient.from('notifications')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50) // Or make limit configurable / paginated
-  if (error) throw error
-  return data as Notification[]
-}
+// Fetcher now expects to hit the Next.js API route
+const fetcher = async (url: string) => {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Fetcher error response:", errorText);
+    throw new Error(errorText || 'Error fetching notifications');
+  }
+  return res.json(); // API returns { data: Notification[], count: number }
+};
 
 export function useNotifications(): UseNotificationsReturn {
-  const supabase = createClientComponentClient()
-  const { user } = useAuth() // Get user from AuthContext
+  // const supabaseAuthHelperClient = createClientComponentClient(); // This line is replaced
+  const { user } = useAuth();
 
-  const { data: notifications, error, isLoading, mutate } = useSWR<Notification[]>(
-    user ? 'notifications' : null, // Only fetch if user is available
-    (key) => fetcher(key, supabase),
+  // SWR key is now the API endpoint
+  const swrKey = user ? `/api/notifications?from=0&to=49` : null; // Fetches first 50
+
+  const { data: apiResponse, error, isLoading, mutate } = useSWR<{ data: Notification[], count: number }>(
+    swrKey,
+    fetcher, // fetcher doesn't need supabase client passed directly anymore
     {
-      refreshInterval: 60_000, // Poll once a minute
-      // revalidateOnFocus: true, // Optional: revalidate on window focus
+      refreshInterval: 60_000,
     }
-  )
+  );
 
-  const unreadCount = notifications?.filter(n => n.status === 'unread').length ?? 0
+  const notifications = apiResponse?.data;
+  const unreadCount = notifications?.filter(n => n.status === 'unread').length ?? 0;
+
+  const hasActionableNotification = (linkPath: string): boolean => {
+    if (!notifications) return false;
+    return notifications.some(
+      n => n.status === 'unread' && n.type === 'action_required' && n.link === linkPath
+    );
+  };
 
   const markAsRead = async (notificationId: string) => {
     try {
-      await fetch(`/api/notifications/${notificationId}/read`, { method: 'POST' })
-      mutate(notifications?.map(n => n.id === notificationId ? { ...n, status: 'read' } : n), false)
+      await fetch(`/api/notifications/${notificationId}/read`, { method: 'POST' });
+      mutate(current => { // Optimistic update
+        if (!current || !current.data) return current;
+        return {
+          ...current,
+          data: current.data.map(n =>
+            n.id === notificationId
+              ? { ...n, status: 'read' as const, read_at: new Date().toISOString() }
+              : n
+          )
+        };
+      }, false);
     } catch (e) {
-      console.error("Failed to mark notification as read", e)
+      console.error("Failed to mark notification as read", e);
     }
-  }
+  };
 
   const markAllAsRead = async () => {
-     try {
-      await fetch('/api/notifications/read-all', { method: 'POST' })
-      mutate(notifications?.map(n => ({ ...n, status: 'read' })), false)
+    try {
+      await fetch('/api/notifications/read-all', { method: 'POST' });
+      mutate(current => { // Optimistic update
+        if (!current || !current.data) return current;
+        return {
+          ...current,
+          data: current.data.map(n => n.status === 'unread' ? { ...n, status: 'read', read_at: new Date().toISOString() } : n)
+        };
+      }, false);
     } catch (e) {
-      console.error("Failed to mark all notifications as read", e)
+      console.error("Failed to mark all notifications as read", e);
     }
-  }
+  };
+  
+  // Realtime listener (using the imported shared supabase client)
+  useEffect(() => {
+    if (!user || !supabase) return; // Ensure supabase client is available
 
-  // Optional: Realtime listener (see section 6)
-  // Remember to handle user context for the channel name if using realtime
+    const channel = supabase.channel(`notifications_user_${user.id}`)
+      .on<Notification>(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          mutate((currentData) => {
+            if (!currentData) return { data: [payload.new].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()), count: 1 };
+            if (currentData.data.find(n => n.id === payload.new.id)) {
+                return currentData; // Avoid duplicates
+            }
+            return {
+              data: [payload.new, ...currentData.data].sort(
+                (a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              ),
+              count: (currentData.count || 0) + 1
+            };
+          }, false);
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          // console.log('Subscribed to notifications channel!');
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Realtime Channel Error:', err);
+        }
+        // ... other status checks
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, supabase, mutate]);
+
 
   return {
     notifications,
@@ -577,7 +669,8 @@ export function useNotifications(): UseNotificationsReturn {
     mutateNotifications: mutate,
     markAsRead,
     markAllAsRead,
-  }
+    hasActionableNotification, // Added
+  };
 }
 ```
 
@@ -757,9 +850,10 @@ export function useNotifications(): UseNotificationsReturn {
 
   const { data: notifications, error, isLoading, mutate } = useSWR<Notification[]>(
     SWR_KEY,
-    (key) => fetcher(key, supabase), // fetcher needs to be adapted if key changes
+    (key) => fetcher(key, supabase),
     {
-      refreshInterval: 60_000, // Keep polling as a fallback or remove if realtime is robust
+      refreshInterval: 60_000, // Poll once a minute
+      // revalidateOnFocus: true, // Optional: revalidate on window focus
     }
   )
 
@@ -806,18 +900,18 @@ export function useNotifications(): UseNotificationsReturn {
     };
   }, [user, supabase, mutate]); // Add user, supabase, mutate to dependency array
 
-  const unreadCount = notifications?.filter(n => n.status === 'unread').length ?? 0;
+  const unreadCount = notifications?.filter(n => n.status === 'unread').length ?? 0
 
   const markAsRead = async (notificationId: string) => {
     // ... (implementation as before)
     // Optimistically update local state
-    mutate(notifications?.map(n => n.id === notificationId ? { ...n, status: 'read', read_at: new Date().toISOString() } : n), false);
+    mutate(notifications?.map(n => n.id === notificationId ? { ...n, status: 'read', read_at: new Date().toISOString() } : n), false)
   };
 
   const markAllAsRead = async () => {
     // ... (implementation as before)
     // Optimistically update local state
-    mutate(notifications?.map(n => n.status === 'unread' ? { ...n, status: 'read', read_at: new Date().toISOString() } : n), false);
+    mutate(notifications?.map(n => n.status === 'unread' ? { ...n, status: 'read', read_at: new Date().toISOString() } : n), false)
   };
 
   return {
@@ -828,7 +922,7 @@ export function useNotifications(): UseNotificationsReturn {
     mutateNotifications: mutate,
     markAsRead,
     markAllAsRead,
-  };
+  }
 }
 ```
 

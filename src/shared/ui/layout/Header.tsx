@@ -10,44 +10,19 @@
 import React, { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/features/auth';
-import { BellIcon, Bars3Icon } from '@heroicons/react/24/outline';
-import { supabase } from '@/lib/api';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeToggle } from '../atoms';
 import { useUI } from '@/shared/contexts/UIContext';
+import NotificationsMenu from './Header/NotificationsMenu';
 
 export default function Header() {
   const { user } = useAuth();
   const { toggleSidebar } = useUI();
   const pathname = usePathname();
   const router = useRouter();
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
-
-  // Fetch user profile to get avatar URL
-  useEffect(() => {
-    async function loadProfile() {
-      if (!user?.id) return;
-      
-      try {
-        const { data } = await supabase
-          .from('profiles')
-          .select('avatar_url')
-          .eq('id', user.id)
-          .single();
-        
-        if (data?.avatar_url) {
-          setUserAvatarUrl(data.avatar_url);
-        }
-      } catch (error) {
-        console.error('Error loading user profile:', error);
-      }
-    }
-    
-    loadProfile();
-  }, [user?.id]);
 
   // Get page title based on current path
   const getPageTitle = () => {
@@ -145,7 +120,8 @@ export default function Header() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const { logout } = useAuth();
+    await logout();
     router.push('/');
   };
 
@@ -227,62 +203,7 @@ export default function Header() {
           <ThemeToggle />
           
           {/* Notifications */}
-          <div className="relative">
-            <button
-              className="p-2 rounded-full hover:bg-gray-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500"
-              onClick={() => {
-                setShowNotifications(!showNotifications);
-                if (showProfile) setShowProfile(false);
-              }}
-              aria-label="Notifications"
-            >
-              <BellIcon className="h-6 w-6 text-gray-300" />
-              <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                3
-              </span>
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-black rounded-lg shadow-xl border border-gray-900 z-10 overflow-hidden">
-                <div className="p-4 border-b border-gray-900 flex justify-between items-center">
-                  <h3 className="text-lg font-semibold text-white">Notifications</h3>
-                  <div className="bg-red-900 text-red-100 text-xs font-medium px-2.5 py-0.5 rounded-full">3 new</div>
-                </div>
-                <div className="max-h-96 overflow-y-auto">
-                  <div className="p-4 border-b border-gray-900 hover:bg-gray-900 transition-colors cursor-pointer">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 bg-red-900 rounded-full p-2 mr-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-100" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                          <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white">New message from support</p>
-                        <p className="text-xs text-gray-400 mt-1">2 minutes ago</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-4 border-b border-gray-900 hover:bg-gray-900 transition-colors cursor-pointer">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0 bg-green-900 rounded-full p-2 mr-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-100" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white">Your invoice is ready</p>
-                        <p className="text-xs text-gray-400 mt-1">1 hour ago</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-3 text-center border-t border-gray-900 bg-black">
-                  <Link href="/notifications" className="text-sm text-red-400 hover:underline">View all notifications</Link>
-                </div>
-              </div>
-            )}
-          </div>
+          <NotificationsMenu />
 
           {/* User Profile */}
           <div className="relative">
@@ -290,14 +211,13 @@ export default function Header() {
               className="flex items-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black focus:ring-white rounded-full"
               onClick={() => {
                 setShowProfile(!showProfile);
-                if (showNotifications) setShowNotifications(false);
               }}
             >
               <span className="sr-only">Open user menu</span>
-              {userAvatarUrl ? (
+              {user?.avatar_url ? (
                 <Image
                   className="h-8 w-8 rounded-full object-cover"
-                  src={userAvatarUrl} 
+                  src={user.avatar_url} 
                   alt="User avatar"
                   width={32}
                   height={32}

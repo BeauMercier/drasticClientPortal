@@ -18,7 +18,7 @@ import { useUI } from '@/shared/contexts/UIContext';
 import NotificationsMenu from './Header/NotificationsMenu';
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user, logout: authLogout } = useAuth();
   const { toggleSidebar } = useUI();
   const pathname = usePathname();
   const router = useRouter();
@@ -120,8 +120,7 @@ export default function Header() {
   };
 
   const handleLogout = async () => {
-    const { logout } = useAuth();
-    await logout();
+    await authLogout();
     router.push('/');
   };
 
@@ -236,11 +235,8 @@ export default function Header() {
                   <div className="text-xs text-gray-400 truncate">{user?.email}</div>
                 </div>
                 <div className="py-1">
-                  <Link href="/settings/profile" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-900">
-                    Profile Settings
-                  </Link>
-                  <Link href="/billing" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-900">
-                    Billing
+                  <Link href="/client/my-profile" className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-900">
+                    My Profile
                   </Link>
                   <button
                     onClick={handleLogout}

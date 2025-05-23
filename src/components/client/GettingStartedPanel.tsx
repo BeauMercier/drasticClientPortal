@@ -1,31 +1,59 @@
 import Link from 'next/link';
-import { Notification } from '@/hooks/useNotifications'; // Assuming Notification type is exported
+import { useNotifications, Notification } from '@/hooks/useNotifications'; // Assuming Notification type is exported
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
+import { Bell } from 'lucide-react'; // Added Bell import
 
 interface GettingStartedPanelProps {
-  actionableNotifications: Notification[];
+  actionable: Notification[]; // Changed prop name
 }
 
-export default function GettingStartedPanel({ actionableNotifications }: GettingStartedPanelProps) {
-  if (!actionableNotifications || actionableNotifications.length === 0) {
+export default function GettingStartedPanel({ actionable }: GettingStartedPanelProps) { // Changed prop name
+  const { markAsRead } = useNotifications(); // Get markAsRead from the hook
+
+  if (!actionable || actionable.length === 0) { // Changed prop name
     return null;
   }
 
+  const handleNotificationClick = async (notification: Notification) => {
+    if (notification.status === 'unread') {
+      await markAsRead(notification.id);
+    }
+  };
+
   return (
-    <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">Getting Started</h2>
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
+      <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">
+        Getting started
+      </h2>
+
       <ul className="space-y-3">
-        {actionableNotifications.map((notification) => (
-          <li key={notification.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors">
-            <div>
-              <p className="font-medium text-gray-700">{notification.title}</p>
-              <p className="text-sm text-gray-500">{notification.message}</p>
+        {actionable.map((n) => (
+          <li
+            key={n.id}
+            className="
+              flex items-start gap-3 rounded-md p-4
+              bg-blue-100 hover:bg-blue-200
+              dark:!bg-blue-800-70 dark:hover:!bg-blue-700-70
+            "
+          >
+            <Bell className="mt-1 shrink-0 h-5 w-5 text-blue-600 dark:text-blue-400" />
+
+            <div className="flex-1 dark:bg-transparent">
+              <p className="font-medium text-gray-700 dark:!text-gray-100">
+                {n.title}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-300">
+                {n.message}{' '}
+                <Link
+                  href={n.link ?? '/profile'}
+                  onClick={() => handleNotificationClick(n)}
+                  className="font-medium text-blue-600 hover:text-blue-800
+                             dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  Finish&nbsp;now&nbsp;→
+                </Link>
+              </p>
             </div>
-            {notification.link && (
-              <Link href={notification.link} className="ml-4 p-2 text-blue-600 hover:text-blue-800">
-                <ArrowRightIcon className="h-5 w-5" />
-              </Link>
-            )}
           </li>
         ))}
       </ul>

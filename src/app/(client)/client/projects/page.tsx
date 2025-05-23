@@ -146,7 +146,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Support section */}
-        <div className="mt-16 bg-gray-50 dark:bg-gray-800 rounded-xl p-6 text-center">
+        {/* <div className="mt-16 bg-gray-50 dark:bg-gray-800 rounded-xl p-6 text-center">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Need help or want to start a new project?</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Contact our support team to discuss your requirements or request a new design project.
@@ -159,7 +159,7 @@ export default function ProjectsPage() {
           >
             Contact Support
           </a>
-        </div>
+        </div> */}
       </div>
     </div>
   );

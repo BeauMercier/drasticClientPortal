@@ -185,9 +185,9 @@ export default function ClientDashboardPage() {
       </header>
 
       {/* Getting Started Panel */}
-      {!isLoadingNotifications && actionableNotifications.length > 0 && (
-        <GettingStartedPanel actionableNotifications={actionableNotifications} />
-      )}
+      {/* {!isLoadingNotifications && actionableNotifications.length > 0 && (
+        <GettingStartedPanel actionable={actionableNotifications} />
+      )} */}
 
       {/* Active Projects Section */}
       <section>

@@ -7,6 +7,7 @@ import { Button, Card } from '../../shared/ui';
 import { useAuthContext } from '@/features/auth/contexts/AuthContext';
 import { getUserProfile } from '@/lib/api/client-api';
 import { UserRole } from '@/features/auth/types';
+import { roleBasePaths } from '@/lib/config/auth-config';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -16,69 +17,64 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, isLoading: authIsLoading, error: authContextError } = useAuthContext();
 
-  // On component mount OR when auth state changes, check if already logged in
   useEffect(() => {
-    // Wait for AuthContext to finish loading
     if (authIsLoading) {
-      return; 
+      return;
     }
-
-    // Check for errors from AuthContext initialization
     if (authContextError) {
       console.error("AuthContext Error:", authContextError);
       return;
     }
 
-    // If loading is finished and user exists, fetch profile and redirect
-    if (user) {
-      const handleRedirect = async () => {
-        try {
-          console.log('User authenticated, fetching profile for redirect...');
-          const profile = await getUserProfile();
-          const role = profile?.role as UserRole; // Assuming role is directly on profile
-          console.log('User role determined as:', role);
-
-          let targetPath = '/'; // Default path
-          switch (role) {
-            case 'admin':
-              targetPath = '/admin'; // Or specific admin dashboard like /admin/dashboard
-              break;
-            case 'designer':
-              targetPath = '/designer'; // Or specific designer dashboard
-              break;
-            case 'client':
-              targetPath = '/client'; // Or specific client dashboard
-              break;
-            // Add other roles like 'partner' if necessary
-            default:
-              console.warn(`Unknown or missing role: ${role}, redirecting to default.`);
-              // Decide on a sensible default, maybe client dashboard or root
-              targetPath = '/client'; // Example: Default to client dashboard
-          }
-
-          // Check for redirectedFrom query parameter (optional, might override role-based redirect)
-          const redirectedFrom = new URLSearchParams(window.location.search).get('redirectedFrom');
-          if (redirectedFrom) {
-              console.log(`Redirecting to query parameter: ${redirectedFrom}`);
-              router.push(redirectedFrom);
-          } else {
-              console.log(`Redirecting based on role to: ${targetPath}`);
-              router.push(targetPath); 
-          }
-
-        } catch (error) {
-          console.error('Failed to fetch user profile for redirect:', error);
-          // Handle error - maybe redirect to a generic dashboard or show an error
-          setLoginError('Could not determine user role. Redirecting to default page.');
-          router.push('/'); // Fallback redirect
-        }
-      };
-
-      handleRedirect();
+    if (user) { // user is from useAuthContext(), user.role should be reliable now
+      console.log(`Login page: User authenticated. Role from AuthContext: ${user.role}`);
       
-    } 
-    
-  }, [user, authIsLoading, authContextError, router]); // Depend on context state and router
+      const role = user.role; // Use role from AuthContext
+
+      // If the user's role is 'guest' and they are on the login page,
+      // do not redirect them away from login. Let them stay.
+      if (role === 'guest' && window.location.pathname.startsWith('/login')) {
+        console.log('Login page: User role is "guest". No redirect from login page.');
+        return; 
+      }
+
+      let targetPath = '/'; // Default path if no specific role match for dashboard
+
+      switch (role) {
+        case 'admin':
+          targetPath = '/admin';
+          break;
+        case 'designer':
+          targetPath = '/designer';
+          break;
+        case 'client':
+          targetPath = '/client';
+          break;
+        case 'partner': 
+          targetPath = roleBasePaths.partner || '/'; 
+          break;
+        case 'guest':
+          console.log('Login page effect: User role is "guest". Setting target to homepage.');
+          targetPath = '/'; 
+          break;
+        default:
+          console.warn(`Login page effect: Unknown or unhandled role: "${role}". Redirecting to homepage.`);
+          targetPath = '/'; 
+      }
+
+      const redirectedFrom = new URLSearchParams(window.location.search).get('redirectedFrom');
+      
+      if (redirectedFrom && redirectedFrom !== window.location.pathname) {
+          console.log(`Login page: Redirecting to query parameter: ${redirectedFrom}`);
+          router.replace(redirectedFrom);
+      } else if (targetPath !== window.location.pathname) {
+          console.log(`Login page: Redirecting based on role "${role}" to: ${targetPath}`);
+          router.replace(targetPath); 
+      } else {
+          console.log(`Login page: User (${role}) already on target path or no redirect needed (${window.location.pathname}).`);
+      }
+    }
+  }, [user, authIsLoading, authContextError, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

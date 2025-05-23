@@ -27,6 +27,12 @@ import { Session as SupabaseSession, User as SupabaseUser } from '@supabase/supa
 import { validateEnv } from '@/lib/env';
 // import { handleRefreshTokenError } from '@/lib/supabase/auth-helpers';
 
+// Helper function to check if a string is a valid UserRole (moved/duplicated here for self-containment)
+function isValidUserRole(role: string | undefined | null): role is UserRole {
+  if (!role) return false;
+  return ['admin', 'designer', 'client', 'guest', 'partner'].includes(role);
+}
+
 // --- Helper Function to Map Supabase Session/User to Local Types ---
 const mapSupabaseSessionToLocal = (
   supabaseSession: SupabaseSession | null,
@@ -39,31 +45,36 @@ const mapSupabaseSessionToLocal = (
   }
 
   const supabaseUser: SupabaseUser = supabaseSession.user;
-  console.log('[AuthContext] mapSupabaseSessionToLocal: Received supabaseUser:', JSON.parse(JSON.stringify(supabaseUser))); // Deep copy for logging
+  console.log('[AuthContext] mapSupabaseSessionToLocal: Received supabaseUser:', JSON.parse(JSON.stringify(supabaseUser)));
 
-  // --- Throw error if email is missing --- 
   if (!supabaseUser.email) {
-    // In a real app, consider throwing a specific error type
     throw new Error('Supabase user object missing email.');
   }
-  // --- Email is guaranteed to be a string after this point ---
 
-  // Extract role safely, defaulting to 'client'
-  let userRole: UserRole = 'client';
-  const appMetaRole = supabaseUser.app_metadata?.role;
-  const userMetaRole = supabaseUser.user_metadata?.role; // Check user_metadata as well
-  const topLevelRole = supabaseUser.role;
+  // Extract role safely
+  let determinedUserRole: UserRole | undefined = undefined; 
+  const appMetaRole = supabaseUser.app_metadata?.role as UserRole | undefined; 
+  const userMetaRole = supabaseUser.user_metadata?.role as UserRole | undefined;
 
-  console.log('[AuthContext] mapSupabaseSessionToLocal - Roles found: appMetaRole:', appMetaRole, 'userMetaRole:', userMetaRole, 'topLevelRole:', topLevelRole);
+  console.log('[AuthContext] mapSupabaseSessionToLocal - Roles found: appMetaRole:', appMetaRole, 'userMetaRole:', userMetaRole);
 
-  if (appMetaRole && typeof appMetaRole === 'string' && ['admin', 'designer', 'client', 'partner'].includes(appMetaRole)) {
-    userRole = appMetaRole as UserRole;
-  } else if (userMetaRole && typeof userMetaRole === 'string' && ['admin', 'designer', 'client', 'partner'].includes(userMetaRole)) {
-    userRole = userMetaRole as UserRole; // Use userMetaRole if appMetaRole is not valid
-  } else if (topLevelRole && typeof topLevelRole === 'string' && ['admin', 'designer', 'client', 'partner'].includes(topLevelRole)) {
-    userRole = topLevelRole as UserRole;
+  // Priority 1: app_metadata.role 
+  if (appMetaRole && isValidUserRole(appMetaRole)) { 
+    determinedUserRole = appMetaRole;
+  } 
+  // Priority 2: user_metadata.role 
+  else if (userMetaRole && isValidUserRole(userMetaRole)) {
+    determinedUserRole = userMetaRole;
+    console.warn(`[AuthContext] Used role from user_metadata ('${userMetaRole}') as app_metadata.role was invalid or missing.`);
   }
-  console.log('[AuthContext] mapSupabaseSessionToLocal - Determined userRole:', userRole);
+  
+  // Fallback if no valid role is found in metadata
+  if (!determinedUserRole) {
+    console.warn(`[AuthContext] No valid role found in app_metadata or user_metadata. Defaulting to 'guest'. Supabase user role: ${supabaseUser.role}`);
+    determinedUserRole = 'guest'; 
+  }
+
+  console.log('[AuthContext] mapSupabaseSessionToLocal - Determined userRole:', determinedUserRole);
 
   let resolvedAvatarUrl = supabaseUser.user_metadata?.avatar_url;
 
@@ -83,8 +94,8 @@ const mapSupabaseSessionToLocal = (
   // Construct the local User object
   const localUser: User = {
     id: supabaseUser.id,
-    email: supabaseUser.email, // Known string
-    role: userRole,
+    email: supabaseUser.email, 
+    role: determinedUserRole, // Use the clearly determined role
     full_name: supabaseUser.user_metadata?.full_name || undefined,
     avatar_url: resolvedAvatarUrl || undefined,
     metadata: { ...supabaseUser.app_metadata, ...supabaseUser.user_metadata },

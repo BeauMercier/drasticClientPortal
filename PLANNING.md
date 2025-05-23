@@ -23,7 +23,8 @@
 - **Styling:** Tailwind CSS
 - **UI Components:** shadcn/ui (some custom, see notes below)
 - **Authentication:** Supabase
-    - Note: Server-side authentication in Next.js API routes (e.g., for notifications) has been standardized to use `@supabase/ssr` (specifically `createServerClient` with a `cookies()` adapter) to ensure consistent session handling with the client-side, replacing earlier use of `@supabase/auth-helpers-nextjs` in some areas.
+    - Note on API Route Auth: Server-side authentication in Next.js API routes (e.g., for notifications) has been standardized to use `@supabase/ssr` (specifically `createServerClient` with a `cookies()` adapter) to ensure consistent session handling with the client-side, replacing earlier use of `@supabase/auth-helpers-nextjs` in some areas.
+    - Note on Middleware Role Handling: User roles, originating from `public.profiles.role`, are synchronized to `auth.users.raw_app_meta_data.role` via database triggers. The Next.js middleware (`src/middleware.ts`) leverages this by reading the role directly from the JWT (`user.app_metadata.role`), enabling synchronous and robust role-based routing decisions.
 - **State Management:** React Context API (e.g., `UIContext`, `AuthContext`)
 - **Database:** Supabase (Database, Auth, Storage)
 
@@ -91,7 +92,7 @@
     - `contexts/`: Shared React contexts (e.g., `UIContext`, `AuthContext`).
     - `ui/`: Shared UI components (atoms, molecules).
 - `src/styles/`: Global styles.
-- `src/middleware.ts`: Handles authentication (cookie domain pinning, Supabase client init), route protection, and role-based redirects (using `auth-config.ts`).
+- `src/middleware.ts`: Handles authentication (cookie domain pinning, Supabase client init), route protection, and role-based redirects. It uses the user's role from the JWT (`user.app_metadata.role`, synced from `public.profiles`) for synchronous routing decisions. Manages access to public paths (e.g., `/login`, `/register`, root `/`) and protected role-specific dashboards (e.g., `/client`, `/admin`).
 
 ## UI Components
 

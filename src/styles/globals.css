@@ -107,10 +107,15 @@ input[type="password"] {
   background-color: #000000 !important;
 }
 
-.dark .bg-gray-50 {
+/* OLD – this forces EVERYTHING that happens to have bg-gray-50
+   to turn jet-black in dark mode, even tiny dropdown rows 🚨 */
+/* .dark .bg-gray-50 {
   @apply bg-black;
   background-color: #000000 !important;
-}
+} */
+
+/* NEW – limit the override to components that really need it */
+.dark .override-gray50-dark { background-color: #000 !important; }
 
 .dark .bg-gray-100 {
   @apply bg-black;

@@ -7,6 +7,7 @@ import { reportEnvValidation } from '@/lib/env';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import EnvFallback from '@/components/EnvFallback';
 import type { Metadata } from "next";
+import { ThemeProvider } from "@/components/theme/theme-provider";
 // import { Inter } from "next/font/google";
 
 // Validate environment variables during server rendering
@@ -35,20 +36,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full">
-      <body className="h-full">
-        <ToastProvider>
-          <UIProvider>
-            <AuthProvider>
-              <ErrorBoundary>
-                <>
-                  <EnvFallback />
-                  {children}
-                </>
-              </ErrorBoundary>
-            </AuthProvider>
-          </UIProvider>
-        </ToastProvider>
+    <html lang="en" className="h-full" suppressHydrationWarning>
+      <body className="h-full bg-background text-foreground antialiased">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <ToastProvider>
+            <UIProvider>
+              <AuthProvider>
+                <ErrorBoundary>
+                  <>
+                    <EnvFallback />
+                    {children}
+                  </>
+                </ErrorBoundary>
+              </AuthProvider>
+            </UIProvider>
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

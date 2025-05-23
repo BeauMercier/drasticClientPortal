@@ -380,9 +380,12 @@ You should see a fresh notification. Check its `link` field.
     *   Ensure the latest version of the function is deployed (Supabase Dashboard > Edge Functions > notify-project-stage > Deployments).
     *   Ensure the database webhook is pointing to the latest deployment (try editing and re-saving the webhook in Supabase Dashboard > Database > Webhooks).
     *   Verify the webhook payload (`body` in the function) contains `body.table` (e.g., "web_design_projects") and `body.record.id` and `body.record.user_id`.
+*   **Error: `column "content" of relation "notifications" does not exist` (or similar column errors during notification creation)?**
+    *   This indicates that a database function or trigger attempting to insert into `public.notifications` is using an incorrect column name (e.g., `content` instead of `message`).
+    *   Verify the live definition of any trigger functions associated with `public.profiles` (especially `AFTER INSERT` or `AFTER UPDATE OF role` triggers) or other tables that might create notifications.
+    *   Ensure the function code matches the planned schema, which uses `message` for notification text, not `content`.
+    *   Forcefully re-applying the correct function definition using `CREATE OR REPLACE FUNCTION ...` in the Supabase SQL Editor can resolve discrepancies between the live database and migration files/plans.
 *   **500 error in logs?** Verify `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets are correctly set for the function.
-*   **Webhook not firing or function not invoked?** Double-check the Webhook URL in the Supabase Dashboard and ensure the "Events" are correctly set to `UPDATE` on the correct projects table.
-*   **Stage updates firing notifications even if stage value didn't change?** Ensure the `if (newStage === oldStage)` guard is present and correct in the Edge Function.
 
 This detailed guide from the user effectively replaces the previous placeholder for implementing the "project stage updated" notification.
 
@@ -940,21 +943,22 @@ If analytics show users still miss steps after implementing the notification-bas
 ## 8. IMPLEMENTATION CHECKLIST (IN ORDER)
 ────────────────────────────────────────
 
-1.  [ ] **Database:** Create migration for `notifications` table, RLS, and helper functions. Run `supabase db push` (or `supabase migration up` if using versioned migrations locally).
-2.  [ ] **Triggers/Functions (Server-Side):**
-    *   [ ] Add SQL trigger for new client welcome & profile completion notifications.
-    *   [ ] Build and deploy Supabase Edge Function (or SQL trigger) for project stage update notifications. Configure DB Webhook if using Edge Function.
-3.  [ ] **API Routes (Next.js):**
-    *   [ ] Implement `GET /api/notifications` (list notifications).
-    *   [ ] Implement `POST /api/notifications/[id]/read` (mark one read).
-    *   [ ] Implement `POST /api/notifications/read-all` (mark all read).
-4.  [ ] **Frontend Hook & Component:**
-    *   [ ] Create `useNotifications` hook.
-    *   [ ] Implement/replace `NotificationsMenu.tsx` component.
-5.  [ ] **UI Cues (Soft Walkthrough):**
-    *   [ ] Add sidebar badges for pending actions (e.g., profile completion).
-    *   [ ] Implement "Getting Started" card on the client dashboard.
-6.  [ ] **(Optional) Realtime:** Integrate Supabase Realtime into `useNotifications` hook.
+1.  [x] **Database:** Create migration for `notifications` table, RLS, and helper functions. Run `supabase db push` (or `supabase migration up` if using versioned migrations locally).
+    *   _Note: This involved several iterations, including a local migration reset and manual creation/correction of specific migration files for the `notify_new_client` trigger/function and `sync_role_to_app_meta` trigger/function to ensure they match the live database and intended functionality._
+2.  [x] **Triggers/Functions (Server-Side):**
+    *   [x] Add SQL trigger for new client welcome & profile completion notifications (e.g., `tg_notify_new_client_insert` and `tg_notify_new_client_role` calling `notify_new_client()`). Ensure function definition is correct on live DB.
+    *   [x] Build and deploy Supabase Edge Function (or SQL trigger) for project stage update notifications. Configure DB Webhook if using Edge Function.
+3.  [x] **API Routes (Next.js):**
+    *   [x] Implement `GET /api/notifications` (list notifications).
+    *   [x] Implement `POST /api/notifications/[id]/read` (mark one read).
+    *   [x] Implement `POST /api/notifications/read-all` (mark all read).
+4.  [x] **Frontend Hook & Component:**
+    *   [x] Create `useNotifications` hook.
+    *   [x] Implement/replace `NotificationsMenu.tsx` component.
+5.  [x] **UI Cues (Soft Walkthrough):**
+    *   [x] Add sidebar badges for pending actions (e.g., profile completion).
+    *   [x] Implement "Getting Started" card on the client dashboard.
+6.  [x] **(Optional) Realtime:** Integrate Supabase Realtime into `useNotifications` hook.
 7.  [ ] **QA & Testing:**
     *   [ ] Test with a fresh client user account.
     *   [ ] Verify new user notifications (welcome, complete profile).

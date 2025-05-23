@@ -5,6 +5,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { BellIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { useNotifications, Notification } from '@/hooks/useNotifications'
+import clsx from 'clsx'
 
 /**
  * Component for displaying user notifications
@@ -76,25 +77,32 @@ export default function NotificationsMenu() {
               <div className="p-4 text-center text-gray-500 dark:text-gray-400">No notifications yet.</div>
             )}
             <div className="max-h-96 overflow-y-auto">
-              {notifications?.map((n) => (
-                <Link
-                  key={n.id}
-                  href={n.link || '#'}
-                  onClick={() => handleNotificationClick(n)}
-                  className={`block px-4 py-3 hover:bg-gray-100 dark:hover:!bg-gray-700 border-b border-gray-100 dark:border-gray-700
-                    ${n.status === 'unread' ? 'font-semibold bg-blue-50 dark:bg-blue-900 dark:bg-opacity-50' : 'dark:bg-gray-800'}
-                    ${n.type === 'action_required' && n.status === 'unread' ? 'border-l-4 border-yellow-400' : ''}
-                    ${n.type === 'success' && n.status === 'unread' ? 'border-l-4 border-green-400' : ''}
-                    ${n.type === 'warning' && n.status === 'unread' ? 'border-l-4 border-red-400' : ''}
-                  `}
-                >
-                  <h4 className="text-sm text-gray-800 dark:text-gray-200">{n.title}</h4>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 break-words">{n.message}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    {new Date(n.created_at).toLocaleDateString()} {new Date(n.created_at).toLocaleTimeString()}
-                  </p>
-                </Link>
-              ))}
+              {notifications?.map((n) => {
+                const date = new Date(n.created_at);
+                const fmt = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+                
+                return (
+                  <Link
+                    key={n.id}
+                    href={n.link || '#'}
+                    onClick={() => handleNotificationClick(n)}
+                    className={clsx(
+                      'flex items-start gap-3 px-4 py-3 border-b last:border-b-0',
+                      'border-gray-100 dark:border-gray-700',
+                      'hover:bg-gray-100 dark:hover:bg-gray-700/80',
+                      n.status === 'unread'
+                        ? 'bg-blue-50 dark:!bg-blue-800/70'
+                        : 'bg-white dark:bg-gray-800'
+                    )}
+                  >
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-gray-200">{n.title}</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 break-words">{n.message}</p>
+                      <time className="text-xs text-gray-400 dark:text-gray-500 mt-1">{fmt}</time>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         )}

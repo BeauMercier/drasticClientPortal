@@ -30,27 +30,11 @@ export async function middleware(request: NextRequest) {
   // 1. Early return for static assets and Next.js internals
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/images') || // Assuming /images contains static assets
+    pathname.startsWith('/images') ||
     pathname.match(/\.(svg|png|jpg|jpeg|ico|css|js)$/)
   ) {
-    return response; // NextResponse.next() is sufficient, no cookie operations needed
+    return response;
   }
-
-  // Define public paths that do not require authentication checks or Supabase client init for auth
-  const publicPaths = ['/login', '/register', '/reset-password', '/']; // Add other public paths like /about, /contact, etc.
-  // Note: The root '/' is often public, leading to a dashboard if logged in, or a landing page if not.
-  // If root path itself requires knowing auth state for conditional rendering by middleware, keep it out of here.
-  const isPublicPath = publicPaths.includes(pathname);
-
-  // 2. For specific public paths that don't need any auth interaction from middleware, return early.
-  // For example, if '/' is a public landing page and doesn't need role-based redirects from middleware.
-  // This check is more about skipping Supabase client init for purely public, non-auth-sensitive pages.
-  // The more comprehensive auth check follows if not returned here.
-  if (isPublicPath && pathname === '/') { // Example: only root path if it's purely public
-     // If you have other specific public paths that should *never* interact with auth cookies, add them here.
-     // return response;
-  } 
-  // At this point, we are dealing with paths that might need auth or cookie operations.
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,23 +48,21 @@ export async function middleware(request: NextRequest) {
           response.cookies.set({
             name,
             value,
-            domain: '.drasticdigital.com', // Force parent domain
+            domain: '.drasticdigital.com',
             path: '/',
-            ...options, // Spread original options like maxAge, httpOnly, secure
-            // Ensure secure and httpOnly are appropriately set, usually from original options or defaults
-            secure: process.env.NODE_ENV === 'production', // Or always true if site is HTTPS only
-            httpOnly: true, // Usually true for auth tokens
-            sameSite: 'lax', // Good default
+            ...options,
+            secure: process.env.NODE_ENV === 'production',
+            httpOnly: true,
+            sameSite: 'lax',
           });
         },
         remove(name: string, options: CookieOptions) {
           response.cookies.set({
             name,
             value: '',
-            domain: '.drasticdigital.com', // Force parent domain
+            domain: '.drasticdigital.com',
             path: '/',
-            expires: new Date(0), // Expire the cookie
-            // Spread other options if necessary, though domain/path/expires are key for removal
+            expires: new Date(0),
             ...options,
           });
         },
@@ -88,72 +70,72 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } /*, error: userError // userError logging can be re-enabled if needed */ } = await supabase.auth.getUser();
-  // Removed UserError logging and pre/post getUser logs as per cleanup.
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log(`Middleware check - Path: ${pathname}, User: ${user ? user.id : 'null'}, Role from JWT: ${user?.app_metadata?.role}`);
 
-  // Original console.log for path and user can be kept for general visibility if desired, or removed.
-  console.log(`Middleware check - Path: ${pathname}, User: ${user ? user.id : 'null'}`);
-
-  // API routes are already handled by the early return for static assets if /api/ is like /_next/api
-  // If your API routes are different, ensure they are handled appropriately (e.g. isApiRoute check if not covered by early returns)
-
-  // const authenticatedPathsPrefixes = [...Object.values(roleBasePaths)]; 
-  const allRolePaths = Object.values(roleBasePaths); // Get all paths from roleBasePaths
-  const authenticatedPathsPrefixes = allRolePaths.filter(p => p !== '/login'); // Exclude /login from protected prefixes
-
-  // Removed '/dashboard' as it's usually a role-specific path like /client/dashboard or /admin/dashboard
-
-  const requiresAuth = authenticatedPathsPrefixes.some(prefix => pathname.startsWith(prefix));
-
-  if (!user) {
-    if (requiresAuth) {
-      console.log(`Redirecting to login: No user and accessing protected route ${pathname}`);
-      const redirectUrl = new URL('/login', request.url);
-      redirectUrl.searchParams.set('redirectedFrom', pathname);
-      return NextResponse.redirect(redirectUrl);
+  // Handle root path redirects for authenticated, non-guest users
+  if (pathname === '/' && user) {
+    const userRole = (user.app_metadata?.role as UserRole) || 'guest'; // Default to guest if role not in JWT
+    // Only redirect if the user is not a guest and has a defined dashboard path
+    if (userRole !== 'guest' && roleBasePaths[userRole] && roleBasePaths[userRole] !== '/') {
+      const dash = roleBasePaths[userRole];
+      console.log(`Authenticated user (${userRole}) on root path. Redirecting to ${dash}.`);
+      return NextResponse.redirect(new URL(dash, request.url));
     }
-    return response;
+    // If guest or no specific dashboard path from root, let them see the homepage
+    console.log(`User (${userRole}) on root path. Allowing homepage to render.`);
+    // No redirect, proceed to other rules or allow response for homepage
   }
 
-  if (user) {
-    let userRole: UserRole = 'client'; // Default to client
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      
-      const rawRole = profile?.role?.toLowerCase();
+  /* ─── PUBLIC AUTH PAGES ─── */
+  const isAuthPage =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/reset-password');
 
-      if (rawRole && isValidUserRole(rawRole)) {
-        userRole = rawRole;
-      } else {
-        console.warn(`User ${user.id} has invalid or missing role '${profile?.role}'. Defaulting to client.`);
-        userRole = 'client'; // Explicitly set to client if rawRole is not valid
-      }
-    } catch (roleError) {
-      console.error(`Failed to fetch role for user ${user.id}:`, roleError);
-      userRole = 'client'; // Default to client on error
+  if (isAuthPage) {
+    if (!user) {
+      console.log(`No user session on auth page ${pathname}. Allowing page to render.`);
+      return response; 
     }
 
-    const expectedBasePath = roleBasePaths[userRole]; // Now type-safe
-    const isPublicAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/reset-password');
+    // User is logged in, get role from JWT
+    const userRole = (user.app_metadata?.role as UserRole) || 'client'; 
+    const dash = roleBasePaths[userRole] || roleBasePaths['client']; 
 
-    if (isPublicAuthRoute) { // Simplified: /dashboard was removed from here
-      console.log(`Redirecting logged-in user (${userRole}) from ${pathname} to ${expectedBasePath}`);
+    // If their designated dashboard IS the current auth page (e.g., guest on /login), let them stay.
+    if (dash === pathname) {
+      console.log(`User (${userRole}) is on their designated auth page ${pathname}. Allowing page to render.`);
+      return response; 
+    }
+    
+    console.log(`Logged-in user (${userRole}) on auth page ${pathname}. Redirecting to ${dash}.`);
+    return NextResponse.redirect(new URL(dash, request.url));
+  }
+
+  /* ─── everything else: protect based on path prefixes ─── */
+  const protectedPrefixes = [roleBasePaths.client, roleBasePaths.admin, roleBasePaths.designer].filter(Boolean); // Filter out any undefined paths
+  const needsAuth = protectedPrefixes.some(p => p && pathname.startsWith(p));
+
+  if (needsAuth) {
+    if (!user) {
+      console.log(`Anonymous user trying to access protected route ${pathname}. Redirecting to login.`);
+      const url = new URL('/login', request.url);
+      url.searchParams.set('redirectedFrom', pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // User is present, check their role from JWT against the path they are trying to access
+    const userRole = (user.app_metadata?.role as UserRole) || 'client'; // Default to client
+    const expectedBasePath = roleBasePaths[userRole] || roleBasePaths['client'];
+
+    if (!pathname.startsWith(expectedBasePath)) {
+      console.log(`Role mismatch for ${pathname}: User role '${userRole}' (from JWT) attempting to access. Redirecting to ${expectedBasePath}.`);
       return NextResponse.redirect(new URL(expectedBasePath, request.url));
     }
-
-    if (requiresAuth) {
-      if (!pathname.startsWith(expectedBasePath)) {
-        console.log(`Role mismatch: User role '${userRole}' attempting to access ${pathname}. Redirecting to ${expectedBasePath}.`);
-        return NextResponse.redirect(new URL(expectedBasePath, request.url));
-      }
-    }
-    // Optional: Root path redirect for logged-in user can be re-enabled here if needed
-    // if (pathname === '/') { ... }
   }
+  // If not an auth page, and either not a protected route or user has access, allow.
+  // Also handles public non-auth pages like '/' if not explicitly needing redirection when logged in.
   return response;
 }
 

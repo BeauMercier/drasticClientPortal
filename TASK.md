@@ -111,18 +111,18 @@
 2.  [x] **Server-Side Triggers / Edge Functions (Additional):**
     *   [x] Implement Edge Function for project stage update notifications (Detailed user-provided guide now in `NOTIFICATIONS_PLAN.MD`, section 2-b. Ready for execution).
     *   [ ] *Consider other events that should trigger notifications (e.g., BIR submission due soon, new message from designer - to be detailed in `NOTIFICATIONS_PLAN.MD` or subsequent tasks).*
-3.  [ ] **Next.js API Routes (`src/app/api/notifications/`):
-    *   [ ] `GET /` - List notifications for the authenticated user (with pagination).
-    *   [ ] `POST /[id]/read` - Mark a specific notification as read.
-    *   [ ] `POST /read-all` - Mark all unread notifications as read.
-4.  [ ] **React Hook & Components (Frontend):**
-    *   [ ] Create `useNotifications` hook (fetching, state management, realtime integration - optional initial).
-    *   [ ] Implement/Update `NotificationsMenu.tsx` (header bell icon, dropdown list).
+3.  [x] **Next.js API Routes (`src/app/api/notifications/`):
+    *   [x] `GET /` - List notifications for the authenticated user (with pagination).
+    *   [x] `POST /[id]/read` - Mark a specific notification as read.
+    *   [x] `POST /read-all` - Mark all unread notifications as read.
+4.  [x] **React Hook & Components (Frontend):**
+    *   [x] Create `useNotifications` hook (fetching, state management, realtime integration - optional initial).
+    *   [x] Implement/Update `NotificationsMenu.tsx` (header bell icon, dropdown list).
 5.  [ ] **UI Cues for Soft Walkthrough (Client Onboarding):**
     *   [ ] Add dynamic badges to sidebar navigation items (e.g., for pending profile actions).
     *   [ ] Create a "Getting Started" panel/card on the client dashboard for new user action items.
 6.  [ ] **(Optional) Realtime Integration:**
-    *   [ ] Enhance `useNotifications` hook with Supabase Realtime for instant notification updates.
+    *   [x] Enhance `useNotifications` hook with Supabase Realtime for instant notification updates.
 7.  [ ] **QA & Testing:**
     *   [ ] Thoroughly test the entire notification flow (creation, display, interaction, deep-linking).
     *   [ ] Test onboarding cues for new client users.

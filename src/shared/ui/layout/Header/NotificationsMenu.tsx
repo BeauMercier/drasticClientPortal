@@ -1,80 +1,93 @@
-import { useState } from 'react';
-import { BellIcon } from '@heroicons/react/24/outline';
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { BellIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
+import { useNotifications, Notification } from '@/hooks/useNotifications'
 
 /**
  * Component for displaying user notifications
  */
 export default function NotificationsMenu() {
-  const [showNotifications, setShowNotifications] = useState(false);
-  
+  const {
+    notifications,
+    unreadCount,
+    error,
+    isLoading,
+    markAsRead,
+    markAllAsRead
+  } = useNotifications()
+  const [isOpen, setIsOpen] = useState(false)
+
+  const handleToggle = () => setIsOpen(!isOpen)
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (notification.status === 'unread') {
+      await markAsRead(notification.id)
+    }
+    setIsOpen(false) // Close dropdown on click
+  }
+
+  const handleMarkAllReadClick = async () => {
+    await markAllAsRead()
+  }
+
   return (
     <div className="relative">
       <button
-        className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        onClick={() => setShowNotifications(!showNotifications)}
+        onClick={handleToggle}
+        className="relative p-2 text-gray-400 hover:text-gray-600 focus:outline-none"
         aria-label="Notifications"
       >
-        <BellIcon className="h-6 w-6 text-gray-600" />
-        <span className="absolute top-0 right-0 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-          3
-        </span>
+        <BellIcon className="h-6 w-6" />
+        {unreadCount > 0 && (
+          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full transform translate-x-1/2 -translate-y-1/2">
+            {unreadCount}
+          </span>
+        )}
       </button>
 
-      {showNotifications && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-60 overflow-hidden">
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-60">
           <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
-            <div className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">3 new</div>
+            <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllReadClick}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Mark all as read
+              </button>
+            )}
           </div>
+          {isLoading && <div className="p-4 text-center text-gray-500">Loading…</div>}
+          {error && <div className="p-4 text-center text-red-500">Error loading notifications.</div>}
+          {!isLoading && !error && notifications?.length === 0 && (
+            <div className="p-4 text-center text-gray-500">No notifications yet.</div>
+          )}
           <div className="max-h-96 overflow-y-auto">
-            <div className="p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 bg-blue-100 rounded-full p-2 mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">New message from support</p>
-                  <p className="text-xs text-gray-500 mt-1">2 minutes ago</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 bg-green-100 rounded-full p-2 mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Your invoice is ready</p>
-                  <p className="text-xs text-gray-500 mt-1">1 hour ago</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
-              <div className="flex items-start">
-                <div className="flex-shrink-0 bg-purple-100 rounded-full p-2 mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-600" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Project status updated</p>
-                  <p className="text-xs text-gray-500 mt-1">Yesterday</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="p-3 text-center border-t border-gray-200 bg-gray-50">
-            <button className="text-sm text-blue-600 font-medium hover:text-blue-800">
-              View all notifications
-            </button>
+            {notifications?.map((n) => (
+              <Link
+                key={n.id}
+                href={n.link || '#'}
+                onClick={() => handleNotificationClick(n)}
+                className={`block px-4 py-3 hover:bg-gray-50 border-b border-gray-100 
+                  ${n.status === 'unread' ? 'font-semibold bg-blue-50' : ''}
+                  ${n.type === 'action_required' && n.status === 'unread' ? 'border-l-4 border-yellow-400' : ''}
+                  ${n.type === 'success' && n.status === 'unread' ? 'border-l-4 border-green-400' : ''}
+                  ${n.type === 'warning' && n.status === 'unread' ? 'border-l-4 border-red-400' : ''}
+                `}
+              >
+                <h4 className="text-sm text-gray-800">{n.title}</h4>
+                <p className="text-xs text-gray-600 break-words">{n.message}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {new Date(n.created_at).toLocaleDateString()} {new Date(n.created_at).toLocaleTimeString()}
+                </p>
+              </Link>
+            ))}
           </div>
         </div>
       )}
     </div>
-  );
+  )
 } 

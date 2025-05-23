@@ -1,22 +1,28 @@
-import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import type { Database } from '@/types/supabase'
+import { type NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
-export async function POST (
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const supabase = createRouteHandlerClient<Database>({ cookies })
+export const dynamic = 'force-dynamic'
 
-  const { error } = await supabase.rpc('mark_notification_read', {
-    _nid: params.id
-  })
+export async function POST(req: NextRequest, { params }: { params: { id: string }}) {
+  if (!params.id) {
+    return NextResponse.json({ error: 'Notification ID is required' }, { status: 400 })
+  }
+  const cookieStore = cookies()
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
-  if (error) {
-    console.error('[POST /read] ', error.message)
-    return NextResponse.json({ error: error.message }, { status: 400 })
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Important: Ensure the user calling this owns the notification.
+  // The RLS policy on public.notifications and the DB function mark_notification_read should handle this.
+  const { error } = await supabase.rpc('mark_notification_read', { _nid: params.id })
+
+  if (error) {
+    console.error('Error marking notification read:', error)
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
   return NextResponse.json({ success: true })
 } 

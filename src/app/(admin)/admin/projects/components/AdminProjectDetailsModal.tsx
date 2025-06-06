@@ -67,7 +67,7 @@ export default function AdminProjectDetailsModal({ open, onClose, project, onBir
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{project.title} (Details)</DialogTitle>

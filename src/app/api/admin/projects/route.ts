@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
 
     const adminClient = createAdminClient();
-    const selectQuery = 'id, user_id, title, description, status, deadline, created_at, updated_at, type, client:user_id (id, full_name, email, company)';
+    const selectQuery = 'id, user_id, title, description, status, deadline, created_at, updated_at, current_stage, type, client:user_id (id, full_name, email, company)';
 
     let allProjects: (AdminProjectListItem & { type: ProjectType })[] = [];
 

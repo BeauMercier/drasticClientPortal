@@ -99,6 +99,67 @@ create table "public"."business_information_requests" (
 
 alter table "public"."business_information_requests" enable row level security;
 
+-- POLICY: Clients can SELECT their own BIRs
+CREATE POLICY "Clients can select their own BIRs"
+ON public.business_information_requests
+FOR SELECT
+TO authenticated
+USING (client_id = auth.uid());
+
+-- POLICY: Clients can INSERT BIRs for their own client_id and for web_design projects
+CREATE POLICY "Clients can insert their own BIRs"
+ON public.business_information_requests
+FOR INSERT
+TO authenticated
+WITH CHECK (
+    client_id = auth.uid() AND
+    project_type = 'web_design' AND
+    EXISTS (
+        SELECT 1 FROM public.web_design_projects wdp
+        WHERE wdp.id = business_information_requests.project_id AND wdp.user_id = auth.uid()
+    )
+);
+
+-- POLICY: Clients can UPDATE their own BIRs (e.g., to change answers or status to 'submitted')
+CREATE POLICY "Clients can update their own BIRs"
+ON public.business_information_requests
+FOR UPDATE
+TO authenticated
+USING (client_id = auth.uid()) -- Which rows can they target for update?
+WITH CHECK (
+    client_id = auth.uid() AND -- Ensure they don't change client_id to someone else's
+    project_type = 'web_design' AND
+    status <> 'approved' AND -- Clients cannot approve their own BIR
+    EXISTS (
+        SELECT 1 FROM public.web_design_projects wdp
+        WHERE wdp.id = business_information_requests.project_id AND wdp.user_id = auth.uid()
+    )
+);
+
+-- POLICY: Admins have full access
+CREATE POLICY "Admins have full access to BIRs"
+ON public.business_information_requests
+FOR ALL
+TO authenticated 
+USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin')
+WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()));
+
+-- POLICY: Designers can view BIRs for projects they are assigned to (Example)
+CREATE POLICY "Designers can view BIRs for assigned projects"
+ON public.business_information_requests
+FOR SELECT
+TO authenticated
+USING (
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'designer' AND
+    EXISTS (
+        SELECT 1
+        FROM project_assignments pa 
+        WHERE pa.project_id = business_information_requests.project_id
+          AND pa.project_type::text = business_information_requests.project_type
+          AND pa.designer_id = auth.uid()
+    )
+);
+
 create table "public"."business_profiles" (
     "id" uuid not null,
     "company_name" text,

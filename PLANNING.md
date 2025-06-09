@@ -173,9 +173,10 @@ Key API routes for core functionality:
 
 *   **/api/admin/projects/**
     *   `GET`: Fetches a list of *all* projects (web, logo, social) for the admin dashboard. Adds a `type` field to each project object.
-*   **/api/admin/projects/[projectType]/[projectId]/**
-    *   `GET`: Fetches detailed information for a *single* project, including client details and assigned designer (if any). Requires Admin role.
-    *   `PUT`: Updates a *single* project. Requires Admin role. Validates input, including `status` against allowed values. Maps frontend 'name' field to `title` for logo/social projects.
+*   **/api/admin/projects/[type]/[projectId]/**
+    *   **Note:** This is the single, consolidated endpoint for fetching and updating a specific project. Legacy, type-specific routes (e.g., `/web_design/[projectId]`) have been removed to resolve routing conflicts.
+    *   `GET`: Fetches detailed information for a *single* project. Requires Admin role. The response includes the client's profile (`client`) and the full Business Information Request object (`bir`) if one exists.
+    *   `PUT`: Updates a *single* project. Requires Admin role. Validates input, including `status` against allowed values.
 *   **/api/admin/projects/assign-designer**
     *   `POST`: Assigns a designer to a specific project. Requires Admin role. (Note: This route writes to the `designer_projects` table, which is the canonical source for designer-project assignments.)
 *   **/api/admin/projects/update-stage/**
@@ -202,12 +203,10 @@ Key API routes for core functionality:
     *   `POST`: Generates a signed URL for direct client upload of a BIR file to Supabase Storage. Expects `birId`, `filename`, `mime`. Returns `uploadUrl` and `objectKey`.
 *   **/api/bir/record-file**
     *   `POST`: Records metadata of a BIR file in the `bir_file` table after successful direct upload to Supabase Storage. Expects `birId`, `objectKey`, `size`, `mime`, `originalName`, `fileType`.
+*   **/api/admin/bir/[birId]/status**
+    *   `PUT`: Updates the status of a specific Business Information Request (e.g., to 'approved' or 'pending'). Requires Admin role. Used for the BIR approval workflow.
 *   **/api/admin/project-files/[projectType]/[projectId]**
     *   `GET`: Fetches a list of files associated with a specific project for the admin view. Currently, this primarily retrieves files from the `bir_file` table (linked via `business_information_requests`) for `web_design` projects. It includes uploader details (derived from the project's client) and file metadata like original name and size. **Crucially, it now generates a temporary signed `download_url` for each file, pointing to the `bir-files` (private) bucket.** Requires Admin role.
-
-## File Management Strategy (Original - Review and Consolidate/Remove Redundancy)
-
-// The entire "File Management Strategy (Original - Review and Consolidate/Remove Redundancy)" section, which was here, has been removed as its content was outdated and a more concise, updated version exists under the main "## File Management" section.
 
 ## Feature: Business Information Request (BIR)
 
@@ -217,8 +216,8 @@ Key API routes for core functionality:
 - **Client-Side:** A multi-step form (`src/features/bir/MultiStepBirForm.tsx`) guides clients through submitting textual information. File uploads are handled via a dedicated "Project Files" tab (`FileUploadStep.tsx`) on the web design project detail page, using a signed URL flow direct to Supabase Storage (`bir-files` bucket).
 - **Data Storage:** Textual data is stored in `business_information_requests`; file metadata in `bir_file`.
 - **Designer View:** Designers can view submitted BIR data in a read-only format (`BirReadOnlyView.tsx`).
-- **Admin View:** Admins can view submitted BIR files via `ProjectFileList.tsx` on the project detail page.
-- **API Endpoints:** Key routes include `/api/bir` (for text data) and `/api/bir/create-upload-url`, `/api/bir/record-file` (for file uploads).
+- **Admin View:** Admins can view submitted BIR files via `ProjectFileList.tsx` on the project detail page. They can also approve or request changes to a submitted BIR via interactive buttons in `AdminBirDetailsView.tsx`.
+- **API Endpoints:** Key routes include `/api/bir` (for text data) and `/api/bir/create-upload-url`, `/api/bir/record-file` (for file uploads). The status is managed via `/api/admin/bir/[birId]/status`.
 
 **(Initial core development was completed and verified. Detailed implementation steps from the original strategy and subsequent refactors are archived in `docs/PROJECT_HISTORY.md`. Ongoing refinements and testing are tracked in `TASK.MD`.)**
 
@@ -260,4 +259,4 @@ Implement unit tests (Vitest/Jest) for the new API route and frontend component.
 ### **Documentation:**
 Update this `PLANNING.md` file as development progresses.
 
-**(New API route and frontend component are complete and verified).** 
+**(New API route and frontend component are complete and verified).**

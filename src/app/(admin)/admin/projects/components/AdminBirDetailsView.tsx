@@ -1,13 +1,60 @@
-import React from 'react';
+'use client';
+import React, { useState } from 'react';
 import { BirRow } from '@/lib/types/bir';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BirAnswersData } from '@/lib/validation/bir';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import { useRouter } from 'next/navigation';
 
 interface AdminBirDetailsViewProps {
   bir: BirRow | null | undefined;
 }
 
-const AdminBirDetailsView: React.FC<AdminBirDetailsViewProps> = ({ bir }) => {
+const AdminBirDetailsView: React.FC<AdminBirDetailsViewProps> = ({ bir: initialBir }) => {
+  const [bir, setBir] = useState(initialBir);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const handleStatusUpdate = async (newStatus: 'approved' | 'pending') => {
+    if (!bir) return;
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`/api/admin/bir/${bir.id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update status');
+      }
+
+      const updatedBir = await response.json();
+      setBir(updatedBir);
+
+      toast({
+        title: 'Success',
+        description: `BIR status has been updated to ${newStatus}.`,
+      });
+      // Optionally refresh data or rely on state update
+      router.refresh();
+
+    } catch (error) {
+      console.error('Error updating BIR status:', error);
+      toast({
+        title: 'Error',
+        description: (error as Error).message || 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!bir || !bir.answers) {
     return (
       <p className="text-muted-foreground italic">
@@ -48,7 +95,26 @@ const AdminBirDetailsView: React.FC<AdminBirDetailsViewProps> = ({ bir }) => {
                 <CardDescription>Status: <span className="font-semibold capitalize p-1 bg-gray-200 dark:bg-gray-700 rounded-md">{status}</span></CardDescription>
             </CardHeader>
             <CardContent>
-                {submitted_at && <p><strong>Submitted On:</strong> {new Date(submitted_at).toLocaleString()}</p>}
+                {submitted_at && <p className="mb-4"><strong>Submitted On:</strong> {new Date(submitted_at).toLocaleString()}</p>}
+                
+                {status === 'submitted' && (
+                    <div className="flex items-center space-x-4 mt-4">
+                        <Button 
+                            onClick={() => handleStatusUpdate('approved')}
+                            disabled={isLoading}
+                            variant="default"
+                        >
+                            {isLoading ? 'Approving...' : 'Approve'}
+                        </Button>
+                        <Button 
+                            onClick={() => handleStatusUpdate('pending')}
+                            disabled={isLoading}
+                            variant="outline"
+                        >
+                            {isLoading ? 'Sending back...' : 'Request Changes'}
+                        </Button>
+                    </div>
+                )}
             </CardContent>
         </Card>
 

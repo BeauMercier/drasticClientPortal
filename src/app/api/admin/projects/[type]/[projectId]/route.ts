@@ -74,6 +74,8 @@ export async function GET(
         .select('id, status, submitted_at, answers')
         .eq('project_id', projectId)
         .single();
+    
+    console.log('[BIR-TRACE] birRow:', birRow, 'error:', birError);
 
     if (birError && birError.code !== 'PGRST116') {
         console.error(`[Admin API] Error fetching BIR for project ${projectId}:`, birError);
@@ -105,4 +107,64 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { type: string; projectId: string } }
+) {
+  try {
+    const { authorized, error: authError } = await verifyAdminAccess();
+    if (!authorized) {
+      return NextResponse.json({ error: authError || 'Unauthorized' }, { status: 403 });
+    }
+
+    const { type, projectId } = params;
+    const dataToUpdate = await request.json();
+
+    let tableName;
+    switch (type) {
+      case 'web_design':
+        tableName = 'web_design_projects';
+        break;
+      case 'logo_design':
+        tableName = 'logo_design_projects';
+        break;
+      case 'social_graphics':
+        tableName = 'social_graphics_projects';
+        break;
+      default:
+        return NextResponse.json({ error: 'Invalid project type' }, { status: 400 });
+    }
+    
+    // --- Status Validation ---
+    const allowedStatuses = ['pending', 'in_progress', 'completed', 'on_hold', 'cancelled'];
+    if (dataToUpdate.hasOwnProperty('status') && !allowedStatuses.includes(dataToUpdate.status)) {
+      return NextResponse.json(
+        { error: `Invalid status value '${dataToUpdate.status}'. Allowed values are: ${allowedStatuses.join(', ')}` },
+        { status: 400 }
+      );
+    }
+    
+    dataToUpdate.updated_at = new Date().toISOString();
+
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
+      .from(tableName)
+      .update(dataToUpdate)
+      .eq('id', projectId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error(`Error updating project in ${tableName}:`, error);
+      return NextResponse.json({ error: `Failed to update project: ${error.message}` }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: 'Project updated successfully!', project: data });
+
+  } catch (error: any) {
+    console.error('Unexpected error in PUT handler:', error);
+    return NextResponse.json({ error: error.message || 'Failed to update project due to server error' }, { status: 500 });
+  }
+}

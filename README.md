@@ -1,6 +1,8 @@
 # Drastic Client Portal
 
-A comprehensive client portal built with Next.js, TypeScript, Tailwind CSS, and Supabase for authentication and data storage.
+Welcome to the Drastic Client Portal, a comprehensive platform for managing client projects, communication, and billing.
+
+This is a full-stack Next.js application designed to streamline the workflow for web design, logo design, and social media projects.
 
 ## Features
 

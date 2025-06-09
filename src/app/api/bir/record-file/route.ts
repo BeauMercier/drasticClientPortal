@@ -4,13 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { BirFileType } from '@/lib/types/bir';
 import { requireAuth } from '@/lib/api/server-utils';
-
-// Initialize Supabase client with service role key
-// Ensure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are in your Vercel environment variables
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createAdminClient } from '@/lib/api/server';
 
 export async function POST(req: NextRequest) {
   const { authenticated, user, error: authError_ } = await requireAuth();
@@ -34,6 +28,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { birId, objectKey, size, mime, originalName, fileType } = parse.data;
+
+    // Get the centralized admin client
+    const supabaseAdmin = createAdminClient();
 
     // Insert metadata into the bir_file table
     const { data: insertedFile, error } = await supabaseAdmin

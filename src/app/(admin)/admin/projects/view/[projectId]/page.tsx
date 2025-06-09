@@ -8,6 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import BusinessInfoGate from '@/features/bir/BusinessInfoGate';
 import { useToast } from '@/components/ui/use-toast';
 import ProjectFileList from '@/app/(admin)/admin/projects/components/ProjectFileList';
+import AdminBirDetailsView from '@/app/(admin)/admin/projects/components/AdminBirDetailsView';
+import { BirRow } from '@/lib/types/bir';
 
 // TODO: Define a comprehensive ProjectDetails type for Admins, including files
 interface AdminProjectViewDetails {
@@ -18,6 +20,7 @@ interface AdminProjectViewDetails {
   status?: string; // Added status field
   client?: { id: string; full_name?: string; email?: string; company?: string };
   designer_assignment?: { id: string; full_name?: string; email?: string };
+  bir?: BirRow | null;
   bir_id?: string | null;
   bir_status?: 'pending' | 'submitted' | 'approved' | null;
   // Add other fields from admin project API
@@ -81,6 +84,7 @@ export default function AdminDetailedProjectViewPage() {
           throw new Error(errorData.error || `Failed to fetch project details. Status: ${response.status}`);
         }
         const fetchedProjectData = await response.json();
+        console.log('[AdminDetailedProjectViewPage] Fetched project data from API:', fetchedProjectData);
         setProject(fetchedProjectData as AdminProjectViewDetails);
 
         // TODO: Fetch project files (e.g., /api/admin/projects/${projectType}/${projectId}/files)
@@ -157,10 +161,7 @@ export default function AdminDetailedProjectViewPage() {
         <Card>
           <CardHeader><CardTitle>Business Information & Client Files</CardTitle></CardHeader>
           <CardContent>
-            <BusinessInfoGate 
-              projectId={project.id}
-              projectType={project.project_type} // Pass the specific type
-            />
+            <AdminBirDetailsView bir={project.bir} />
           </CardContent>
         </Card>
       )}

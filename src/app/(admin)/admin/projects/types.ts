@@ -1,3 +1,5 @@
+import { BirRow } from '@/lib/types/bir'; // Import BirRow
+
 export interface AdminProject {
   id: string;
   title: string;
@@ -16,4 +18,5 @@ export interface AdminProject {
   designer_email?: string | null;
   birId?: string | null;
   birStatus?: 'pending' | 'submitted' | 'approved' | null;
+  bir?: BirRow | null; // Add the full BIR object
 } 

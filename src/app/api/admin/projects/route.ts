@@ -15,7 +15,10 @@ type AdminProjectListItem = (
   WebDesignProject |
   LogoDesignProject |
   SocialGraphicsProject
-) & { profiles: { full_name: string | null } | null };
+) & { 
+  profiles: { full_name: string | null } | null;
+  bir?: { id: string; answers: any; status: string } | null; // Keep BIR object for clarity in type
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -67,8 +70,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
 
     const adminClient = createAdminClient();
-    const selectQuery = 'id, user_id, title, description, status, deadline, created_at, updated_at, current_stage, type, client:user_id (id, full_name, email, company)';
-
+    
     let allProjects: (AdminProjectListItem & { type: ProjectType })[] = [];
 
     // Helper function to fetch and map data
@@ -77,9 +79,11 @@ export async function GET(request: NextRequest) {
       projectType: ProjectType,
       client: SupabaseClient
     ): Promise<(AdminProjectListItem & { type: ProjectType })[]> => {
+      const currentSelectQuery = 'id, user_id, title, description, status, deadline, created_at, updated_at, current_stage, client:user_id (id, full_name, email, company)';
+
       let query = client
         .from(tableName)
-        .select(selectQuery.replace(", type", ""));
+        .select(currentSelectQuery);
         
       if (status && status !== 'all') query = query.eq('status', status);
       if (userId) query = query.eq('user_id', userId);
@@ -95,8 +99,8 @@ export async function GET(request: NextRequest) {
         const { name, ...restOfDbRow } = dbRow; 
         return {
           ...restOfDbRow,
-          title: dbRow.title, 
-          type: projectType
+          title: dbRow.title || dbRow.name, // Use name as fallback for title if needed
+          type: projectType,
         };
       });
     };
@@ -114,7 +118,7 @@ export async function GET(request: NextRequest) {
       allProjects = results.flat();
     }
     
-    // --- Start: Fetch and map designer assignments ---
+    // --- Start: Fetch and map designer assignments (Existing logic, no change) ---
     if (allProjects.length > 0) {
       const projectIdentifiers = allProjects.map(p => ({ id: p.id, type: p.type }));
       
@@ -161,7 +165,7 @@ export async function GET(request: NextRequest) {
     }
     // --- End: Fetch and map designer assignments ---
     
-    // --- Start: Fetch and map BIR data for web_design projects ---
+    // --- Start: Re-add separate fetch for BIR data for web_design projects ---
     if (allProjects.length > 0) {
       const webDesignProjectIds = allProjects
         .filter(p => p.type === 'web_design')
@@ -170,23 +174,24 @@ export async function GET(request: NextRequest) {
       if (webDesignProjectIds.length > 0) {
         const { data: birs, error: birError } = await adminClient
           .from('business_information_requests')
-          .select('project_id, id, status')
+          .select('id, answers, status, project_id') // Explicitly select answers
           .in('project_id', webDesignProjectIds);
 
         if (birError) {
           console.warn('Failed to fetch BIR data for admin project list:', birError.message);
         } else if (birs) {
-          const birsMap = new Map<string, { bir_id: string; bir_status: string }>();
+          const birsMap = new Map<string, any>(); // Map project_id to the full BIR object
           birs.forEach(bir => {
-            birsMap.set(bir.project_id, { bir_id: bir.id, bir_status: bir.status });
+            birsMap.set(bir.project_id, bir); 
           });
           allProjects = allProjects.map(p => {
             if (p.type === 'web_design') {
               const birData = birsMap.get(p.id);
               return { 
                 ...p, 
-                bir_id: birData?.bir_id || null, 
-                bir_status: birData?.bir_status || null 
+                birId: birData?.id || null, 
+                birStatus: birData?.status || null, 
+                bir: birData || null, // Add the full BIR object
               };
             }
             return p;

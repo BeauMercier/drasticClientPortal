@@ -56,6 +56,7 @@ export default function WebDesignProjectDetails() {
   const { toast } = useToast();
 
   const { bir: fetchedBir, signedBirFiles, mutate: mutateBir, isLoading: birLoadingBir } = useBir(project?.id);
+  console.log('[WebDesignProjectDetails] fetchedBir:', fetchedBir);
 
   const reloadProjectData = async () => {
     if (!projectId) return;

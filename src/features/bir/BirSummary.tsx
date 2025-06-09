@@ -79,6 +79,8 @@ const renderValue = (value: any): React.ReactNode => {
 export default function BirSummary({ bir, signedFiles }: BirSummaryProps) {
   const answers = bir.answers as Partial<BirAnswersData>; // Assuming answers are validated upstream
 
+  console.log('[BirSummary] Answers:', answers);
+
   // Determine badge variant based on status
   const getBadgeVariant = (status: string | null | undefined): NonNullable<Parameters<typeof badgeVariants>[0]>['variant'] => {
     switch (status) {

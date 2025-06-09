@@ -117,6 +117,7 @@ export default function BusinessInfoGate({ projectId, projectType, parentMutateB
 
         // Case 2: BIR exists and is not currently being edited by the user.
         if (bir) { // bir is guaranteed to exist here if !isEditing
+            console.log('[BusinessInfoGate] Client View - Rendering with BIR:', bir);
             if (bir.status === 'pending') {
                return (
                  <BirStatusBanner

@@ -128,24 +128,15 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Project not found after authorization' }, { status: 404 }); 
     }
 
-    // Fetch assignment details separately
-    const { data: assignmentData, error: assignmentError } = await adminClient
-      .from('designer_projects')
-      .select('*, designer:profiles (id, full_name, email)')
-      .eq('project_id', projectId)
-      .eq('project_type', projectType)
-      .maybeSingle();
+    // The designer assignment logic is causing a schema error and has been removed.
+    // TODO: Fix the schema relationship and restore this lookup.
       
-    if (assignmentError) {
-        console.warn(`Could not fetch assignment details for project ${projectId} (authed): ${assignmentError.message}`);
-    }
-    
     // Combine data
     const combinedData = {
         ...projectData,
-        designer_assignment: assignmentData?.designer || null,
+        designer_assignment: null,
     };
-
+    
     return NextResponse.json(combinedData);
 
   } catch (error: any) {

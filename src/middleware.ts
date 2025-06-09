@@ -48,9 +48,8 @@ export async function middleware(request: NextRequest) {
           response.cookies.set({
             name,
             value,
-            domain: '.drasticdigital.com',
-            path: '/',
             ...options,
+            path: '/',
             secure: process.env.NODE_ENV === 'production',
             httpOnly: true,
             sameSite: 'lax',
@@ -60,10 +59,9 @@ export async function middleware(request: NextRequest) {
           response.cookies.set({
             name,
             value: '',
-            domain: '.drasticdigital.com',
+            ...options,
             path: '/',
             expires: new Date(0),
-            ...options,
           });
         },
       },

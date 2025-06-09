@@ -79,7 +79,8 @@ interface Project {
   updated_at: string;
   current_stage?: ProjectStage | null;
   birId?: string | null;
-  birStatus?: string | null;
+  birStatus?: 'pending' | 'submitted' | 'approved' | null;
+  bir?: { id: string; answers: any; status: string; } | null;
 }
 
 // Helper function for status badge color (can be outside component or memoized)
@@ -180,6 +181,7 @@ export default function AdminProjects() {
         throw new Error(errorData.error || `Failed to fetch projects: ${response.statusText}`);
       }
       const data = await response.json();
+      console.log('[AdminProjects] Raw data from /api/admin/projects/', data);
       const mappedData: Project[] = data.map((p: any) => ({
         ...p, // Spread raw API data first
         id: p.id,
@@ -205,7 +207,9 @@ export default function AdminProjects() {
         current_stage: p.current_stage,
         birId: p.bir_id || null,
         birStatus: p.bir_status || null,
+        bir: p.bir || null, // Ensure bir object is mapped
       }));
+      console.log('[AdminProjects] Mapped data after fetchProjects', mappedData);
       setProjects(mappedData);
     } catch (err) {
       console.error('Error in fetchProjects:', err);

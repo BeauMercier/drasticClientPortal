@@ -86,6 +86,9 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isSubmittingTextData, setIsSubmittingTextData] = useState(false);
 
+  // Determine if the form is in a loading state where actions should be disabled.
+  const isFormLoading = birLoading || authLoading;
+
   const textualSteps = birStepsConfig;
   const isLastTextualStep = currentStepIndex === textualSteps.length - 1;
 
@@ -157,6 +160,10 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
     const currentValues = form.getValues();
     let savedBirId: string | null = null;
     try {
+      // Ensure we have a user ID before proceeding
+      if (!user?.id) {
+        throw new Error('User not authenticated. Cannot save draft.');
+      }
       if (fetchedBir && fetchedBir.id) {
         const updatePayload: BirUpdateDTO = { id: fetchedBir.id, answers: pruneEmptyStrings(currentValues.answers ?? {}), status: 'pending' };
         const validationResult = birUpdateSchema.safeParse(updatePayload);
@@ -166,7 +173,7 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
         if (!res.ok) throw new Error(result.error || 'Failed to save draft.');
         savedBirId = result.id;
       } else {
-        const insertPayload: BirInsertDTO = { project_id: projectId, client_id: user?.id || '', project_type: 'web_design', answers: pruneEmptyStrings(currentValues.answers ?? {}), status: 'pending' };
+        const insertPayload: BirInsertDTO = { project_id: projectId, client_id: user.id, project_type: 'web_design', answers: pruneEmptyStrings(currentValues.answers ?? {}), status: 'pending' };
         const basicInsertSchema = z.object({ project_id: z.string().uuid(), client_id: z.string().uuid(), project_type: z.literal('web_design'), answers: z.any(), status: birStatusSchema.optional() });
         const validationResult = basicInsertSchema.safeParse(insertPayload);
         if (!validationResult.success) {
@@ -317,52 +324,41 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
             <>
               <form onSubmit={form.handleSubmit(handleSubmitAllAnswers, onFormError)} className="space-y-6">
                 <CurrentStepComponent form={form} isSubmitting={isSubmittingTextData || authLoading || birLoading} />
-                <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    {currentStepIndex > 0 && (
-                      <Button
-                        type="button"
-                        onClick={handlePreviousStep}
-                        variant="outline"
-                        disabled={isSubmittingTextData}
-                        className="w-full sm:w-auto whitespace-normal"
-                      >
-                        Previous
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex justify-center sm:flex-grow">
+                <div className="mt-8 flex justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePreviousStep}
+                    disabled={currentStepIndex === 0 || isSubmittingTextData || isFormLoading}
+                  >
+                    Previous
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleSaveDraft}
+                    disabled={isSubmittingTextData || isFormLoading}
+                  >
+                    {isSubmittingTextData && !isLastTextualStep ? 'Saving...' : 'Save and Exit'}
+                  </Button>
+
+                  {isLastTextualStep ? (
+                    <Button
+                      type="submit"
+                      disabled={isSubmittingTextData || isFormLoading}
+                    >
+                      {isSubmittingTextData ? 'Submitting...' : 'Submit All Answers'}
+                    </Button>
+                  ) : (
                     <Button
                       type="button"
-                      onClick={handleSaveDraft}
-                      disabled={isSubmittingTextData}
-                      variant="secondary"
-                      className="w-full sm:w-auto whitespace-normal"
+                      onClick={handleNextStep}
+                      disabled={isSubmittingTextData || isFormLoading}
                     >
-                      Save and Exit
+                      Next
                     </Button>
-                  </div>
-                  <div>
-                    {!isLastTextualStep && (
-                      <Button
-                        type="button"
-                        onClick={handleNextStep}
-                        disabled={isSubmittingTextData}
-                        className="w-full sm:w-auto whitespace-normal"
-                      >
-                        Next
-                      </Button>
-                    )}
-                    {isLastTextualStep && (
-                      <Button
-                        type="submit"
-                        disabled={isSubmittingTextData || authLoading || birLoading}
-                        className="w-full sm:w-auto whitespace-normal"
-                      >
-                        {isSubmittingTextData ? 'Saving...' : ((fetchedBir && fetchedBir.id && currentStepIndex !== 0)) ? 'Update & Save All Answers' : 'Save All Answers'}
-                      </Button>
-                    )}
-                  </div>
+                  )}
                 </div>
               </form>
             </>

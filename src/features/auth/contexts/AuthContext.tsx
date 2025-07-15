@@ -157,7 +157,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [validateEnv, setEnvError]);
 
-  // *** MODIFIED UseEffect Hook ***
   useEffect(() => {
     if (envError) {
       console.error('Skipping auth initialization due to environment error');
@@ -166,27 +165,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     let isMounted = true;
-    let receivedInitialAuthEvent = false;
 
-    try {
-      const { data: authListener } = supabase.auth.onAuthStateChange(
-        (event: string, newSession: SupabaseSession | null) => {
+    const initializeSession = async () => {
+      // 1. Get the initial session from cookies/localStorage
+      const { data: { session: initialSession }, error: initialError } = await supabase.auth.getSession();
+
+      if (initialError) {
+        console.error('[AuthContext] Error fetching initial session:', initialError.message);
+      }
+
+      // Set initial state based on the fetched session
+      if (isMounted) {
+        if (initialSession) {
+          try {
+            const { localSession, localUser } = mapSupabaseSessionToLocal(initialSession, null, 'INITIAL_SESSION');
+            setSession(localSession);
+            setUser(localUser);
+          } catch (mapError) {
+            console.error('[AuthContext] Error mapping initial session:', mapError);
+            setError(mapError instanceof Error ? mapError.message : 'Mapping session failed.');
+          }
+        }
+        setIsLoading(false);
+      }
+
+      // 2. Set up the listener for subsequent auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (event, newSession) => {
           if (!isMounted) return;
-          
-          console.log('[AuthContext] onAuthStateChange event:', event, 'newSession:', newSession ? "Exists" : "Null"); // Log event and session status
 
+          console.log(`[AuthContext] onAuthStateChange event: ${event}`);
+          
           if (event === 'PASSWORD_RECOVERY') {
-            console.log('[AuthContext] PASSWORD_RECOVERY event detected. Redirecting to /update-password.');
             router.replace('/update-password');
-            // Clean up hash after redirecting for password recovery
-            if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
-              console.log('[AuthContext] Cleaning up URL hash after password recovery.');
-              history.replaceState({}, document.title, window.location.pathname + window.location.search);
-            }
-            // We might not want to immediately setIsLoading(false) here,
-            // as the /update-password page will handle its own loading state.
-            // The session should already be set by Supabase client due to detectSessionInUrl.
-            // Let's still map the session to ensure context is up-to-date if needed on this brief stop.
+            return;
           }
           
           try {
@@ -194,39 +206,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setSession(localSession);
             setUser(localUser);
           } catch (mapError) {
-            console.error("AuthContext: Error mapping Supabase session:", mapError);
-            setError(mapError instanceof Error ? mapError.message : 'Failed to process user session.');
-            setSession(null);
-            setUser(null);
-          }
-
-          if (!receivedInitialAuthEvent) {
-            setIsLoading(false);
-            receivedInitialAuthEvent = true;
-            // Also attempt to clean hash on initial load if present (e.g. if user lands directly with hash)
-            if (typeof window !== 'undefined' && window.location.hash.includes('type=recovery')) {
-              console.log('[AuthContext] Cleaning up URL hash on initial load.');
-              history.replaceState({}, document.title, window.location.pathname + window.location.search);
-            }
+            console.error('[AuthContext] Error mapping session on state change:', mapError);
+            setError(mapError instanceof Error ? mapError.message : 'Mapping session on change failed.');
           }
         }
       );
 
       return () => {
-        isMounted = false;
-        if (authListener?.subscription) {
-          authListener.subscription.unsubscribe();
+        if (subscription) {
+          subscription.unsubscribe();
         }
       };
-    } catch (error) {
-      console.error("Failed to initialize Supabase auth listener:", error);
-      if (isMounted) {
-        setError('Failed to initialize auth listener');
-        setIsLoading(false);
-      }
-      return () => {};
-    }
+    };
+
+    const unsubscribePromise = initializeSession();
+
+    return () => {
+      isMounted = false;
+      unsubscribePromise.then(unsubscribe => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      });
+    };
   }, [envError, router]);
+
+
+  // Re-validate session on window focus
+  useEffect(() => {
+    const handleFocus = async () => {
+      if (supabase) {
+        await supabase.auth.getSession();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
 
   // Login function

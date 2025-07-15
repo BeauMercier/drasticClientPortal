@@ -679,6 +679,42 @@ export function useNotifications(): UseNotificationsReturn {
 
 ### 4-b Header bell icon
 
+File: `src/shared/ui/layout/Header/NotificationsMenu.tsx`
+This component is responsible for rendering the notification bell icon and the dropdown menu.
+
+**Styling & Dark Mode:**
+The styling for this component, particularly in dark mode, proved challenging due to overly aggressive global styles in `src/styles/globals.css` that use `!important`. The final, robust solution involves a two-part approach:
+
+1.  **A Surgical CSS Override:** A dedicated utility class was added to `globals.css` to force the correct background and text color on unread notifications in dark mode.
+    ```css
+    /* src/styles/globals.css */
+    .dark .force-unread-bg {
+      background-color: rgb(30 64 175) !important; /* tailwind blue-800 */
+      color: rgb(239 246 255) !important;          /* tailwind blue-50  */
+    }
+    ```
+
+2.  **Targeted Application in the Component:** The component uses `clsx` to conditionally apply classes. The `.force-unread-bg` class is specifically added to unread items to ensure they are styled correctly, winning the specificity battle with the global styles.
+    ```typescript
+    // src/shared/ui/layout/Header/NotificationsMenu.tsx
+    import clsx from 'clsx';
+
+    // ...
+    <Link
+      // ...
+      className={clsx(
+        // ... base styles
+        isRead
+          ? /* READ STYLES */
+          : /* UNREAD STYLES */ 'bg-blue-50 text-gray-900 hover:bg-blue-100 force-unread-bg'
+      )}
+    >
+    ```
+
+This ensures that the component is readable and correctly styled in all states and modes, without causing unintended side effects elsewhere in the application. For a more detailed explanation of the styling architecture, see `docs/ui/THEME_AND_STYLING.md`.
+
+### 4-b Header bell icon
+
 File: `src/components/layout/NotificationsMenu.tsx` (or similar, adjust path if needed)
 ```typescript
 'use client'

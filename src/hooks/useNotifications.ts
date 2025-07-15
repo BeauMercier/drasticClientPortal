@@ -44,7 +44,7 @@ export function useNotifications(): UseNotificationsReturn {
     fetcher,
     {
       refreshInterval: 60_000, // Poll once a minute
-      // revalidateOnFocus: true, // Optional: revalidate on window focus
+      revalidateOnFocus: true, // Revalidate on window focus
     }
   )
 

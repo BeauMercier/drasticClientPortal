@@ -128,7 +128,7 @@
     *   [ ] Thoroughly test the entire notification flow (creation, display, interaction, deep-linking across various notification types).
     *   [ ] Test onboarding cues for new client users.
     *   [ ] Verify all notification types deep-link to the correct pages.
-    *   [ ] Test dark mode UI for `NotificationsMenu` thoroughly after global CSS override fix.
+    *   [x] Test dark mode UI for `NotificationsMenu` thoroughly after global CSS override fix.
 8.  [ ] **(Optional) Guided Tour Library:**
     *   [ ] Evaluate the need for a full guided tour (e.g., `react-joyride`) post-MVP launch of notifications. Implement if deemed necessary for user experience.
 
@@ -144,8 +144,8 @@
     *   Updated link generation logic to include `projectType` (derived from `body.table`) resulting in links like `/client/projects/[projectType]/[id]` to fix 404 errors.
 *   [x] **UI - `NotificationsMenu.tsx`:**
     *   Addressed dark mode hover issue where text became illegible. Applied `dark:` variants for hover background and text colors.
-    *   Applied a temporary workaround (`<style jsx global>`) to further address hover style issues caused by a global CSS override.
-    *   **TODO**: Remove temporary `<style jsx global>` workaround from `NotificationsMenu.tsx` once the conflicting global CSS rule (`.dark .bg-gray-50 { background-color: #000 !important; }`) is removed or refactored in the project's main stylesheets.
+    *   ~~Applied a temporary workaround (`<style jsx global>`) to further address hover style issues caused by a global CSS override.~~
+    *   **[COMPLETED]** The temporary global style was removed. The final, robust fix was implemented by adding a dedicated, high-specificity utility class (`.force-unread-bg`) to `globals.css` and applying it directly to the unread notification items. This definitively solves the style override issue.
 *   [ ] **Realtime Updates for Status Changes:**
     *   Consider enhancing `useNotifications` hook's Realtime subscription to also listen for `UPDATE` events on the `notifications` table (e.g., for `status` changes from 'unread' to 'read' initiated from other tabs/devices). Currently relies on SWR polling/revalidation for this.
 

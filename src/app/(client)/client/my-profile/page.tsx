@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
+import EditProfileView from './EditProfileView';
 
 export default function MyProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -258,185 +259,34 @@ export default function MyProfilePage() {
       );
     }
     
+    if (error) {
+        return <div className="p-6 text-red-500">Error: {error}</div>;
+    }
+
     if (isEditing) {
       return (
-        <div className="p-6 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg shadow">
-          <div className="flex items-start mb-8">
-            <div className="flex-shrink-0 mr-6 text-center"> 
-              <div 
-                onClick={handlePhotoClick}
-                className="relative bg-gray-200 dark:bg-gray-700 rounded-full h-20 w-20 flex items-center justify-center cursor-pointer group overflow-hidden mx-auto border-2 border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400"
-              >
-                {profilePhotoUrl ? (
-                  <Image 
-                    src={profilePhotoUrl} 
-                    alt="Profile Preview" 
-                    fill
-                    className="object-cover rounded-full"
-                    sizes="80px"
-                  />
-                ) : (
-                  <UserIcon className="h-10 w-10 text-gray-500 dark:text-gray-400" />
-                )}
-                <div className="absolute inset-0 bg-black bg-opacity-40 dark:bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                  <CameraIcon className="h-6 w-6 text-white" />
-                </div>
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  onChange={handlePhotoChange}
-                  accept="image/*"
-                  className="hidden" 
-                />
-              </div>
-              <p className="text-xs mt-2 text-gray-500 dark:text-gray-400">Click to change</p>
-            </div>
-            <div className="flex-1">
-              <div className="flex justify-between items-center mb-1">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Your Information</h2>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCancelEdit}
-                    disabled={isSaving}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSubmit}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                </div>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Update your personal details.</p>
-            </div>
-          </div>
-          
-          <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6 mt-6">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-               <div>
-                 <Label htmlFor="full_name" className="text-gray-700 dark:text-gray-300">Full Name</Label>
-                 <Input
-                   type="text"
-                   id="full_name"
-                   name="full_name"
-                   value={formData.full_name}
-                   onChange={handleInputChange}
-                   placeholder="Your full name"
-                   disabled={isSaving}
-                 />
-               </div>
-               <div>
-                 <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">Email</Label>
-                 <div className="relative">
-                   <Input
-                     type="email"
-                     id="email"
-                     name="email"
-                     value={userData.email}
-                     readOnly
-                     className="cursor-not-allowed bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                   />
-                 </div>
-               </div>
-               <div>
-                 <Label htmlFor="phone" className="text-gray-700 dark:text-gray-300">Phone Number</Label>
-                 <Input
-                   type="text"
-                   id="phone"
-                   name="phone"
-                   value={formData.phone}
-                   onChange={handleInputChange}
-                   placeholder="Your phone number"
-                   disabled={isSaving}
-                 />
-               </div>
-               <div>
-                 <Label htmlFor="mobile" className="text-gray-700 dark:text-gray-300">Mobile Number</Label>
-                 <Input
-                   type="text"
-                   id="mobile"
-                   name="mobile"
-                   value={formData.mobile}
-                   onChange={handleInputChange}
-                   placeholder="Your mobile number"
-                   disabled={isSaving}
-                 />
-               </div>
-               <div>
-                 <Label htmlFor="preferredContact" className="text-gray-700 dark:text-gray-300">Preferred Contact</Label>
-                 <select
-                   id="preferredContact"
-                   name="preferredContact"
-                   value={formData.preferredContact}
-                   onChange={handleInputChange}
-                   className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-500 sm:text-sm py-2 px-3"
-                   disabled={isSaving}
-                 >
-                   <option value="Email">Email</option>
-                   <option value="Phone">Phone</option>
-                   <option value="Mobile">Mobile</option>
-                 </select>
-               </div>
-               <div>
-                 <Label htmlFor="country" className="text-gray-700 dark:text-gray-300">Country</Label>
-                 <select
-                    id="country"
-                    name="country"
-                    disabled
-                    className="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 shadow-sm sm:text-sm py-2 px-3 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                 >
-                   <option value="US">United States</option>
-                 </select>
-               </div>
-               <div>
-                 <Label htmlFor="company" className="text-gray-700 dark:text-gray-300">Company</Label>
-                 <Input
-                   type="text"
-                   id="company"
-                   name="company"
-                   value={formData.company}
-                   onChange={handleInputChange}
-                   placeholder="Your company name"
-                   disabled={isSaving}
-                 />
-               </div>
-               <div>
-                 <Label htmlFor="position" className="text-gray-700 dark:text-gray-300">Position</Label>
-                 <Input
-                   type="text"
-                   id="position"
-                   name="position"
-                   value={formData.position}
-                   onChange={handleInputChange}
-                   placeholder="Your job position"
-                   disabled={isSaving}
-                 />
-               </div>
-               <div className="md:col-span-2">
-                 <Label htmlFor="businessWebsite" className="text-gray-700 dark:text-gray-300">Business Website</Label>
-                 <Input
-                   type="url"
-                   id="businessWebsite"
-                   name="businessWebsite"
-                   value={formData.businessWebsite}
-                   onChange={handleInputChange}
-                   placeholder="https://example.com"
-                   disabled={isSaving}
-                 />
-               </div>
-             </div>
-           </form>
-        </div>
+        <EditProfileView
+          formData={formData}
+          handleInputChange={handleInputChange}
+          handleCancelEdit={handleCancelEdit}
+          handleSubmit={handleSubmit}
+          isSaving={isSaving}
+          profilePhotoUrl={profilePhotoUrl}
+          handlePhotoClick={handlePhotoClick}
+          handlePhotoChange={handlePhotoChange}
+          fileInputRef={fileInputRef}
+        />
       );
-    } else {
-      return (
-        <div className="p-6 bg-white dark:bg-gray-900 text-gray-900 dark:text-white rounded-lg shadow"> 
-          <div className="flex justify-between items-center mb-8">
+    }
+
+    return (
+      <Card title="My Info" icon={
+        <Button onClick={handleEditClick} size="sm" variant="outline" className="flex items-center gap-2">
+          <PencilIcon className="h-4 w-4" />
+          Edit info
+        </Button>
+      }>
+        <div className="flex justify-between items-center mb-8">
             <div className="flex items-center">
                <div className="flex-shrink-0 mr-4">
                  <Avatar className="h-16 w-16 border-2 border-gray-200 dark:border-gray-700">
@@ -451,17 +301,9 @@ export default function MyProfilePage() {
                  <p className="text-sm text-gray-500 dark:text-gray-400">Personal details and information</p>
                </div>
              </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleEditClick}
-            >
-              <PencilIcon className="h-4 w-4 mr-2" />
-              Edit info
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6"> 
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6"> 
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Full Name</p>
               <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">{userData.full_name || <span className="text-gray-500 dark:text-gray-500 italic">Not provided</span>}</p>
@@ -513,9 +355,8 @@ export default function MyProfilePage() {
 
             <div></div> 
           </div>
-        </div>
-      );
-    }
+      </Card>
+    );
   };
 
   const renderDashboardCards = () => {

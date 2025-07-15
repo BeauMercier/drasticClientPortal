@@ -107,16 +107,6 @@ input[type="password"] {
   background-color: #000000 !important;
 }
 
-/* OLD – this forces EVERYTHING that happens to have bg-gray-50
-   to turn jet-black in dark mode, even tiny dropdown rows 🚨 */
-/* .dark .bg-gray-50 {
-  @apply bg-black;
-  background-color: #000000 !important;
-} */
-
-/* NEW – limit the override to components that really need it */
-.dark .override-gray50-dark { background-color: #000 !important; }
-
 .dark .bg-gray-100 {
   @apply bg-black;
   background-color: #000000 !important;
@@ -150,6 +140,17 @@ input[type="password"] {
 .dark .border-gray-200 {
   @apply border-gray-700;
   border-color: #374151 !important;
+}
+
+/* 
+  Surgical override for unread notification backgrounds in dark mode.
+  This class is intentionally highly specific to win any specificity conflicts
+  with other global styles or utility classes.
+*/
+.dark .force-unread-bg {
+  /* solid colour, full opacity, takes precedence */
+  background-color: rgb(30 64 175) !important; /* tailwind blue-800 */
+  color: rgb(239 246 255) !important;          /* tailwind blue-50  */
 }
 
 @layer components {

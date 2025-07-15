@@ -4,6 +4,25 @@ Welcome to the Drastic Client Portal, a comprehensive platform for managing clie
 
 This is a full-stack Next.js application designed to streamline the workflow for web design, logo design, and social media projects.
 
+## Key Features
+
+- **Role-Based Dashboards:** Separate, tailored dashboard experiences for Clients, Designers, and Admins.
+- **Project Management:** Track project status, stages, and files.
+- **Business Information Request (BIR):** A multi-step form for clients to provide essential project information.
+- **File Uploads & Storage:** Securely upload and manage project-related files using Supabase Storage.
+- **Notifications System:** A robust, real-time notification system to keep users informed of important events, such as project stage updates and required actions. The system is designed to be highly visible and readable in both light and dark modes.
+
+## Tech Stack
+
+- **Frontend:** Next.js 14, shadcn/ui, Tailwind CSS, React, TypeScript
+- **Backend:** Supabase (PostgreSQL, Auth, Storage, Edge Functions)
+- **Authentication:** JWT, Role-Based Access Control (RBAC)
+- **Database:** PostgreSQL, Supabase RLS (Row Level Security)
+- **Storage:** Supabase Storage (Buckets: `project-files`, `bir-files`)
+- **Real-time:** Supabase Edge Functions, Supabase Replicator
+- **UI/UX:** Modern, responsive, and accessible design
+- **Dark Mode:** Fully compatible with dark mode, ensuring readability and usability in all lighting conditions.
+
 ## Features
 
 - **User Authentication**: Secure login with role-based access control (admin, designer, client)
@@ -16,6 +35,7 @@ This is a full-stack Next.js application designed to streamline the workflow for
     - General user files and project-specific files (non-BIR) via Supabase Storage (`project-files` bucket), with metadata in `user_files` table and RLS.
 - **Business Information Request (BIR)**: (Web Design Projects Only) An integrated, multi-step form for clients to submit required business details directly within their web design project (via dedicated tabs).
    - Includes file uploads for BIR-specific documents (e.g., logos, style guides) stored in a separate private Supabase Storage bucket (`bir-files`) with metadata in `bir_file` table, all controlled by RLS using a signed URL flow.
+   - **Note on Stability:** A critical client-side race condition that could cause "403 Forbidden" errors upon saving a new BIR draft has been resolved. The form now waits for all necessary user and project data to be loaded before allowing save actions, ensuring stability.
 - **Enhanced Project Timeline**:
     - **Clear status colours:** current (blue), completed (green), pending (gray).
     - **Accurate progression:** driven by `current_stage`.
@@ -70,119 +90,4 @@ npm start
 ## Project Structure
 
 The project follows a standard Next.js App Router structure with key directories organized as follows:
-(For details on utility directories like `debug-env/`, `management/`, `lib/supabase/`, and `lib/db/`, please refer to the "Directory Structure" section in `PLANNING.md`.)
-
-```
-/src
-  /app/          # Next.js App Router: Defines routes, pages, layouts, API endpoints
-    /(admin)/     # Route group for admin pages
-      /admin/     # Admin-specific pages (e.g., /admin/users)
-      layout.tsx  # Admin layout (uses AdminSidebar)
-    /(client)/    # Route group for client pages
-      /client/    # Defines /client base path
-        page.tsx  # Client Dashboard (/client)
-        /my-profile/ # Profile page (/client/my-profile)
-            page.tsx # Main profile page
-            my-info/page.tsx # User's personal information page
-            business-info/page.tsx # User's business information page
-        /projects/ # Project pages (/client/projects) - Contains sub-routes like /web-design, /logo-design
-        /billing/ # Billing page (/client/billing)
-      layout.tsx  # Client layout (uses ClientSidebar)
-    /(designer)/  # Route group for designer pages
-      /designer/  # Designer-specific pages (e.g., /designer/dashboard)
-      layout.tsx  # Designer layout (uses RoleSidebar via DashboardLayout)
-    /api/         # Backend API route handlers
-      /projects/  # API routes specifically for project operations
-        /[projectId]/user-files/ # Lists files for a project from user_files
-        /files/   # API routes for project file handling
-          /upload/ # Handles project file uploads (inserts into user_files)
-      /bir/       # API routes for Business Information Request
-        route.ts  # Handles GET/POST/PATCH for BIR text data
-        /upload/route.ts # (DEPRECATED) Was for BIR file uploads, now uses signed URL flow.
-        /create-upload-url/route.ts # POST to generate a signed URL for direct BIR file upload.
-        /record-file/route.ts # POST to record BIR file metadata after direct upload.
-      /files/     # General file operations
-        /url/     # Generates signed URLs for storage objects
-      /user-files/ # Operations on user_files table records
-        /[userFileId]/ # Handles deletion of user_files record + storage object
-    /[route]/     # Individual top-level page routes (e.g., login)
-    layout.tsx    # Root application layout
-    page.tsx      # Root application page (homepage)
-
-  /components/   # Reusable UI components
-    /ui/          # shadcn/ui base components
-    /layout/      # Layout-specific components (Header, DashboardLayout)
-    /admin/       # Admin-specific components (AdminSidebar)
-    /client/      # Client-specific components (ClientSidebar)
-    RoleSidebar.tsx # Sidebar showing different links based on role (used by Designer)
-    BirFileUploader.tsx # Component for BIR file uploads
-    ...           # Other shared or feature-specific components
-
-  /lib/          # Core logic, utilities, types, and external service integrations
-    /api/         # Centralized API logic (Supabase interactions)
-      client-api.ts # Functions for client-side use (respect RLS)
-      admin.ts      # Functions for administrative tasks (bypass RLS)
-      storage.ts    # Provides a StorageService class for interacting with Supabase Storage (upload, download, list files, etc.) and defines storage-related constants like bucket names.
-      server.ts     # Server-side Supabase client initialization
-      server-utils.ts # Server-only helpers (authentication, client creation)
-      API_ARCHITECTURE.MD # Detailed explanation of API structure
-      bir.ts        # Helper functions for BIR data operations
-    /types/       # Centralized TypeScript types (e.g., Project, User, BIR related types)
-    /utils/       # General utility functions
-    /config/      # Project-wide configurations (e.g., auth-config.ts)
-    /db/          # SQL schema files, migration definitions, and utility scripts for database setup.
-    ...
-
-  /features/     # Modules for specific application features (e.g., auth)
-    /[feature]/   # Contains components, hooks, types specific to a feature
-    /bir/         # Hooks, Form, Summary, Gate components for BIR feature
-
-  /shared/       # Shared hooks, types, or UI utilities (e.g., contexts, atoms, molecules)
-
-  /styles/       # Global CSS styles
-
-  middleware.ts  # Next.js edge middleware (auth checks, role-based redirects, cookie domain management)
-  src/lib/config/auth-config.ts # Centralized configuration for role base paths
-
-/public/         # Static assets (images, fonts)
-/supabase/       # Supabase CLI related files (e.g., migrations, config)
-  /migrations/  # Database migration files (including for bir_file table)
-```
-
-## API Endpoints & Logic
-
-- **API Routes (`src/app/api/`)**: These act as the entry points for frontend requests. They handle request validation, authentication checks (often using helpers from `src/lib/api/server-utils.ts`), and then delegate the core business logic.
-- **Core API Logic (`src/lib/api/`)**: This directory contains the main implementation for interacting with Supabase (database, auth, storage). It's structured to separate client-safe and server-only code, ensuring security and preventing build errors. **Refer to `src/lib/api/API_ARCHITECTURE.MD` for a detailed explanation of this structure.** Key modules include:
-  - `client-api.ts`: Functions intended for client-side use (respect RLS).
-  - `admin.ts`: Functions for administrative tasks (bypass RLS using service role).
-  - `storage.ts`: Provides a `StorageService` class for interacting with Supabase Storage and defines storage-related constants.
-  - `client.ts` / `server.ts` / `server-utils.ts`: Supabase client initialization and server-side utilities.
-
-Key API routes include:
-*   `/api/admin/...`: Routes for administrative tasks (fetching all projects, users, assigning designers).
-*   `/api/admin/project-files/[projectType]/[projectId]`: Fetches BIR files for a specific project for admin view.
-*   `/api/projects/[projectType]/[projectId]`: Fetching project details (client/designer view).
-*   `/api/projects/files/upload`: Handling project-specific file uploads (non-BIR).
-*   `/api/user-files/[userFileId]`: Deleting user files.
-*   `/api/files/url`: Generating download URLs for files.
-*   `/api/bir`: Handling Business Information Request text data (GET by projectId, POST for create/upsert, PATCH for updates).
-*   `/api/bir/upload/route.ts`: (DEPRECATED) Previously handled BIR file uploads. Superseded by signed URL flow.
-*   `/api/bir/create-upload-url`: POST to generate a signed URL for direct client upload of a BIR file.
-*   `/api/bir/record-file`: POST to record metadata of a BIR file after direct upload.
-
-## Database Schema
-
-The application uses Supabase with the following main tables:
-
-- `profiles` - User profiles with roles
-- `projects` - Project information
-- `web_design_projects`, `logo_design_projects`, `social_graphics_projects` - Specific project type tables
-- `designer_projects` - Tracks which designer is assigned to which project
-- `project_revisions`, `revision_files` - For project revision deliverables.
-- `user_files` - Metadata for general user files and non-BIR project files.
-- `business_information_requests` - Stores the main data for BIR.
-- `bir_file` - Stores metadata for files uploaded as part of a BIR.
-
-## Recent Stability Improvements
-
-Key architectural decisions and resolutions to significant past stability issues (e.g., authentication, session management, navigation) are detailed in `docs/PROJECT_HISTORY.md`. These have contributed to a more stable and reliable user experience.
+(For details on utility directories like `debug-env/`, `management/`, `lib/supabase/`, and `lib/db/`, please refer to the "Directory Structure" section in `

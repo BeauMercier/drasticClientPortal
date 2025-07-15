@@ -154,6 +154,18 @@ const adminSupabase = createServiceRoleClient(); // Renamed for clarity
 const { data, error } = await adminSupabase.from('table').select('*');
 ```
 
+### Architectural Case Study: Diagnosing a "403 Forbidden" Error
+
+A real-world example that illustrates this architecture is the resolution of a "403 Forbidden" error on the Business Information Request (BIR) form.
+
+- **Symptom**: Saving a new BIR draft resulted in a 403 error from the `/api/bir` endpoint.
+- **Investigation Path**:
+    1.  **API Route (`/api/bir`)**: The route handler was correctly catching a generic database error and returning a 403 status, indicating a permissions issue.
+    2.  **Data Access Helper (`/lib/api/bir.ts`)**: The `upsertBir` function was correctly sending data to the database.
+    3.  **Database RLS Policies**: The Row Level Security policy on the `business_information_requests` table was identified as the source of the rejection. It required a valid `client_id` matching the authenticated user.
+    4.  **Client-Side Component (`/features/bir/MultiStepBirForm.tsx`)**: The root cause was traced back to a race condition. The component could send the save request *before* the `useAuth()` hook provided the `user.id`, leading to an invalid `client_id`.
+- **Conclusion**: This demonstrates the full-stack nature of an issue. The error manifested in the database (RLS policy) but was caused by a state and timing issue in a client-side component. The fix involved making the client component aware of the authentication loading state and disabling UI actions until all necessary data was present, ensuring the API is always called with a valid payload.
+
 ## Best Practices
 
 1. Always use the most specific import for your needs (client vs. server clients).

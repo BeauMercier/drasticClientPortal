@@ -65,3 +65,16 @@ sequenceDiagram
         *   Inserts a new record into the `bir_file` table with the provided metadata, linking it to the `business_information_requests` table via `bir_id`.
 
 This flow ensures that file uploads are secure, efficient, and managed correctly within the application's data model. 
+
+---
+
+## Common Issues & Resolutions
+
+### "403 Forbidden" Error When Saving BIR Text Data
+
+While this document focuses on file uploads, a critical issue related to the main BIR form is documented here for completeness.
+
+- **Symptom**: Users would receive a "403 Forbidden" error when trying to save a draft of the BIR text-based form, particularly for a new project where no BIR existed yet. This error originates from the `POST` or `PATCH` request to the `/api/bir` endpoint, not the file upload endpoints.
+- **Root Cause**: A race condition was identified in the main form component, `src/features/bir/MultiStepBirForm.tsx`. The form's save action could be triggered by the user before the application had finished loading the authenticated user's session data via the `useAuth()` hook.
+- **Mechanism of Failure**: This resulted in an API call to `/api/bir` with an empty or `undefined` `client_id`. The Supabase Row Level Security (RLS) policy on the `business_information_requests` table correctly rejected this invalid request, as it requires a valid `client_id` that matches the authenticated user.
+- **Resolution**: The fix was implemented in the `MultiStepBirForm.tsx` component. A new loading state (`isFormLoading`) was introduced, which tracks the loading state of both the BIR data and the user's auth session. All form action buttons are now disabled while `isFormLoading` is true. This prevents the user from submitting the form until all necessary data is available, resolving the race condition and ensuring a valid `client_id` is always included in the request. 

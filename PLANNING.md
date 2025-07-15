@@ -28,6 +28,14 @@
 - **State Management:** React Context API (e.g., `UIContext`, `AuthContext`)
 - **Database:** Supabase (Database, Auth, Storage)
 
+### Known Issues & Resolutions
+
+- **`403 Forbidden` Error on BIR "Save and Exit"**:
+    - **Symptom**: Users would receive a "403 Forbidden" error when trying to save a draft of a Business Information Request (BIR), particularly for a new project where no BIR existed yet.
+    - **Root Cause**: A race condition was identified in the `src/features/bir/MultiStepBirForm.tsx` component. The form's save action (`handleSaveDraft`) could be triggered before the `useAuth()` hook had finished loading the authenticated user's data. This resulted in an API call to `/api/bir` with an empty or `undefined` `client_id`.
+    - **Mechanism of Failure**: The invalid payload was sent to the server, and the Supabase database's Row Level Security (RLS) policy for the `business_information_requests` table correctly rejected the `INSERT` operation because the `client_id` did not match a valid authenticated user (`auth.uid()`).
+    - **Resolution**: The fix was implemented entirely on the client-side. A new state variable, `isFormLoading`, was added to the `MultiStepBirForm.tsx` component. This state is `true` while either the BIR data or the authentication data is loading. All form action buttons (Save, Next, etc.) are now disabled while `isFormLoading` is true, preventing the user from triggering the save action until all necessary data is available. This resolves the race condition and ensures a valid `client_id` is always sent.
+
 ### Project Stage Management
 
 - **Authoritative Source of Truth:** The `projects.current_stage` column (TEXT type, constrained to values from the `ProjectStage` type defined in `src/lib/types/project.ts`, e.g., 'discovery', 'concept-development') and the individual `projects.[stage_name]_date` columns (e.g., `projects.discovery_date`, `projects.concept_development_date`) are the definitive source for a project's current stage and progression.

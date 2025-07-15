@@ -13,7 +13,7 @@ import {
   CameraIcon
 } from '@heroicons/react/24/outline';
 import { getUserProfile, updateUserProfile, uploadProfilePicture } from '@/lib/api/client-api';
-import supabase from '@/lib/api/client';
+import { supabase } from '@/lib/api/client';
 import { Card } from '@/shared/ui/molecules';
 import { useAuthContext } from '@/features/auth/contexts/AuthContext';
 import { Button } from '@/components/ui/button';

@@ -14,7 +14,7 @@ import {
 } from '../types';
 
 // Import Supabase client from the lib module
-import supabase from '@/lib/api/client';
+import { supabase } from '@/lib/api/client';
 // Import Supabase Session type
 import type { Session as SupabaseSession } from '@supabase/supabase-js';
 

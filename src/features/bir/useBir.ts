@@ -1,5 +1,5 @@
+import { supabase } from '@/lib/api/client';
 import useSWR from 'swr';
-import { createClient } from '@/lib/api/client';
 import { BirRow, BirFileRow, SignedBirFile } from '@/lib/types/bir'; // Use updated types
 // import { Database } from '@/lib/database.types';
 
@@ -32,8 +32,6 @@ const fetcher = async (projectId: string): Promise<UseBirData> => {
   if (!projectId) {
     throw new Error('Project ID is required to fetch BIR.');
   }
-
-  const supabase = createClient(); // Get client-side Supabase instance
 
   // 1. Fetch the main BIR record
   const { data: birData, error: birError } = await supabase

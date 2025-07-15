@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import supabase from '@/lib/api/client';
+import { supabase } from '@/lib/api/client';
 import { getUserProfile } from '@/lib/api/client-api';
 import { useAuth } from '@/features/auth';
 import { usePathname } from 'next/navigation';

@@ -11,6 +11,7 @@ The Drastic Client Portal is a comprehensive web application designed to streaml
 *   **Styling:** Tailwind CSS
 *   **UI Components:** shadcn/ui (with some custom components)
 *   **Backend & Database:** Supabase (PostgreSQL Database, Authentication, Storage)
+*   **Authentication & Session Management:** Supabase Auth, managed via `@supabase/ssr` for secure, `HttpOnly` cookie-based sessions that are compatible with Next.js Server-Side Rendering (SSR).
 *   **State Management:** React Context API (e.g., `UIContext`, `AuthContext`)
 *   **Form Handling:** `react-hook-form` with Zod for validation
 *   **Testing:** Vitest (setup present, refer to `vitest.config.ts`)
@@ -30,8 +31,12 @@ The project follows a modular structure facilitated by Next.js and TypeScript.
 *   **Features (`src/features/`):** Modules for specific application features (e.g., `auth`, `bir`). These often contain feature-specific hooks, components, and types.
 *   **Shared Code (`src/shared/`):** Code shared across features or layers, such as React contexts (`contexts/`) and shared UI elements (`ui/`).
 *   **Utilities & Core Logic (`src/lib/`):**
-    *   `api/`: Contains Supabase client setup and data fetching functions, acting as the primary API layer.
-    *   `supabase/`: Lower-level Supabase client configurations and specific utilities.
+    *   `api/`: The primary frontend API layer.
+        *   `index.ts`: The main API entry point, which exports a namespaced `api` object (e.g., `api.client`, `api.storage`).
+        *   `client.ts`: Initializes the singleton, SSR-aware Supabase client using `@supabase/ssr`. This is the core of the data layer.
+        *   `client-api.ts`: Contains the bulk of client-safe data fetching functions.
+        *   `storage.ts`: Contains helpers for Supabase Storage.
+    *   `supabase/`: Lower-level Supabase client configurations and specific helper utilities.
     *   `db/`: SQL schema files, migration definitions (though migrations are primarily in `supabase/migrations/`), and DB-related utility scripts.
     *   `types/`: Global TypeScript type definitions.
     *   `utils/`: General utility functions.
@@ -90,9 +95,9 @@ The project follows a modular structure facilitated by Next.js and TypeScript.
 ## 4. Authentication and Authorization
 
 *   **Provider:** Supabase Auth.
+*   **Session Handling:** The application uses `@supabase/ssr` to manage user sessions via secure, `HttpOnly` cookies. A singleton client, initialized in `src/lib/api/client.ts`, ensures consistent session state between server and client components, resolving previous hydration-related bugs.
 *   **Middleware (`src/middleware.ts`):**
     *   Handles authentication checks for protected routes.
-    *   Manages Supabase client initialization and session handling.
     *   Redirects users based on their role using `src/lib/config/auth-config.ts`.
     *   **Cookie Management:** Configured to pin authentication cookies to the parent domain (`.drasticdigital.com`) to ensure seamless authentication across subdomains (e.g., Vercel previews, production). This resolved significant past stability issues.
 *   **Role-Based Access Control (RBAC):**
@@ -115,8 +120,9 @@ The project follows a modular structure facilitated by Next.js and TypeScript.
     *   `bir_file`: Metadata for files uploaded via the BIR feature.
     *   `user_files`: Metadata for general user files (avatars, non-BIR project files).
 *   **Data Access Layer (`src/lib/api/`):**
-    *   Provides functions for interacting with the Supabase database (fetching, creating, updating, deleting data).
-    *   Separates client-safe and server-only (admin) Supabase client initializations and operations.
+    *   Provides a namespaced API for interacting with the Supabase database (e.g., `api.client.getProjects()`).
+    *   The singleton Supabase client (`supabase`) is exported for direct use when needed.
+    *   This layer abstracts away most direct database calls from the UI components.
 *   **Migrations (`supabase/migrations/`):**
     *   The authoritative source for database schema changes, RLS policies, and database functions.
     *   Managed using the Supabase CLI.
@@ -191,7 +197,9 @@ The project follows a modular structure facilitated by Next.js and TypeScript.
 
 This section reflects the state after a significant documentation consolidation effort.
 
-*   **Documentation Overhaul:** `PLANNING.MD`, `README.MD`, and `TASK.MD` were reviewed, updated, and consolidated. Historical information was moved to `docs/PROJECT_HISTORY.md`.
+*   **Authentication & Session Management:** A critical session management bug related to client-side hydration has been resolved by migrating to `@supabase/ssr` and implementing a singleton client pattern. This has stabilized the application significantly.
+*   **API Structure:** The frontend API has been refactored into a clear, namespaced structure, accessible via `src/lib/api/index.ts`. This has resolved numerous build errors and improved maintainability.
+*   **Documentation Overhaul:** All major documentation files (`README.md`, `PLANNING.md`, `API_ARCHITECTURE.md`, `TASK.md`, `CODEBASE_OVERVIEW.MD`) have been updated to reflect the new architecture.
 *   **Key Feature Implementations/Refinements (Archived in `docs/PROJECT_HISTORY.md`):**
     *   Admin Project Files View.
     *   Business Information Request (BIR) feature (multi-step form, signed URL file uploads).

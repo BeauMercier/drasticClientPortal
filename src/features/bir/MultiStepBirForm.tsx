@@ -322,7 +322,7 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
         <div className=""> 
           {!isApproved && (
             <>
-              <form onSubmit={form.handleSubmit(handleSubmitAllAnswers, onFormError)} className="space-y-6">
+              <form className="space-y-6">
                 <CurrentStepComponent form={form} isSubmitting={isSubmittingTextData || authLoading || birLoading} />
                 <div className="mt-8 flex justify-between">
                   <Button
@@ -345,7 +345,8 @@ export default function MultiStepBirForm({ projectId, mutateBir: parentMutateBir
 
                   {isLastTextualStep ? (
                     <Button
-                      type="submit"
+                      type="button"
+                      onClick={form.handleSubmit(handleSubmitAllAnswers, onFormError)}
                       disabled={isSubmittingTextData || isFormLoading}
                     >
                       {isSubmittingTextData ? 'Submitting...' : 'Submit All Answers'}

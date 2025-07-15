@@ -110,19 +110,20 @@ export default function DesignerDashboardPage() {
 
         // Try to fetch designer's tasks
         try {
-          const designerTasks = await getDesignerTasks(userProfile.id);
-          setTasks(designerTasks || []);
-          
-          // Update task stats
-          const completedTasksCount = designerTasks.filter(t => t.status === 'completed').length;
-          const pendingTasksCount = designerTasks.filter(t => t.status !== 'completed').length;
-          
-          setStats(prevStats => ({
-            ...prevStats,
-            completedTasks: completedTasksCount,
-            pendingTasks: pendingTasksCount
-          }));
-          
+          if (userProfile) {
+            const designerTasks = await getDesignerTasks(userProfile.id);
+            setTasks(designerTasks || []);
+            
+            // Update task stats
+            const completedTasksCount = (designerTasks || []).filter(t => t.status === 'completed').length;
+            const pendingTasksCount = (designerTasks || []).filter(t => t.status !== 'completed').length;
+            
+            setStats(prevStats => ({
+              ...prevStats,
+              completedTasks: completedTasksCount,
+              pendingTasks: pendingTasksCount
+            }));
+          }
         } catch (taskError) {
           console.error('Error loading tasks:', taskError);
           setTasks([]);

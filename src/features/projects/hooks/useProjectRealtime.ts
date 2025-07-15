@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
-import supabase from '@/lib/api/client'; // Adjusted import path
+import { useEffect, useState } from 'react';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '@/lib/api/client'; // Adjusted import path
+import { useQueryClient } from '@tanstack/react-query';
 import { useSWRConfig } from 'swr';
 
 /**

@@ -1,8 +1,9 @@
 import useSWR, { KeyedMutator } from 'swr'
 // import { createClientComponentClient } from '@supabase/auth-helpers-nextjs' // Removed this import
-import supabase from '@/lib/api/client' // Added import for the shared SSR-based client
-import { useEffect } from 'react'
-import { useAuth } from '@/features/auth'
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/api/client'; // Added import for the shared SSR-based client
+import { useAuth } from '@/features/auth';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 // Define your Notification type based on the table structure
 export interface Notification {

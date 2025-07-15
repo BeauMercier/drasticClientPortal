@@ -23,6 +23,21 @@ This is a full-stack Next.js application designed to streamline the workflow for
 - **UI/UX:** Modern, responsive, and accessible design
 - **Dark Mode:** Fully compatible with dark mode, ensuring readability and usability in all lighting conditions.
 
+## Authentication & Session Management
+
+The application uses a robust, secure, and modern authentication strategy designed for Server-Side Rendering (SSR) with Next.js.
+
+- **`HttpOnly` Cookies:** User sessions are stored in `HttpOnly` cookies, which are inaccessible to client-side JavaScript. This is a security best practice that prevents XSS (Cross-Site Scripting) attacks from stealing session tokens.
+- **SSR-Aware Client (`@supabase/ssr`):** The frontend uses a special Supabase client from the `@supabase/ssr` library. This client is capable of securely sharing the session cookie between server components (which have direct access) and client components (which do not), ensuring a seamless and consistent authentication state across the entire application.
+- **Singleton Client Pattern:** The Supabase client is initialized once and reused throughout the application as a singleton. This is implemented in `src/lib/api/client.ts`. For backward compatibility with legacy code, this file also exports a `createClient()` factory and a `default` export, though all new code should use the named export: `import { supabase } from '@/lib/api/client';`.
+
+## API Structure
+
+The application's frontend API is organized into a clear, namespaced structure, accessible via the main entry point at `src/lib/api/index.ts`. This prevents function name collisions and makes the API easier to navigate.
+
+- **Namespaces:** API functions are grouped by domain (e.g., `client`, `storage`).
+- **Usage:** To use the API, import the `api` object: `import { api } from '@/lib/api';`. You can then access functions like `api.client.getUserProfile()` or `api.storage.uploadFile()`.
+
 ## Features
 
 - **User Authentication**: Secure login with role-based access control (admin, designer, client)

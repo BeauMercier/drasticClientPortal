@@ -1,241 +1,166 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useAuth } from '@/features/auth';
-import { getUserLogoDesignProjects } from '@/lib/api/client-api';
+import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PlusIcon, ChevronRightIcon, PaintbrushIcon, CalendarIcon, BriefcaseIcon } from 'lucide-react';
+import { supabase } from '@/lib/api/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { Project, ProjectStatus } from '@/lib/types/project';
 
-type LogoDesignProject = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  industry?: string;
-  color_preferences?: string;
-  style_preferences?: string;
-  is_placeholder?: boolean;
-  created_at: string;
-  updated_at: string;
-};
-
-export default function LogoDesignProjectsPage() {
-  const { user, isLoading: authLoading } = useAuth();
-  const [projects, setProjects] = useState<LogoDesignProject[]>([]);
+const LogoDesignPage: React.FC = () => {
+  const { user } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  const fetchProjects = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const { data: projectsData, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('client_id', user.id)
+        .eq('project_type', 'logo_design');
+
+      if (error) throw error;
+      if (projectsData) {
+        const activeProjects = projectsData.filter(
+          (project: { is_placeholder: boolean }) => !project.is_placeholder
+        );
+        setProjects(activeProjects as Project[]);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    const loadProjects = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+    fetchProjects();
+  }, [fetchProjects]);
 
-        const projectsData = await getUserLogoDesignProjects();
-        // console.log('Logo Design Projects:', projectsData);
-        
-        // Filter out placeholder projects or handle them specially
-        const activeProjects = projectsData.filter(project => !project.is_placeholder);
-        setProjects(activeProjects);
+  if (isLoading) {
+    return <div>Loading projects...</div>;
+  }
 
-        // Check if we only have placeholder projects
-        if (projectsData.length > 0 && activeProjects.length === 0) {
-          // We only have placeholder projects - all projects are placeholders
-          setProjects(projectsData);
-        }
-      } catch (err: any) {
-        // console.error('Error loading logo design projects:', err);
-        setError(err.message || "Failed to load projects");
-        setProjects([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  if (error) {
+    return <div className="text-red-500">Error: {error}</div>;
+  }
 
-    if (!authLoading && user) {
-      loadProjects();
-    }
-  }, [authLoading, user]);
-  
-  const getStatusBadge = (status: string) => {
-    let variant = 'default';
-    let label = status.replace(/_/g, ' ');
-    
-    switch(status.toLowerCase()) {
-      case 'in_progress':
-      case 'in-progress':
-        variant = 'secondary';
-        label = 'In Progress';
-        break;
-      case 'completed':
-        variant = 'success';
-        label = 'Completed';
-        break;
-      case 'pending':
-        variant = 'outline';
-        label = 'Pending';
-        break;
-      case 'not-started':
-      case 'not_started':
-        variant = 'outline';
-        label = 'Not Started';
-        break;
-      case 'cancelled':
-        variant = 'destructive';
-        label = 'Cancelled';
-        break;
-    }
-    
-    return (
-      <Badge variant={variant as "default" | "secondary" | "outline" | "destructive"}>{label}</Badge>
-    );
-  };
-
-  // Loading state
-  if (authLoading || isLoading) {
-    return (
-      <div className="container mx-auto py-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Logo Design Projects</h1>
-        </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="overflow-hidden">
-              <CardHeader className="p-4 pb-2">
-                <Skeleton className="h-5 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardHeader>
-              <CardContent className="p-4 pt-2">
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-3/4" />
-              </CardContent>
-              <div className="p-4 flex justify-between items-center">
-                <Skeleton className="h-4 w-1/3" />
-                <Skeleton className="h-8 w-20 rounded-md" />
-              </div>
-            </Card>
+  return (
+    <div className="container mx-auto p-8">
+      <h1 className="text-3xl font-bold mb-6">Your Logo Design Projects</h1>
+      {projects.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.map(project => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onClick={() => setSelectedProject(project)}
+            />
           ))}
         </div>
-      </div>
-    );
-  }
+      ) : (
+        <p>You have no active logo design projects.</p>
+      )}
 
-  // Error state
-  if (error) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Logo Design Projects</h1>
-        </div>
-        <Card className="text-center p-8">
-          <CardContent className="pt-6">
-            <p className="text-red-500 mb-4">{error}</p>
-            <Button onClick={() => window.location.reload()}>
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+      {selectedProject && (
+        <ProjectDetailModal
+          project={selectedProject}
+          onClose={() => setSelectedProject(null)}
+        />
+      )}
+    </div>
+  );
+};
 
-  // Empty state or only placeholder projects
-  if (projects.length === 0 || (projects.length > 0 && projects.every(p => p.is_placeholder))) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Logo Design Projects</h1>
-        </div>
-        <Card className="text-center p-8">
-          <CardContent className="pt-6">
-            <h3 className="text-xl font-semibold mb-4">No Active Logo Design Projects</h3>
-            <p className="text-muted-foreground mb-6">
-              You do not have any active logo design projects at the moment. Contact us to start a new logo design project.
-            </p>
-            <div className="flex justify-center">
-              <Button asChild>
-                <Link href="https://www.drasticdigital.com/contact" target="_blank" rel="noopener noreferrer">
-                  Contact Us to Start a Project
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+type ProjectCardProps = {
+  project: Project;
+  onClick: () => void;
+};
 
-  // Projects display
+const ProjectCard: React.FC<ProjectCardProps> = ({ project, onClick }) => {
+  const getStatusPill = (status: ProjectStatus | string | null) => {
+    let className = 'px-2 py-1 text-xs font-semibold rounded-full';
+    switch (status) {
+      case 'in_progress':
+        className += ' bg-blue-200 text-blue-800';
+        break;
+      case 'completed':
+        className += ' bg-green-200 text-green-800';
+        break;
+      case 'on_hold':
+        className += ' bg-yellow-200 text-yellow-800';
+        break;
+      default:
+        className += ' bg-gray-200 text-gray-800';
+        break;
+    }
+    return <span className={className}>{status || 'N/A'}</span>;
+  };
+
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Logo Design Projects</h1>
-        <Button asChild>
-          <Link href="https://www.drasticdigital.com/contact" target="_blank" rel="noopener noreferrer">
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Request New Project
-          </Link>
-        </Button>
+    <div
+      className="bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow duration-200 flex flex-col justify-between"
+      onClick={onClick}
+    >
+      <div>
+        <h3 className="text-xl font-bold mb-2">{project.name}</h3>
+        <p className="text-gray-600 mb-4">
+          {project.description || 'No description provided.'}
+        </p>
+        <div className="flex items-center text-sm text-gray-500 mb-2">
+          <span className="font-semibold mr-2">Status:</span>
+          {getStatusPill(project.status)}
+        </div>
+        <div className="flex items-center text-sm text-gray-500">
+          <span className="font-semibold mr-2">Created:</span>
+          <span>
+            {project.created_at
+              ? format(new Date(project.created_at), 'PPP')
+              : 'N/A'}
+          </span>
+        </div>
       </div>
+      <button
+        onClick={e => {
+          e.stopPropagation();
+          // Handle view details action
+        }}
+        className="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 self-start"
+      >
+        View Details
+      </button>
+    </div>
+  );
+};
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project) => (
-          <Card key={project.id} className="overflow-hidden">
-            <CardHeader className="p-4 pb-2">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-xl">{project.title || 'Untitled Project'}</CardTitle>
-                {getStatusBadge(project.status)}
-              </div>
-              <CardDescription>
-                Logo Design
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 pt-2">
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {project.description || 'No description provided.'}
-              </p>
-              
-              <div className="mt-4 space-y-2">
-                {project.industry && (
-                  <div className="flex items-center text-sm">
-                    <BriefcaseIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span>Industry: {project.industry.replace(/_/g, ' ')}</span>
-                  </div>
-                )}
-                {project.color_preferences && (
-                  <div className="flex items-center text-sm">
-                    <PaintbrushIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span>Colors: {project.color_preferences}</span>
-                  </div>
-                )}
-                <div className="flex items-center text-sm">
-                  <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <span>Updated: {format(new Date(project.updated_at), 'MMM d, yyyy')}</span>
-                </div>
-              </div>
-            </CardContent>
-            <div className="p-4 flex justify-between items-center">
-              {project.is_placeholder ? (
-                <Button variant="secondary" disabled>
-                  Coming Soon
-                </Button>
-              ) : (
-                <Button asChild variant="default">
-                  <Link href={`/client/projects/logo-design/${project.id}`}>
-                    View Details
-                    <ChevronRightIcon className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </Card>
-        ))}
+// A simple modal for showing project details
+type ProjectDetailModalProps = {
+  project: Project;
+  onClose: () => void;
+};
+
+const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
+  project,
+  onClose,
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-8 rounded-lg max-w-lg w-full">
+        <h2 className="text-2xl font-bold mb-4">{project.name}</h2>
+        <p>Details about the project go here.</p>
+        <button
+          onClick={onClose}
+          className="mt-6 bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+        >
+          Close
+        </button>
       </div>
     </div>
   );
-} 
+};
+
+export default LogoDesignPage; 

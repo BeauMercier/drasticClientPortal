@@ -3,8 +3,7 @@
  * 
  * Contains helper functions for managing Supabase authentication.
  */
-
-import supabase from '@/lib/api/client';
+import { supabase } from '@/lib/api/client';
 
 /**
  * Clears all Supabase-related items from localStorage 

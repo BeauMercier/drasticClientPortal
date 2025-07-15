@@ -23,8 +23,8 @@
 - **Styling:** Tailwind CSS
 - **UI Components:** shadcn/ui (some custom, see notes below)
 - **Authentication:** Supabase
-    - Note on API Route Auth: Server-side authentication in Next.js API routes (e.g., for notifications) has been standardized to use `@supabase/ssr` (specifically `createServerClient` with a `cookies()` adapter) to ensure consistent session handling with the client-side, replacing earlier use of `@supabase/auth-helpers-nextjs` in some areas.
-    - Note on Middleware Role Handling: User roles, originating from `public.profiles.role`, are synchronized to `auth.users.raw_app_meta_data.role` via database triggers. The Next.js middleware (`src/middleware.ts`) leverages this by reading the role directly from the JWT (`user.app_metadata.role`), enabling synchronous and robust role-based routing decisions.
+    - **Session Management:** The application uses an `HttpOnly` cookie-based session strategy, managed by the `@supabase/ssr` library. A singleton, SSR-aware Supabase client is initialized in `src/lib/api/client.ts` and used throughout the application to ensure a consistent and secure authentication state between the server and client.
+    - **Role Handling:** User roles, originating from `public.profiles.role`, are synchronized to `auth.users.raw_app_meta_data.role` via database triggers. The Next.js middleware (`src/middleware.ts`) leverages this by reading the role directly from the JWT (`user.app_metadata.role`), enabling synchronous and robust role-based routing decisions.
 - **State Management:** React Context API (e.g., `UIContext`, `AuthContext`)
 - **Database:** Supabase (Database, Auth, Storage)
 
@@ -62,20 +62,11 @@
             - `billing/page.tsx`: Handles `/client/billing`.
     - `(designer)/`: Routes for designers. Uses `src/app/(designer)/layout.tsx` with `DashboardLayout` and `RoleSidebar`.
         - `designer/`: Specific designer pages (e.g., dashboard, tasks).
-    - `api/`: API routes.
-        - `projects/`: Project-specific API endpoints.
-            - `files/`: Endpoints for general project file operations (`upload`, etc.). (Note: UI for this removed from web-design project page).
-            - `bir/`: Endpoints for Business Information Request operations.
-                - `route.ts`: Handles GET, POST, PATCH for BIR text data.
-                - `upload/route.ts`: (DEPRECATED) Was previously for BIR file uploads, now superseded by signed URL flow.
-                - `create-upload-url/route.ts`: Handles POST to generate a signed URL for direct client-to-storage BIR file uploads.
-                - `record-file/route.ts`: Handles POST to record BIR file metadata in `bir_file` table after successful client-to-storage upload.
-        - `admin/`, `client/`, `user-files/`, `auth/`, `files/`: Other API route groups.
-        - `env-debug/`: Internal troubleshooting API endpoints.
-        - `business-profile/`: API routes related to business profiles (potentially for future use or specific admin tasks).
-        - Other standard auth routes (`login`, `register`, etc.).
-    - `debug-env/`: Internal troubleshooting pages/routes.
-    - `management/`: Legacy admin pages, slated for removal once the v2 admin dashboard features are complete.
+    - `api/`: API routes. These are server-side endpoints that handle specific backend tasks. For client-side data fetching, see `src/lib/api/client-api.ts`.
+        - `admin/`: Endpoints for administrator-specific actions.
+        - `bir/`: Endpoints for Business Information Request operations (text data, signed URL creation, etc.).
+        - `projects/`: Project-related endpoints.
+        - Other groups for auth, user files, etc.
 - `src/components/`: Reusable UI components.
     - `admin/AdminSidebar.tsx`: Dedicated sidebar for the admin section.
     - `client/ClientSidebar.tsx`: Dedicated sidebar for the client section (styled like AdminSidebar).
@@ -87,9 +78,11 @@
 - `src/features/`: Feature-specific modules (e.g., `auth`).
     - `bir/`: Module for Business Information Request feature (hooks, multi-step form, summary, gate, file upload step components).
 - `src/lib/`: Core utilities, API clients, type definitions.
-    - `api/`: Supabase client setup and data fetching functions, representing the general API layer.
-        - Added `getClientProjectsForCategories`: Fetches all project types (web, logo, social) for the currently authenticated client. Returns an object mapping project types to their counts and the ID of a single project if only one exists in that category. This is used by the client projects page to determine direct navigation.
-        - `bir.ts`: API helper functions for BIR data operations.
+    - `api/`: The frontend API layer.
+        - `index.ts`: The main API entry point, which exports a namespaced `api` object (e.g., `api.client`, `api.storage`).
+        - `client.ts`: Initializes the singleton, SSR-aware Supabase client. **This is the heart of our data connection.**
+        - `client-api.ts`: Contains the bulk of client-safe data fetching functions.
+        - `storage.ts`: Contains helpers for Supabase Storage.
     - `supabase/`: Low-level Supabase client configurations and specific helper utilities, kept separate from the general `lib/api/` layer.
     - `db/`: SQL schema files, migration definitions, and utility scripts related to database setup and migrations (e.g., specific queries, enums, or constants not fitting into the ORM/API layer directly), kept separate from the general `lib/api/` layer.
     - `types/`: TypeScript type definitions.
@@ -177,44 +170,12 @@ The RLS policies for `user_files` have been verified to correctly allow authenti
 
 ## API Routes
 
-Key API routes for core functionality:
+The application uses API routes for server-side logic. Key responsibilities include:
+- Performing actions requiring elevated privileges (Service Role Key).
+- Handling sensitive operations like creating signed URLs for file uploads.
+- Encapsulating complex business logic that shouldn't live on the client.
 
-*   **/api/admin/projects/**
-    *   `GET`: Fetches a list of *all* projects (web, logo, social) for the admin dashboard. Adds a `type` field to each project object.
-*   **/api/admin/projects/[type]/[projectId]/**
-    *   **Note:** This is the single, consolidated endpoint for fetching and updating a specific project. Legacy, type-specific routes (e.g., `/web_design/[projectId]`) have been removed to resolve routing conflicts.
-    *   `GET`: Fetches detailed information for a *single* project. Requires Admin role. The response includes the client's profile (`client`) and the full Business Information Request object (`bir`) if one exists.
-    *   `PUT`: Updates a *single* project. Requires Admin role. Validates input, including `status` against allowed values.
-*   **/api/admin/projects/assign-designer**
-    *   `POST`: Assigns a designer to a specific project. Requires Admin role. (Note: This route writes to the `designer_projects` table, which is the canonical source for designer-project assignments.)
-*   **/api/admin/projects/update-stage/**
-    *   `POST`: Updates the stage of a specific project (`web_design_projects`, `logo_design_projects`, or `social_graphics_projects`). Requires Admin role. This is the **sole designated route** for administrators to change a project's stage, ensuring `current_stage` and `[stage_name]_date` columns are updated consistently.
-*   **/api/admin/projects/force-create**
-    *   `POST`: Creates a new project, bypassing some standard checks (use with caution). Requires Admin role.
-*   **/api/admin/users?role=[role]**
-    *   `GET`: Fetches users based on role (e.g., 'client', 'designer'). Requires Admin role.
-*   **/api/projects/[projectType]/[projectId]/**
-    *   `GET`: Fetches detailed information for a *single* project viewable by clients and assigned designers. Performs authentication and authorization (checks ownership or assignment) before returning data.
-*   **/api/projects/files/upload**
-    *   `POST`: Handles general project-specific file uploads (not BIR-specific). Authenticates user and associates file with project in `user_files` table. (Note: The UI for this was removed from the Web Design project detail page but the API endpoint remains for other uses, e.g., other project types or `/client/files` page).
-*   **/api/user-files/[userFileId]**
-    *   `DELETE`: Deletes a specific user file record from `user_files` (and potentially the storage object via triggers/storage policies). Requires ownership or admin role.
-*   **/api/files/url**
-    *   `GET`: Generates a temporary signed URL for downloading a file from storage (handles both `user_files` and `bir_file` paths, depending on parameters/logic).
-*   **/api/bir?projectId=[uuid]**
-    *   `GET`: Fetches BIR text data.
-*   **/api/bir**
-    *   `POST`/`PATCH`: Creates/updates BIR text data.
-*   **/api/bir/upload**
-    *   `POST`: (DEPRECATED) Previously handled file uploads for a specific BIR. This route is no longer used for BIR file uploads due to Vercel payload limitations and has been replaced by a signed URL flow.
-*   **/api/bir/create-upload-url**
-    *   `POST`: Generates a signed URL for direct client upload of a BIR file to Supabase Storage. Expects `birId`, `filename`, `mime`. Returns `uploadUrl` and `objectKey`.
-*   **/api/bir/record-file**
-    *   `POST`: Records metadata of a BIR file in the `bir_file` table after successful direct upload to Supabase Storage. Expects `birId`, `objectKey`, `size`, `mime`, `originalName`, `fileType`.
-*   **/api/admin/bir/[birId]/status**
-    *   `PUT`: Updates the status of a specific Business Information Request (e.g., to 'approved' or 'pending'). Requires Admin role. Used for the BIR approval workflow.
-*   **/api/admin/project-files/[projectType]/[projectId]**
-    *   `GET`: Fetches a list of files associated with a specific project for the admin view. Currently, this primarily retrieves files from the `bir_file` table (linked via `business_information_requests`) for `web_design` projects. It includes uploader details (derived from the project's client) and file metadata like original name and size. **Crucially, it now generates a temporary signed `download_url` for each file, pointing to the `bir-files` (private) bucket.** Requires Admin role.
+Refer to the `src/app/api/` directory for a full list of endpoints. The primary client-facing data functions are located in `src/lib/api/client-api.ts` and exposed via `src/lib/api/index.ts`, not directly as API routes.
 
 ## Feature: Business Information Request (BIR)
 

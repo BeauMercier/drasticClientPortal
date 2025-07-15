@@ -5,7 +5,8 @@
  * It contains functions for managing user profiles, projects, and other resources.
  */
 
-import { createClient } from './client';
+import { supabase } from './client';
+import { Database } from '@/lib/database.types';
 import { 
   ProjectRevision, 
   // RevisionFile, 
@@ -18,29 +19,28 @@ import {
 import { BusinessProfile } from '@/lib/types/user';
 import { FILES_BUCKET } from './storage';
 
+type Profile = Database['public']['Tables']['profiles']['Row'];
+
 /**
- * Fetches the profile for the currently authenticated user.
- * @returns {Promise<Tables<'profiles'> | null>} The user's profile data or null if not authenticated.
- * @throws {Error} If there's an error fetching the profile from Supabase.
+ * Fetches the user's profile.
+ * @returns {Promise<Profile | null>} The user's profile or null if not found.
  */
-export const getUserProfile = async () => {
-  const supabase = createClient();
+export async function getUserProfile(): Promise<Profile | null> {
   const { data: { user } } = await supabase.auth.getUser();
-  
   if (!user) return null;
-  
+
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single();
-    
+
   if (error) {
     console.error('Error fetching user profile:', error);
-    throw error;
+    return null;
   }
   return data;
-};
+}
 
 /**
  * Updates the profile for the currently authenticated user.
@@ -63,7 +63,6 @@ export const updateUserProfile = async (updates: Partial<{
   position: string;
   business_website: string;
 }>) => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -86,8 +85,6 @@ export const updateUserProfile = async (updates: Partial<{
  * @throws {Error} If the user is not authenticated or if there's an error during upload or profile update.
  */
 export const uploadProfilePicture = async (file: File) => {
-  const supabase = createClient();
-  
   let userForPath;
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -157,7 +154,6 @@ export const uploadProfilePicture = async (file: File) => {
  * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getUserWebDesignProjects = async () => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -178,8 +174,6 @@ export const getUserWebDesignProjects = async () => {
  * @throws {Error} If there's a fetch error.
  */
 export const getWebDesignProject = async (projectId: string) => {
-  const supabase = createClient();
-  
   const { data, error } = await supabase
     .from('web_design_projects')
     .select('*')
@@ -196,7 +190,6 @@ export const getWebDesignProject = async (projectId: string) => {
  * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getUserSocialGraphicsProjects = async () => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -217,8 +210,6 @@ export const getUserSocialGraphicsProjects = async () => {
  * @throws {Error} If there's a fetch error.
  */
 export const getSocialGraphicsProject = async (projectId: string) => {
-  const supabase = createClient();
-  
   const { data, error } = await supabase
     .from('social_graphics_projects')
     .select('*')
@@ -235,7 +226,6 @@ export const getSocialGraphicsProject = async (projectId: string) => {
  * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getUserLogoDesignProjects = async () => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -256,8 +246,6 @@ export const getUserLogoDesignProjects = async () => {
  * @throws {Error} If there's a fetch error.
  */
 export const getLogoDesignProject = async (projectId: string) => {
-  const supabase = createClient();
-  
   const { data, error } = await supabase
     .from('logo_design_projects')
     .select('*')
@@ -274,7 +262,6 @@ export const getLogoDesignProject = async (projectId: string) => {
  * @throws {Error} If the user is not authenticated or if there's a fetch error for any project type.
  */
 export const getDesignerAssignedProjects = async () => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) throw new Error('Not authenticated');
@@ -349,7 +336,6 @@ export const getDesignerProject = async (
   projectId: string,
   projectType: ProjectType
 ) => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -383,8 +369,6 @@ export const getProjectRevisions = async (
   projectId: string, 
   projectType: ProjectTypeForRevision
 ): Promise<ProjectRevision[]> => {
-  const supabase = createClient();
-  
   const { data, error } = await supabase
     .from('project_revisions')
     .select('*')
@@ -414,7 +398,6 @@ export const createProjectRevision = async (revision: {
   description?: string | null;
   status?: RevisionStatus;
 }): Promise<ProjectRevision> => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -461,8 +444,6 @@ export const updateRevision = async (
   revisionId: string, 
   updates: Partial<Pick<ProjectRevision, 'status' | 'feedback'>>
 ): Promise<ProjectRevision> => {
-  const supabase = createClient();
-  
   const { data, error } = await supabase
     .from('project_revisions')
     .update(updates)
@@ -481,8 +462,6 @@ export const updateRevision = async (
  * @throws {Error} If the user is not authenticated or if there's an error deleting the revision.
  */
 export const deleteRevision = async (revisionId: string): Promise<void> => {
-  const supabase = createClient();
-  
   // Delete associated files first
   const { error: deleteFilesError } = await supabase
     .from('revision_files')
@@ -515,7 +494,6 @@ export const addProjectNote = async (
   content: string,
   isPrivate: boolean = false
 ): Promise<ProjectNote> => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -548,7 +526,6 @@ export const getProjectNotes = async (
   projectId: string,
   projectType: ProjectTypeForRevision
 ): Promise<ProjectNote[]> => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -571,7 +548,6 @@ export const getProjectNotes = async (
  * @throws {Error} If the user is not authenticated or if there's an error deleting the note.
  */
 export const deleteProjectNote = async (noteId: string): Promise<boolean> => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -595,8 +571,6 @@ export const deleteProjectNote = async (noteId: string): Promise<boolean> => {
  * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getDesignerTasks = async (userId?: string) => {
-  const supabase = createClient();
-
   // Determine the designer ID to fetch tasks for
   let designerIdToFetch = userId;
   if (!designerIdToFetch) {
@@ -699,7 +673,6 @@ export const getDesignerTasks = async (userId?: string) => {
  * @throws {Error} If the user is not authenticated or if there's an error updating the task.
  */
 export const updateTaskStatus = async (taskId: string, status: string) => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -722,7 +695,6 @@ export const updateTaskStatus = async (taskId: string, status: string) => {
  * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getBusinessProfile = async () => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) return null;
@@ -751,7 +723,6 @@ export const getBusinessProfile = async () => {
  * @throws {Error} If the user is not authenticated or if there's an error during creation/fetch.
  */
 export const createBusinessProfile = async () => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -774,7 +745,6 @@ export const createBusinessProfile = async () => {
  * @throws {Error} If the user is not authenticated or if there's an error during update.
  */
 export const updateBusinessProfile = async (updates: Partial<BusinessProfile>) => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) throw new Error('Not authenticated');
@@ -811,7 +781,6 @@ export type ProjectCategoryCounts = {
  * @throws {Error} If the user is not authenticated or if there's a fetch error.
  */
 export const getClientProjectsForCategories = async (): Promise<ProjectCategoryCounts> => {
-  const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -855,4 +824,4 @@ export const getClientProjectsForCategories = async (): Promise<ProjectCategoryC
 // New function ends here
 
 // Export default client for convenience
-export default createClient(); 
+export default supabase; 

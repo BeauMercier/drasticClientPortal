@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import supabase from '@/lib/api/client';
+import { Auth } from '@supabase/auth-ui-react';
+import { supabase } from '@/lib/api/client';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { useTheme } from 'next-themes';
+import Link from 'next/link';
 import { Button, Card } from '../../shared/ui';
 import { useAuthContext } from '@/features/auth/contexts/AuthContext';
 import { getUserProfile } from '@/lib/api/client-api';

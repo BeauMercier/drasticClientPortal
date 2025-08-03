@@ -50,6 +50,14 @@
     - Updated `PLANNING.md` to align high-level architectural descriptions with the new, stable system.
   - **Outcome**: The session bug is fixed, the build is stable, and all relevant documentation has been updated to reflect the current state of the architecture. The project is now in a healthy, maintainable state.
 
+- **(Date of Session) - Fix BIR Multi-Step Form Premature Submission**
+  - **Objective**: Resolve a critical bug in the Business Information Request (BIR) form where the form would auto-submit when navigating from step 5 to step 6.
+  - **Initial Problem**: The form flashed the final step and immediately submitted because a successful validation on the "Next" button click was triggering the form's global `onSubmit` handler as a side-effect.
+  - **Solution**: The fix involved two key changes in `src/features/bir/MultiStepBirForm.tsx` to decouple navigation from submission:
+    1.  The global `onSubmit` handler was removed from the `<form>` element.
+    2.  The "Submit All Answers" button (on the final step) was changed to `type="button"` and its `onClick` handler was explicitly wrapped with `form.handleSubmit()` to manage the submission.
+  - **Outcome**: The bug is resolved. Users can now properly view and fill out the final step of the BIR form. All relevant project documentation (`PLANNING.md`, `TASK.md`, etc.) has been updated to reflect this fix and the troubleshooting history.
+
 ---
 
 ## Tasks

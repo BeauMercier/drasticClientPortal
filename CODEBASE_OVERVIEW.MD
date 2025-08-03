@@ -73,6 +73,7 @@ The project follows a modular structure facilitated by Next.js and TypeScript.
     *   An integrated, multi-step form for clients to submit business details.
     *   Includes sections for textual information and file uploads.
     *   Designers and admins can view submitted BIR data.
+    *   A critical bug causing premature submission on the final step has been resolved, making the form's navigation and submission process stable and reliable.
 *   **File Management:**
     *   Profile avatar uploads.
     *   General project file uploads (for non-web-design projects, or general files not tied to BIR).

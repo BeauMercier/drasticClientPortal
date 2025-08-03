@@ -50,7 +50,7 @@ The application's frontend API is organized into a clear, namespaced structure, 
     - General user files and project-specific files (non-BIR) via Supabase Storage (`project-files` bucket), with metadata in `user_files` table and RLS.
 - **Business Information Request (BIR)**: (Web Design Projects Only) An integrated, multi-step form for clients to submit required business details directly within their web design project (via dedicated tabs).
    - Includes file uploads for BIR-specific documents (e.g., logos, style guides) stored in a separate private Supabase Storage bucket (`bir-files`) with metadata in `bir_file` table, all controlled by RLS using a signed URL flow.
-   - **Note on Stability:** A critical client-side race condition that could cause "403 Forbidden" errors upon saving a new BIR draft has been resolved. The form now waits for all necessary user and project data to be loaded before allowing save actions, ensuring stability.
+   - **Note on Stability:** A critical client-side race condition that could cause "403 Forbidden" errors upon saving a new BIR draft has been resolved. The form now waits for all necessary user and project data to be loaded before allowing save actions, ensuring stability. A subsequent critical bug that caused the multi-step form to prematurely submit on the final step has also been resolved, making the navigation and submission process robust and reliable.
 - **Enhanced Project Timeline**:
     - **Clear status colours:** current (blue), completed (green), pending (gray).
     - **Accurate progression:** driven by `current_stage`.

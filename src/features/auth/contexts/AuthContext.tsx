@@ -107,28 +107,56 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     let isMounted = true;
 
-    // 1. Immediately hydrate session from cookie
-    supabase.auth.getSession().then(({ data }) => {
+    const validateSessionOnLoad = async () => {
+      // First, get the session from the browser
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      // If no session exists locally, we can stop.
+      if (!currentSession) {
+        if (isMounted) {
+          setSession(null);
+          setUser(null);
+          setIsLoading(false);
+        }
+        return;
+      }
+      
+      // A session exists, but it might be expired or invalid.
+      // Verify it by fetching the user from the Supabase server.
+      // This is a lightweight network request that confirms the token's validity.
+      const { data: { user: supabaseUser }, error: userError } = await supabase.auth.getUser();
+
       if (!isMounted) return;
-      try {
-        const { localSession, localUser } = mapSupabaseSessionToLocal(data.session, null, 'INITIAL_SESSION');
+
+      if (userError || !supabaseUser) {
+        // If there's an error or no user, the session is invalid.
+        // Trigger a full logout to clear localStorage and redirect.
+        await logout();
+      } else {
+        // The session is valid. Map the data to our local state.
+        const { localSession, localUser } = mapSupabaseSessionToLocal(currentSession, null, 'SESSION_VALIDATED');
         setSession(localSession);
         setUser(localUser);
-      } catch (mapError) {
-        console.error('[AuthContext] Error mapping initial session:', mapError);
-        setError(mapError instanceof Error ? mapError.message : 'Mapping session failed.');
-      } finally {
         setIsLoading(false);
       }
-    });
+    };
 
-    // 2. Listen for future changes
+    validateSessionOnLoad();
+
+    // This listener remains crucial for handling real-time auth events
+    // like signing in or out in another tab.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!isMounted) return;
       try {
         const { localSession, localUser } = mapSupabaseSessionToLocal(newSession, user, _event);
         setSession(localSession);
         setUser(localUser);
+
+        // If the user logs out from another tab, `newSession` will be null,
+        // and we should make sure loading is complete.
+        if (!newSession) {
+            setIsLoading(false);
+        }
       } catch (mapError) {
         console.error('[AuthContext] Error mapping session on state change:', mapError);
         setError(mapError instanceof Error ? mapError.message : 'Mapping session on change failed.');

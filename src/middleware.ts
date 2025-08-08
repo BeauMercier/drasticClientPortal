@@ -27,6 +27,14 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  // DEV: allow experimental v2 pages without legacy client layout/auth
+  if (
+    pathname.startsWith('/client/my-profile-v2') ||
+    pathname.startsWith('/client/projects/web-design-v2')
+  ) {
+    return response;
+  }
+
   // 1. Early return for static assets and Next.js internals
   if (
     pathname.startsWith('/_next') ||

@@ -10,11 +10,16 @@ This is a full-stack Next.js application designed to streamline the workflow for
 - **Project Management:** Track project status, stages, and files.
 - **Business Information Request (BIR):** A multi-step form for clients to provide essential project information.
 - **File Uploads & Storage:** Securely upload and manage project-related files using Supabase Storage.
-- **Notifications System:** A robust, real-time notification system to keep users informed of important events, such as project stage updates and required actions. The system is designed to be highly visible and readable in both light and dark modes.
+- **Notifications System:** A robust, real-time notification system to keep users informed of important events.
+- **Client Dashboard V2:** A completely redesigned client dashboard (`/client/new-dashboard`) featuring a modern, three-column layout that is both responsive and robust.
+  - **Profile V2 (Dev-only):** New profile page at `/client/my-profile-v2` with inline editing, matching the new dashboard’s visual style. Deep-links supported via `?edit=1`.
+    - **Architecture**: The layout is built to be highly resilient to different screen sizes. It uses modern CSS (`clamp()`, `max()`, `aspect-ratio`) to establish minimum sizes and prevent content from shrinking or overlapping on smaller viewports, while ensuring it scales gracefully on larger screens. This approach resolved significant challenges related to viewport-unit (`vh`) resizing.
+    - **Dynamic Content**: Features dynamically populated sections for profile information, project links, notifications, and recent activity.
+    - **Styling**: Heavily customized with Tailwind CSS, including custom borders, colors, text styles, and drop shadows to match the Drastic Digital brand.
 
 ## Tech Stack
 
-- **Frontend:** Next.js 14, shadcn/ui, Tailwind CSS, React, TypeScript
+- **Frontend:** Next.js 14 (App Router), shadcn/ui, Tailwind CSS, React, TypeScript
 - **Backend:** Supabase (PostgreSQL, Auth, Storage, Edge Functions)
 - **Authentication:** JWT, Role-Based Access Control (RBAC)
 - **Database:** PostgreSQL, Supabase RLS (Row Level Security)
@@ -22,6 +27,16 @@ This is a full-stack Next.js application designed to streamline the workflow for
 - **Real-time:** Supabase Edge Functions, Supabase Replicator
 - **UI/UX:** Modern, responsive, and accessible design
 - **Dark Mode:** Fully compatible with dark mode, ensuring readability and usability in all lighting conditions.
+
+## Theming defaults
+
+- The app now defaults to dark mode via `ThemeProvider` in `src/app/layout.tsx` (`defaultTheme="dark"`).
+- Some dev-only pages (e.g., `/client/new-dashboard`, `/client/my-profile-v2`) explicitly wrap content in a local `div.dark` container to guarantee consistent styling regardless of system/theme state and to bypass aggressive global overrides.
+
+## Error handling (App Router)
+
+- A global App Router error UI exists at `src/app/global-error.tsx`. This prevents the blank screen/overlay message "missing required error components, refreshing..." by providing a resettable fallback UI in development and production.
+- If an error occurs on a route, you will see the global error page with a “Try again” button (calls the provided `reset()` action) and a “Go Home” link.
 
 ## Authentication & Session Management
 
@@ -38,32 +53,6 @@ The application's frontend API is organized into a clear, namespaced structure, 
 - **Namespaces:** API functions are grouped by domain (e.g., `client`, `storage`).
 - **Usage:** To use the API, import the `api` object: `import { api } from '@/lib/api';`. You can then access functions like `api.client.getUserProfile()` or `api.storage.uploadFile()`.
 
-## Features
-
-- **User Authentication**: Secure login with role-based access control (admin, designer, client)
-- **Project Management**: Create, view, edit projects with different types and statuses
-- **Designer Workload Dashboard**: View and manage designer workloads and project assignments
-- **User Management**: Admin interface for creating and managing users
-- **Responsive UI**: Modern UI built with Tailwind CSS and shadcn/ui components
-- **Admin Project Files View**: Admin interface to view files associated with a project, initially focusing on BIR-related files.
-- **File Management**: 
-    - General user files and project-specific files (non-BIR) via Supabase Storage (`project-files` bucket), with metadata in `user_files` table and RLS.
-- **Business Information Request (BIR)**: (Web Design Projects Only) An integrated, multi-step form for clients to submit required business details directly within their web design project (via dedicated tabs).
-   - Includes file uploads for BIR-specific documents (e.g., logos, style guides) stored in a separate private Supabase Storage bucket (`bir-files`) with metadata in `bir_file` table, all controlled by RLS using a signed URL flow.
-   - **Note on Stability:** A critical client-side race condition that could cause "403 Forbidden" errors upon saving a new BIR draft has been resolved. The form now waits for all necessary user and project data to be loaded before allowing save actions, ensuring stability. A subsequent critical bug that caused the multi-step form to prematurely submit on the final step has also been resolved, making the navigation and submission process robust and reliable.
-- **Enhanced Project Timeline**:
-    - **Clear status colours:** current (blue), completed (green), pending (gray).
-    - **Accurate progression:** driven by `current_stage`.
-    - **Delivery special-case:** final stage turns green once `delivery_date` is set, even while it's current.
-    - **Title standardisation:** all project types now use `title` (no more `name` bugs in admin).
-    - **Optional DB trigger:** see `fill_missing_stage_dates` (SQL) to auto-fill earlier stage dates and guarantee integrity.
-
-- **Client Dashboard Enhancements**:
-    - **Active Projects Section**: Displays ongoing client projects. If one project is active, a detailed timeline is shown. If multiple are active, they are displayed as interactive cards.
-    - **Quick Links Section**: Provides easy access to common areas like "Website Dashboard", "Lead Dashboard", and "Support". Links and their presentation are theme-aware (light/dark mode).
-    - **Dynamic Header**: Welcomes the client by their first name.
-    - **Improved Layout**: "Quick Links" are positioned below "Active Projects" for better information flow.
-
 ## Getting Started
 
 ### Prerequisites
@@ -75,18 +64,15 @@ The application's frontend API is organized into a clear, namespaced structure, 
 
 Create a `.env.local` file in the project root with the following variables:
 
-```
+```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ```
 
-**Important Configuration Notes:**
-*   **Cookie Domain:** The application is configured to set authentication cookies on the `.drasticdigital.com` parent domain to ensure seamless authentication across subdomains (e.g., Vercel preview URLs and the production portal). This is handled in `src/middleware.ts`.
-*   **Role-Based Redirects:** The `src/middleware.ts` and the root page (`src/app/page.tsx`) handle redirecting authenticated users to their appropriate role-specific dashboards (e.g., `/client`, `/admin`). A centralized configuration for these paths is in `src/lib/config/auth-config.ts`, which defines `roleBasePaths`.
-*   **Middleware Optimizations:** `src/middleware.ts` includes logic for early returns on static asset paths and public routes (like `/login`) to prevent unnecessary Supabase client initialization, improving performance and stability.
+### Installation & Troubleshooting
 
-### Installation
+**Standard Setup:**
 
 ```bash
 # Install dependencies
@@ -94,15 +80,64 @@ npm install
 
 # Run development server
 npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
 ```
+
+**Build Troubleshooting:**
+During development, the Next.js cache (`.next` folder) or dependencies (`node_modules`) can become corrupted, leading to build failures, blank white screens, or errors like `next: command not found` or `Cannot find module`. If this occurs, perform a clean reinstall:
+
+```bash
+# 1. Remove corrupted folders and the lockfile
+rm -rf .next node_modules package-lock.json
+
+# 2. Reinstall all dependencies from scratch
+npm install
+
+# 3. Restart the development server
+npm run dev
+```
+This process resolves most build-related issues.
+
+### Common dev/runtime warnings and fixes
+
+- Warning: “Next.js (14.x) is outdated” – informational; update is optional.
+- Edge Runtime warnings mentioning `@supabase/ssr` or `process.version` are expected when using middleware; these do not block successful builds.
+- Error: “missing required error components, refreshing...” – fixed by `src/app/global-error.tsx`. If seen again, ensure the file exists and exports a default client component.
+- Error: “Cannot find module './9276.js'” – usually indicates a corrupted `.next` cache. Run the clean reinstall sequence above.
+
+## Profile V2 and Dashboard Integration
+
+- New profile route: `/client/my-profile-v2` (dev-only while iterating)
+  - Tabs: Contact Information and Business Information (others removed in V2)
+  - Inline Edit: Reuses `EditProfileView` with avatar upload (`uploadProfilePicture`) and profile save (`updateUserProfile`)
+  - Query param `?edit=1` opens the edit view immediately (used by dashboard deep-link)
+  - “Go Home” link under the top bar logo points to `/client/new-dashboard`
+  - Right column shows realtime notifications via `useNotifications` and CTA cards
+  - Website Dashboard CTA uses `profile.website_dashboard_url` or fallback to `/client/projects/web-design`
+- New dashboard (`/client/new-dashboard`)
+  - “Add Info +” → `/client/my-profile-v2?edit=1`
+  - “View Profile” → `/client/my-profile-v2`
+  - Removed “View Your Profile” from the left menu
+
+## Middleware Behavior
+
+- `src/middleware.ts` contains an early return whitelist for `/client/my-profile-v2` to avoid legacy layout/auth interference during development. Remove this whitelist for production if you require auth enforcement on the V2 page. All other client routes remain protected and role-checked.
+
+## Environment Variables (Vercel)
+
+Set the following in Vercel Project Settings → Environment Variables:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+```
+
+## Post-Deploy Verification
+
+- Visit `/client/new-dashboard` and verify profile info, “Add Info +” deep-link (edit mode), and “View Profile” linking to V2
+- Visit `/client/my-profile-v2` and verify data population, edit flow saves to Supabase, and avatar updates
 
 ## Project Structure
 
 The project follows a standard Next.js App Router structure with key directories organized as follows:
-(For details on utility directories like `debug-env/`, `management/`, `lib/supabase/`, and `lib/db/`, please refer to the "Directory Structure" section in `
+(For details on utility directories like `debug-env/`, `management/`, `lib/supabase/`, and `lib/db/`, please refer to the "Directory Structure" section in `PLANNING.md` or `CODEBASE_OVERVIEW.MD`).

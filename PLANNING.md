@@ -29,6 +29,31 @@
 - **Database:** Supabase (Database, Auth, Storage)
 
 ### Known Issues & Resolutions
+- **Profile V2 Tabs Dark-Mode Styling**:
+    - **Symptom**: Tab bar appeared black instead of gray and selected pill was vertically misaligned.
+    - **Root Cause**: Global dark-mode overrides in `globals.css` (e.g., `.dark .bg-gray-100 { @apply bg-black; }`) conflicted with the tab list styling.
+    - **Resolution**: Avoided the default `TabsList` container for V2 and used a custom wrapper div with explicit `bg-[#3a3a3a]`, `h-12`, and inner trigger heights to ensure centering. Selected state uses `#5a5a5a`.
+
+- **Profile V2 Inline Edit Placement**:
+    - **Symptom**: Edit form rendered beneath the header/avatar instead of replacing the section.
+    - **Resolution**: During edit mode, the `DashboardCard` renders only `EditProfileView`, hiding header/avatar/tabs.
+
+
+- **App Router Error Page**:
+    - **Symptom**: Dev overlay message “missing required error components, refreshing…” and blank page.
+    - **Resolution**: Added `src/app/global-error.tsx` (client component) implementing a resettable error UI. This satisfies App Router requirements and prevents blank screens.
+
+- **Theme Consistency for V2 Pages**:
+    - **Symptom**: New dashboard/profile V2 looked incorrect depending on global theme state due to aggressive global overrides.
+    - **Resolution**: Set default theme to dark in `src/app/layout.tsx` and, for extra isolation, wrapped V2 pages with a local `div.dark` container.
+
+- **Broken JSX Wrappers**:
+    - **Symptom**: Build error “Unexpected token `div`. Expected jsx identifier”.
+    - **Resolution**: Fixed closing tags in `src/app/client/my-profile-v2/page.tsx` and `src/app/client/new-dashboard/NewClientPage.tsx`.
+
+- **Website Dashboard CTA Fallback**:
+    - **Symptom**: CTA pointed to non-existent `/dashboard/website`.
+    - **Resolution**: Updated fallback to `/client/projects/web-design`.
 
 - **`403 Forbidden` Error on BIR "Save and Exit"**:
     - **Symptom**: Users would receive a "403 Forbidden" error when trying to save a draft of a Business Information Request (BIR), particularly for a new project where no BIR existed yet.
@@ -62,6 +87,7 @@
             - `page.tsx`: Client dashboard.
                 - Note: Uses `AuthContext` to display the initial welcome message with the client's name, aiming for faster perceived load times. Additional profile details for features like "Quick Links" may be fetched separately.
             - `my-profile/`: Handles `/client/my-profile`.
+            - `my-profile-v2/`: Dev-only redesigned profile at `/client/my-profile-v2` with inline edit and dashboard styling. Supports `?edit=1`.
                 - `page.tsx`: Main profile page.
                 - `my-info/page.tsx`: Handles display and editing of personal user information.
                 - `business-info/page.tsx`: Handles display and editing of business-related information.
@@ -81,7 +107,7 @@
         - Note: The "Files" navigation link has been removed from the client sidebar menu items.
     - `RoleSidebar.tsx`: Sidebar component used by Designers (dynamically shows menu based on role).
     - `layout/`: Layout-related components (e.g., `DashboardLayout`).
-    - `ui/`: Base components. Includes a **custom Tabs component** (`src/components/ui/tabs.tsx`) which was refactored to support `defaultValue` prop for uncontrolled state. This was crucial for fixing an issue where tab content wouldn't render.
+    - `ui/`: Base components. Includes a **custom Tabs component** (`src/components/ui/tabs.tsx`) which supports `defaultValue`. For V2 segmented tabs, a custom outer wrapper is used instead of `TabsList` to avoid dark-mode overrides.
     - `BirFileUploader.tsx`: Component for uploading files related to BIR.
 - `src/features/`: Feature-specific modules (e.g., `auth`).
     - `bir/`: Module for Business Information Request feature (hooks, multi-step form, summary, gate, file upload step components).
@@ -101,6 +127,7 @@
     - `contexts/`: Shared React contexts (e.g., `UIContext`, `AuthContext`).
     - `ui/`: Shared UI components (atoms, molecules).
 - `src/styles/`: Global styles.
+    - Note: Dark-mode overrides can aggressively coerce grays to black. V2 components use explicit hex colors to avoid unintended overrides.
 - `src/middleware.ts`: Handles authentication (cookie domain pinning, Supabase client init), route protection, and role-based redirects. It uses the user's role from the JWT (`user.app_metadata.role`, synced from `public.profiles`) for synchronous routing decisions. Manages access to public paths (e.g., `/login`, `/register`, root `/`) and protected role-specific dashboards (e.g., `/client`, `/admin`).
 
 ## UI Components
@@ -184,6 +211,12 @@ The application uses API routes for server-side logic. Key responsibilities incl
 - Encapsulating complex business logic that shouldn't live on the client.
 
 Refer to the `src/app/api/` directory for a full list of endpoints. The primary client-facing data functions are located in `src/lib/api/client-api.ts` and exposed via `src/lib/api/index.ts`, not directly as API routes.
+
+### Client Profile Functions (used by V2)
+
+- `getUserProfile()` – Fetches `public.profiles` row for current user
+- `updateUserProfile(updates)` – Updates profile fields (contact/business/address/avatar)
+- `uploadProfilePicture(file)` – Uploads to `project-files` bucket at `{user_id}/profile/{filename}` and updates `avatar_url`
 
 ## Feature: Business Information Request (BIR)
 

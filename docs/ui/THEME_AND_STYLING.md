@@ -14,6 +14,8 @@ The application supports both light and dark modes, controlled by the `.dark` cl
 
 - **Light Mode (Default):** Styles are applied directly without a specific class.
 - **Dark Mode:** Styles are applied using Tailwind's `dark:` variants (e.g., `dark:bg-gray-800`).
+- **Default Theme:** The app defaults to dark via `ThemeProvider` (`defaultTheme="dark"`).
+- **Local Dark Containers:** Certain pages (e.g., `/client/new-dashboard` and `/client/my-profile-v2`) intentionally wrap their content in a local `div.dark` container to normalize styles and shield against aggressive global overrides.
 
 ## 3. Global Styles & Overrides (`globals.css`)
 
@@ -62,3 +64,8 @@ This class was created to fix an issue where unread notifications were unreadabl
 - **Usage:** This class is applied directly to the unread notification component in `NotificationsMenu.tsx` to ensure it always has the correct high-contrast background and text color in dark mode.
 
 **Guideline:** When a component's dark mode styles are being incorrectly overridden by a global rule, the preferred solution is to create a new, targeted utility class like `.force-unread-bg` rather than modifying the broad global rules. This prevents unintended side effects across the application. 
+
+## 4. Error UI & Theme Context
+
+- The App Router global error component (`src/app/global-error.tsx`) renders outside normal layouts. It uses inline styles to guarantee high-contrast appearance independent of theme state.
+- Page-level `div.dark` containers do not affect the global error UI; it is intentionally self-styled for reliability.

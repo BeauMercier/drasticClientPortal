@@ -40,7 +40,7 @@ export default function RootLayout({
       <body className="h-full bg-background text-foreground antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >

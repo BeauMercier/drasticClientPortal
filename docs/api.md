@@ -23,3 +23,20 @@ This document lists the expected base API routes. The CI check ensures this list
     - `GET /api/notifications`: Fetches a list of notifications for the authenticated user.
     - `POST /api/notifications/[id]/read`: Marks a specific notification as read.
     - `POST /api/notifications/read-all`: Marks all of a user's unread notifications as read. 
+
+## Client Profile – Frontend API Usage
+
+These functions live in `src/lib/api/client-api.ts` and are consumed by the Profile V2 page (`/client/my-profile-v2`).
+
+- `getUserProfile()`
+  - Returns the current user's profile from `public.profiles`.
+- `updateUserProfile(updates)`
+  - Updates profile fields (`full_name`, `phone`, `mobile`, `preferred_contact`, `address`, `city`, `state`, `zip`, `company`, `position`, `business_website`, `avatar_url`).
+- `uploadProfilePicture(file)`
+  - Uploads to the `project-files` bucket at `{user_id}/profile/{filename}` and updates `avatar_url` with the resulting public URL.
+
+Notes:
+
+- Profile V2 uses `?edit=1` to open the edit form on load.
+- Notifications are displayed on the Profile V2 right column using `useNotifications` (SWR + Supabase realtime channel).
+- Website Dashboard CTA uses `profiles.website_dashboard_url` when available; fallback route is `/client/projects/web-design`.

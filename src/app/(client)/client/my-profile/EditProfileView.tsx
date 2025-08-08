@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CameraIcon } from '@heroicons/react/24/outline';
-import Image from 'next/image';
+import { cn } from '@/lib/utils/cn';
 
 interface EditProfileViewProps {
   formData: any;
@@ -18,6 +18,7 @@ interface EditProfileViewProps {
   handlePhotoClick: () => void;
   handlePhotoChange: (e: ChangeEvent<HTMLInputElement>) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  wrapperClassName?: string;
 }
 
 export default function EditProfileView({
@@ -30,12 +31,16 @@ export default function EditProfileView({
   handlePhotoClick,
   handlePhotoChange,
   fileInputRef,
+  wrapperClassName,
 }: EditProfileViewProps) {
   const userInitial = (formData.full_name?.charAt(0) || 'U').toUpperCase();
 
   return (
-    <div className="p-6 bg-white dark:bg-black text-gray-900 dark:text-white rounded-lg shadow-lg">
-      <div className="flex items-center justify-between mb-8">
+    <div className={cn(
+      'p-6 bg-white dark:bg-black text-gray-900 dark:text-white rounded-lg shadow-lg',
+      wrapperClassName
+    )}>
+      <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-semibold">Edit My Profile</h2>
         <div className="flex items-center gap-4">
           <Button onClick={handleCancelEdit} variant="outline">
@@ -52,7 +57,7 @@ export default function EditProfileView({
           <div className="relative group" onClick={handlePhotoClick}>
             <Avatar className="w-24 h-24 text-4xl border-2 border-gray-300 dark:border-gray-700">
               {profilePhotoUrl ? (
-                <Image src={profilePhotoUrl} alt="Profile Photo" layout="fill" objectFit="cover" className="rounded-full" />
+                <AvatarImage src={profilePhotoUrl} alt="Profile Photo" className="rounded-full object-cover" />
               ) : (
                 <AvatarFallback>{userInitial}</AvatarFallback>
               )}
@@ -71,7 +76,7 @@ export default function EditProfileView({
           <p className="text-sm mt-2">Edit Photo</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 flex-grow">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 flex-grow">
           <div>
             <Label htmlFor="full_name">Full Name</Label>
             <Input id="full_name" name="full_name" value={formData.full_name} onChange={handleInputChange} />

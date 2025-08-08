@@ -43,6 +43,18 @@
         // Also disable no-require-imports for JS files as they are often CommonJS
         "@typescript-eslint/no-require-imports": "off"
       }
+    },
+    {
+      "files": ["**/*.tsx"],
+      "rules": {
+        "no-restricted-syntax": [
+          "error",
+          {
+            "selector": "JSXAttribute[name.name='fill'] + JSXAttribute[name.name='style'] > ObjectExpression > Property[key.name=/^(width|height)$/]",
+            "message": "Do not set width/height on a <Image> that uses fill"
+          }
+        ]
+      }
     }
   ]
 }

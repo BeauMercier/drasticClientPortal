@@ -266,8 +266,8 @@ export default function WebDesignProjectV2Page() {
           style={{ top: `${MIN_FRAME_TOP}px`, height: `max(${MIN_FRAME_H}px, 71.429vh)`, aspectRatio: FRAME_RATIO }}
         >
           <div className="h-full w-full grid grid-cols-[18.5fr_31fr_18.5fr] gap-6">
-            <LeftColumn project={project} />
-            <div className="flex h-full min-h-0 flex-col gap-6">
+            <div className="col-span-2 flex h-full min-h-0 flex-col gap-6">
+              {/* Timeline (spans across two columns) */}
               <DashboardCard className="p-0 overflow-hidden border-[5px] border-[#2c2c2c]">
                 <div className="p-6">
                   <div className="mb-4">
@@ -275,12 +275,87 @@ export default function WebDesignProjectV2Page() {
                     <p className="text-xl font-bold mt-1">{project?.current_stage ? PROJECT_STAGES.find(s => s.key === project.current_stage)?.label : 'Uninitialized'}</p>
                   </div>
                   <div className="pt-2">
-                    <ProjectTimeline stages={PROJECT_STAGES} currentStage={project?.current_stage ?? null} stageDates={stageDates}
-                    />
+                    <ProjectTimeline stages={PROJECT_STAGES} currentStage={project?.current_stage ?? null} stageDates={stageDates} />
                   </div>
                 </div>
               </DashboardCard>
-              {/* Message input mock */}
+
+              {/* Action buttons grid: 2 rows x 3 columns */}
+              <div className="grid grid-cols-3 gap-6">
+                <Link href="/client/projects" className="relative flex h-[120px] w-full items-center justify-between overflow-hidden rounded-[var(--radius-lg)] bg-[hsl(var(--bg-medium))] p-4 text-[hsl(var(--text-light))] shadow-lg transition hover:bg-[hsl(var(--bg-light))]">
+                  <div className="z-10">
+                    <h3 className="font-bold text-lg">Active Projects</h3>
+                    <p className="text-sm text-[hsl(var(--text-medium))]">Click to View</p>
+                  </div>
+                  <div className="z-10">
+                    <div style={{ backgroundColor: `hsl(var(--accent-red))` }} className="flex h-10 w-10 items-center justify-center rounded-full">
+                      <ArrowRightIcon className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href="/client/projects" className="relative flex h-[120px] w-full items-center justify-between overflow-hidden rounded-[var(--radius-lg)] bg-[hsl(var(--bg-medium))] p-4 text-[hsl(var(--text-light))] shadow-lg transition hover:bg-[hsl(var(--bg-light))]">
+                  <div className="z-10">
+                    <h3 className="font-bold text-lg">Previous Projects</h3>
+                    <p className="text-sm text-[hsl(var(--text-medium))]">Click to View</p>
+                  </div>
+                  <div className="z-10">
+                    <div style={{ backgroundColor: `hsl(var(--accent-red))` }} className="flex h-10 w-10 items-center justify-center rounded-full">
+                      <ArrowRightIcon className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href={project?.client?.email ? `mailto:${project.client.email}` : '#'} className="relative flex h-[120px] w-full items-center justify-between overflow-hidden rounded-[var(--radius-lg)] bg-[hsl(var(--bg-medium))] p-4 text-[hsl(var(--text-light))] shadow-lg transition hover:bg-[hsl(var(--bg-light))]">
+                  <div className="z-10">
+                    <h3 className="font-bold text-lg">Email Project Lead</h3>
+                    <p className="text-sm text-[hsl(var(--text-medium))]">Click to Contact</p>
+                  </div>
+                  <div className="z-10">
+                    <div style={{ backgroundColor: `hsl(var(--accent-red))` }} className="flex h-10 w-10 items-center justify-center rounded-full">
+                      <ArrowRightIcon className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href="/client/my-profile-v2?edit=1" className="relative flex h-[120px] w-full items-center justify-between overflow-hidden rounded-[var(--radius-lg)] bg-[hsl(var(--bg-medium))] p-4 text-[hsl(var(--text-light))] shadow-lg transition hover:bg-[hsl(var(--bg-light))]">
+                  <div className="z-10">
+                    <h3 className="font-bold text-lg">Update Company Info</h3>
+                    <p className="text-sm text-[hsl(var(--text-medium))]">Click to Edit</p>
+                  </div>
+                  <div className="z-10">
+                    <div style={{ backgroundColor: `hsl(var(--accent-red))` }} className="flex h-10 w-10 items-center justify-center rounded-full">
+                      <ArrowRightIcon className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href={project ? `/client/projects/web-design/${project.id}?tab=files` : '#'} className="relative flex h-[120px] w-full items-center justify-between overflow-hidden rounded-[var(--radius-lg)] bg-[hsl(var(--bg-medium))] p-4 text-[hsl(var(--text-light))] shadow-lg transition hover:bg-[hsl(var(--bg-light))]">
+                  <div className="z-10">
+                    <h3 className="font-bold text-lg">Revision Request</h3>
+                    <p className="text-sm text-[hsl(var(--text-medium))]">Click to Request</p>
+                  </div>
+                  <div className="z-10">
+                    <div style={{ backgroundColor: `hsl(var(--accent-red))` }} className="flex h-10 w-10 items-center justify-center rounded-full">
+                      <ArrowRightIcon className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href="https://drasticdigital.com/contact" target="_blank" rel="noopener noreferrer" className="relative flex h-[120px] w-full items-center justify-between overflow-hidden rounded-[var(--radius-lg)] bg-[hsl(var(--bg-medium))] p-4 text-[hsl(var(--text-light))] shadow-lg transition hover:bg-[hsl(var(--bg-light))]">
+                  <div className="z-10">
+                    <h3 className="font-bold text-lg">Get Support</h3>
+                    <p className="text-sm text-[hsl(var(--text-medium))]">Click for Help</p>
+                  </div>
+                  <div className="z-10">
+                    <div style={{ backgroundColor: `hsl(var(--accent-blue))` }} className="flex h-10 w-10 items-center justify-center rounded-full">
+                      <ArrowRightIcon className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </Link>
+              </div>
+
+              {/* Message input spanning two columns */}
               <DashboardCard className="h-[68px] flex-row items-center justify-between px-4">
                 <input
                   disabled

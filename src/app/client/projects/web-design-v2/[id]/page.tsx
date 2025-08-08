@@ -153,7 +153,7 @@ const LeftColumn: React.FC<{ project?: WebDesignProject | null }> = ({ project }
             </div>
           </div>
         </Link>
-        <Link href={project?.project_lead_email ? `mailto:${project.project_lead_email}` : '#'} className="relative flex h-full w-full items-center justify-between overflow-hidden rounded-[var(--radius-lg)] bg-[hsl(var(--bg-medium))] p-4 text-[hsl(var(--text-light))] shadow-lg transition hover:bg-[hsl(var(--bg-light))]">
+        <Link href={project?.client?.email ? `mailto:${project.client.email}` : '#'} className="relative flex h-full w-full items-center justify-between overflow-hidden rounded-[var(--radius-lg)] bg-[hsl(var(--bg-medium))] p-4 text-[hsl(var(--text-light))] shadow-lg transition hover:bg-[hsl(var(--bg-light))]">
           <div className="z-10">
             <h3 className="font-bold text-lg">Email Project Lead</h3>
             <p className="text-sm text-[hsl(var(--text-medium))]">Click to Contact</p>
@@ -213,15 +213,13 @@ export default function WebDesignProjectV2Page() {
     if (project?.title) setTitle(project.title);
   }, [project?.title]);
 
-  const stageDates: Record<ProjectStage, string | null> | null = project
-    ? {
-        discovery: project.discovery_date,
-        'concept-development': project.concept_development_date,
-        refinement: project.refinement_date,
-        finalization: project.finalization_date,
-        delivery: project.delivery_date,
-      }
-    : null;
+  const stageDates: Record<ProjectStage, string | null> = {
+    discovery: project?.discovery_date ?? null,
+    'concept-development': project?.concept_development_date ?? null,
+    refinement: project?.refinement_date ?? null,
+    finalization: project?.finalization_date ?? null,
+    delivery: project?.delivery_date ?? null,
+  };
 
   return (
     <div className="dark">
@@ -277,7 +275,7 @@ export default function WebDesignProjectV2Page() {
                     <p className="text-xl font-bold mt-1">{project?.current_stage ? PROJECT_STAGES.find(s => s.key === project.current_stage)?.label : 'Uninitialized'}</p>
                   </div>
                   <div className="pt-2">
-                    <ProjectTimeline stages={PROJECT_STAGES} currentStage={project?.current_stage} stageDates={stageDates || {}}
+                    <ProjectTimeline stages={PROJECT_STAGES} currentStage={project?.current_stage ?? null} stageDates={stageDates}
                     />
                   </div>
                 </div>
